@@ -101,3 +101,33 @@ test('a missing result is not a clean result; network requests are bounded',asyn
   const packages=rows(['lib']);
   await api.check(packages,new AbortController().signal);assert.equal(packages[0].state,'unknown');
 });
+
+test('public origin belongs to each installation even when advisory queries share a key',()=>{
+  const api=model(()=>assert.fail('inventory must stay local'));
+  const lock={lockfileVersion:3,packages:{'':{},
+    'node_modules/lib':saved(),
+    'node_modules/a/node_modules/lib':{...saved(),resolved:'https://mirror.example/lib/-/lib-1.2.3.tgz'},
+    'node_modules/b/node_modules/lib':{...saved(),resolved:'file:../private'},
+  }};
+  const {rows}=api.localInventory(lock);
+  assert.equal(rows.length,2);
+  const pair=rows.find(r=>!r.localOnly);
+  assert.equal(pair.publicOrigin,true);
+  assert.deepEqual([...pair.publicPaths],['node_modules/lib']);
+  assert.equal(pair.paths.length,2);
+  assert.equal(rows.find(r=>r.localOnly).publicPaths.size,0);
+});
+
+test('published, modified, and aliases keep their source meaning across adapters',()=>{
+  const api=model(()=>assert.fail('metadata must stay local'));
+  const info=api.advisoryMetadata({
+    id:'GHSA-sample',summary:' Verified title ',published:'2025-09-01T01:00:00+03:00',
+    modified:'2026-02-23T10:00:00.123456Z',aliases:['CVE-2025-99999','GHSA-sample',{},'CVE-2025-99999']
+  },'OSV');
+  assert.equal(info.summary,'Verified title');
+  assert.equal(info.published,'2025-08-31T22:00:00.000Z');
+  assert.equal(info.modified,'2026-02-23T10:00:00.123Z');
+  assert.deepEqual([...info.aliases],['CVE-2025-99999']);
+  assert.equal(api.advisoryMetadata({created:'2025-08-01',modified:'2025-08-01'},'npm registry').published,null);
+  for(const invalid of ['2025-02-30','updated yesterday','2025-02-14T10:30:00',null,12]) assert.equal(api.advisoryDate(invalid),null);
+});
