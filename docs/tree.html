@@ -35,10 +35,12 @@
 <main>
   <h1 data-en="Dependency tree">Дерево зависимостей</h1>
   <section class="panel" id="lesson-copy" hidden><h2 data-en="Why is this version installed?">Почему установлена эта версия?</h2><p id="lesson-parent"></p><pre id="lesson-proof"></pre><button class="button" id="lesson-map" data-en="Inspect the full graph">Развернуть граф</button></section>
-  <p data-en="Select package.json or a lockfile in the header to build the map on this device. You can also paste a manifest below.">Выберите package.json или lock-файл в шапке, чтобы построить карту на этом устройстве. Манифест также можно вставить ниже.</p>
+  <p data-en="Choose package.json, a lockfile or both in the header.">Выберите в шапке package.json, lock-файл или оба файла.</p>
   <section class="panel project-input">
-      <details id="manifest-editor"><summary data-en="Paste a manifest or dependency list">Вставить манифест или список зависимостей</summary>
-        <textarea aria-label="package.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
+      <details id="manifest-editor"><summary data-en="Paste package.json or package-lock.json">Вставить package.json или package-lock.json</summary>
+        <p class="hint" data-en="Pasted JSON takes priority on this page. Clear the field to use the files from the header.">Вставленный JSON имеет приоритет на этой странице. Очистите поле, чтобы вернуться к файлам из шапки.</p>
+        <textarea aria-label="package.json / package-lock.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
+      <small id="tree-source" class="hint" role="status"></small>
       <p id="tree-error" role="alert"></p>
   </section>
   <section class="panel map-panel" id="network-panel" hidden>
