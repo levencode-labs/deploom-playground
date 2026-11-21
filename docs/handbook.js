@@ -133,6 +133,7 @@
     return items.map(item => {
       const block = make('div', 'worked-example');
       block.append(make('h3', '', local(item.title)), make('p', '', local(item.body)));
+      if (item.file) block.append(make('p','book-code-file',local(item.file)));
       if (item.code) block.append(codeBlock(item.code));
       return block;
     });
@@ -161,7 +162,14 @@
     const title = make('h1', '', local(lesson.title));
     title.id = 'lesson-title';
     title.tabIndex = -1;
+    path.append(make('span','lesson-progress', t('Урок ', 'Lesson ') + (index+1) + ' / ' + lessons.length));
+    if (lesson.level) path.append(make('span', 'lesson-level',
+      lesson.level === 1 ? t('Начальный', 'Beginner') :
+      lesson.level === 2 ? t('Продолжение', 'Intermediate') : t('Сложнее', 'Advanced')));
     head.append(path, title, make('p', 'lesson-lead', local(lesson.lead)));
+    if (index === 0) head.append(make('p','book-beginner-note',
+      t('Для начала достаточно уметь npm install и npm ci. Термины будем объяснять по мере появления. Не обязательно читать всё сразу.',
+        'You only need to know npm install and npm ci to start. Each new term is explained when it appears. Read at your own pace.')));
     const examples = make('section', 'worked-examples');
     examples.append(make('h2', '', t('Разберём на примерах', 'Worked examples')));
     examples.append(...blocks(lesson.examples));
@@ -181,12 +189,28 @@
     const check = make('section', 'book-check');
     check.append(make('h2', '', t('Как проверить результат', 'How to check the fix')), make('p', '', local(lesson.check)));
     const experiment = DepLoomBookLabs.render(lesson);
-    const selfContained = ['range-and-lock', 'shared-host', 'borrowed-dependency', 'react-instance', 'repeat-codemod'].includes(lesson.id);
     const elements = [head];
     if (lesson.layout) elements.push(projectLayout(lesson.layout));
-    elements.push(...(selfContained ? [experiment, examples] : [examples, experiment]));
+    if (lesson.steps?.length) {
+      const steps = make('section','book-steps');
+      steps.append(make('h2','',t('Разберём по шагам','Let’s walk through it')));
+      const list = make('ol');
+      for (const sentence of lesson.steps) list.append(make('li','',local(sentence)));
+      steps.append(list);
+      elements.push(steps);
+    }
+    // Always explain the input files before showing the experiment.
+    elements.push(examples, experiment);
     if (lesson.solutions?.length) elements.push(solutions);
     elements.push(check);
+    if (lesson.terms?.length) {
+      const glossary = make('section','book-glossary');
+      glossary.append(make('h2','',t('Если встретилось незнакомое слово','Terms explained')));
+      const definitions = make('dl');
+      for (const term of lesson.terms) definitions.append(make('dt','',local(term.term)),make('dd','',local(term.meaning)));
+      glossary.append(definitions);
+      elements.push(glossary);
+    }
     const related = readingLinks(lesson);
     if (related) elements.push(related);
     if (lesson.sources?.length) {

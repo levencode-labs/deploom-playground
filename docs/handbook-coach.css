@@ -1,0 +1,69 @@
+/* Beginner-first handbook additions. Works with the existing responsive reader. */
+.book .lesson-level {
+  display: inline-flex;
+  align-items: center;
+  padding: .15rem .46rem;
+  border: 1px solid #bfd0e1;
+  border-radius: 999px;
+  font: 600 .75rem/1.4 system-ui, sans-serif;
+  color: #345a79;
+  background: #edf4fb;
+}
+.book .lesson-progress { color: #4b657d; font-size: .8rem; }
+.book .book-beginner-note {
+  margin: 1.2rem 0 .85rem;
+  padding: .8rem 1rem;
+  background: #f1f7fc;
+  border: 1px solid #c5d5e8;
+  border-radius: .55rem;
+  color: #2d4a66;
+  line-height: 1.6;
+}
+.book .book-steps { margin: 1.5rem 0 1.6rem; }
+.book .book-steps h2,
+.book .book-glossary h2 { font-size: 1.25rem; letter-spacing: -.02em; margin: 0 0 .75rem; }
+.book .book-steps ol { margin: 0; padding: 0; list-style: none; display: grid; gap: .7rem; counter-reset: book-step; }
+.book .book-steps li {
+  counter-increment: book-step;
+  display: flex;
+  gap: .85rem;
+  align-items: flex-start;
+  padding: .8rem .9rem;
+  background: #fff;
+  border: 1px solid #d3deea;
+  border-radius: .65rem;
+  line-height: 1.6;
+}
+.book .book-steps li::before {
+  content: counter(book-step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  color: #1d567d;
+  background: #e6f3f8;
+  font: 700 .86rem/1 system-ui, sans-serif;
+}
+.book .book-code-file {
+  color: #345e82;
+  font: 700 .82rem/1.5 ui-monospace, Consolas, monospace;
+  margin: .9rem 0 -.55rem;
+  overflow-wrap: anywhere;
+}
+.book .book-code-file + pre { margin-top: .73rem; }
+.book .worked-examples > h2 { margin-top: .7rem; }
+.book .worked-example p { max-width: 71ch; }
+.book .book-glossary { margin: 1.5rem 0; padding: 1rem; border: 1px solid #d0dce9; border-radius: .7rem; background: #f9fbfe; }
+.book .book-glossary dl { display: grid; gap: .3rem; margin: 0; }
+.book .book-glossary dt { font-weight: 700; color: #254769; margin-top: .55rem; }
+.book .book-glossary dd { margin: 0; line-height: 1.55; }
+.book .book-solutions { padding: 1rem; border-radius: .65rem; border: 1px solid #bcd8d6; background: #f3faf8; }
+.book .book-solutions h2 { margin-top: 0; }
+.book .book-check { margin-top: 1.5rem; }
+@media(max-width:33rem){
+  .book .book-steps li{ padding:.65rem .7rem; gap:.6rem; }
+  .book .book-solutions { padding: .7rem; }
+}
+@media(prefers-reduced-motion:reduce){ .book *{ scroll-behavior:auto; } }

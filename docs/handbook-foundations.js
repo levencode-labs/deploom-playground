@@ -1,4 +1,4 @@
-globalThis.DepLoomBookChapters.push(
+(globalThis.DepLoomBookChapters ||= []).push(
   {
     id: "choosing-versions",
     title: ["Как выбирают версии", "How versions get picked"],
