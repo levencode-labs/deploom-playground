@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="42" viewBox="0 0 160 42" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <linearGradient id="blue" x2="1" y2=".12" gradientUnits="objectBoundingBox">
+      <stop stop-color="#398ed0"/><stop offset=".48" stop-color="#4771ce"/><stop offset="1" stop-color="#526bc2"/>
+    </linearGradient>
+    <linearGradient id="teal" x2="1" y2=".12" gradientUnits="objectBoundingBox">
+      <stop stop-color="#238d9d"/><stop offset=".55" stop-color="#159d9b"/><stop offset="1" stop-color="#48afaf"/>
+    </linearGradient>
+    <linearGradient id="violet" x2="1" y2=".12" gradientUnits="objectBoundingBox">
+      <stop stop-color="#7963be"/><stop offset=".55" stop-color="#8e66c1"/><stop offset="1" stop-color="#7876c8"/>
+    </linearGradient>
+    <path id="project-strand" d="M3 32c21 0 25-22 43-22 19 0 21 22 40 22 20 0 23-19 42-19h22"/>
+    <path id="package-strand" d="M3 27h25c21 0 23-22 43-22 18 0 29 18 20 27-12 11-27-1-20-14 8-16 25-14 37-4 10 9 19 10 46 10"/>
+    <clipPath id="project-crossing"><rect x="61" y="7" width="20" height="22"/></clipPath>
+    <clipPath id="package-crossing"><rect x="78" y="5" width="13" height="12"/></clipPath>
+  </defs>
+  <view id="project" viewBox="0 0 160 42"/>
+  <view id="package" viewBox="0 42 160 42"/>
+  <view id="plan" viewBox="0 84 160 42"/>
+  <view id="compare" viewBox="0 126 160 42"/>
+  <view id="map" viewBox="0 168 160 42"/>
+  <view id="range" viewBox="0 210 160 42"/>
+
+  <!-- A braided group of threads drawn together for a project-wide check. -->
+  <g stroke-width="2.7">
+    <use href="#project-strand" stroke="url(#blue)"/>
+    <path stroke="url(#teal)" d="M3 21h14c18 0 19 10 34 10 22 0 24-21 44-21 18 0 22 12 39 12h21"/>
+    <path stroke="url(#violet)" d="M3 10c18 0 21 14 36 14 20 0 21-9 38-9 18 0 24 15 42 15h25"/>
+    <g clip-path="url(#project-crossing)">
+      <use href="#project-strand" stroke="#fff" stroke-width="6.2"/>
+      <use href="#project-strand" stroke="url(#blue)"/>
+    </g>
+  </g>
+
+  <!-- A loose single-strand knot under inspection. -->
+  <g transform="translate(0 42)" stroke-width="2.7">
+    <use href="#package-strand" stroke="url(#teal)"/>
+    <path stroke="url(#violet)" d="M19 33c21 0 30-16 41-20 14-5 30 3 34 13 2 6-2 9-6 9"/>
+    <g clip-path="url(#package-crossing)">
+      <use href="#package-strand" stroke="#fff" stroke-width="6.2"/>
+      <use href="#package-strand" stroke="url(#teal)"/>
+    </g>
+  </g>
+
+  <!-- Steps become a new arrangement of the same strands. -->
+  <g transform="translate(0 84)" stroke-width="2.7">
+    <path stroke="url(#violet)" d="M3 34h23c13 0 15-12 28-12h17c14 0 17-15 30-15h39"/>
+    <path stroke="url(#blue)" d="M3 26h18c14 0 17-13 30-13h18c13 0 17-9 28-9h25"/>
+    <path stroke="url(#teal)" d="M12 38h18c14 0 15-9 29-9h19c14 0 16-14 31-14h45"/>
+  </g>
+
+  <!-- Two revisions share a route, diverge, and meet again. -->
+  <g transform="translate(0 126)" stroke-width="2.7">
+    <path stroke="url(#violet)" d="M3 24h24c19 0 21 11 39 11h16c21 0 23-18 42-18h29"/>
+    <path stroke="url(#blue)" d="M3 16h24c19 0 21-10 39-10h16c20 0 24 18 42 18h29"/>
+    <path stroke="#45a4ae" d="M43 21h66" stroke-dasharray="1 5" stroke-width="2.2"/>
+  </g>
+
+  <!-- A bundle fans out into separately traceable branches. -->
+  <g transform="translate(0 168)" stroke-width="2.7">
+    <path stroke="url(#violet)" d="M4 30c20 0 22-9 38-9h18c23 0 29 13 52 13h26"/>
+    <path stroke="url(#blue)" d="M4 22h17c18 0 22-7 37-7 19 0 21 7 40 7h48"/>
+    <path stroke="url(#teal)" d="M4 12c19 0 24 12 44 12 23 0 29-16 54-16h49"/>
+    <circle cx="142" cy="34" r="3.2" stroke="#8570bf" fill="#fff"/>
+    <circle cx="150" cy="22" r="3.2" stroke="#526bc2" fill="#fff"/>
+    <circle cx="155" cy="8" r="3.2" stroke="#3caaaa" fill="#fff"/>
+  </g>
+
+  <!-- Open and closed ends mark the bounded part of a continuous thread. -->
+  <g transform="translate(0 210)" stroke-width="2.7">
+    <path stroke="url(#violet)" d="M3 27h14c16 0 18-13 34-13h61c15 0 20 14 39 14"/>
+    <path stroke="url(#teal)" d="M11 33c21 0 24-9 40-9h58c18 0 24-13 45-13"/>
+    <path stroke="#6a8bc1" stroke-width="1.3" d="M47 6v29m69-29v29"/>
+    <circle cx="47" cy="24" r="3.9" fill="#188f99" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="116" cy="14.3" r="3.5" fill="#fff" stroke="#8066b8" stroke-width="2"/>
+  </g>
+</svg>
