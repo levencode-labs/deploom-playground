@@ -27,7 +27,7 @@
         target.incoming.push(connection);
       }
     }
-    return { nodes, rootKey };
+    return {nodes,rootKey,copyKeys:copies.map(copy=>copy.path),hasLock:Boolean(packages)};
   }
 
   function neighborhood(data, anchor, reverse, maxDepth) {
@@ -50,9 +50,9 @@
   }
   function startingNodes(data, hasManifest) {
     const root = data.nodes.get(data.rootKey);
-    if (!root) return [];
-    const starts = new Set([root.key]);
-    if (hasManifest) for (const edge of root.outgoing) starts.add(edge.to);
+    const starts = new Set(root ? [root.key] : []);
+    if (!hasManifest) for (const key of data.copyKeys) starts.add(key);
+    else if (root) for (const edge of root.outgoing) starts.add(edge.to);
     return [...starts].map(key=>data.nodes.get(key));
   }
 
