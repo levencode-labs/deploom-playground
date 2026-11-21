@@ -6,6 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <title>План обновления · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
+  <link rel="stylesheet" href="package-picker.css">
 </head>
 <body>
   <header data-nav></header>
@@ -29,12 +30,11 @@
 </div>
 <div class="actions"><button type="button" class="button" id="make-plan"><span data-en="Calculate locally">Рассчитать локально</span></button><button type="button" id="sample"><span data-en="Restore React example">Вернуть пример React</span></button></div>
 </section>
-<section class="panel" id="plan-output" aria-live="polite" aria-atomic="true"></section>
+<section class="panel" id="plan-output"></section>
 <section class="panel" id="network" hidden>
 <h2 data-en="Look up missing requirements">Уточнить недостающие требования</h2>
-<p id="send-list"></p>
-<details id="peer-picks" hidden><summary id="peer-count"></summary><div id="peer-options"></div></details>
 <p class="hint" id="send-host"></p>
+<div id="lookup-packages"></div>
 <button type="button" id="lookup" class="button" data-en="Look up selected releases">Запросить выбранные версии</button><p id="net-status" role="status"></p></section>
 <p data-en="Review the lockfile diff, run a frozen install with your package manager, then run application tests." class="hint">После правок проверьте diff lock-файла, запустите установку с зафиксированными версиями и тесты приложения.</p>
   </main>
@@ -52,6 +52,7 @@
   <script src="registry.js"></script>
   <script src="criterion.js"></script>
   <script src="webpack-releases.js"></script>
+  <script src="package-picker.js"></script>
   <script src="criterion-plan.js"></script>
   <script src="plan.js"></script>
 </body>
