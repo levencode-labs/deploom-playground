@@ -33,8 +33,9 @@
   }
 
   function inventory(manifest, lock) {
+    if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock,manifest);
     const yarn = LabYarn.format(lock?.packages);
-    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || (!yarn && lock?.lockfileVersion !== 3) || !lock?.packages?.['']) throw Error('files');
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || (!yarn && ![1,2,3].includes(lock?.lockfileVersion)) || !lock?.packages?.['']) throw Error('files');
     const roots = new Map();
     for (const edge of LabLockGraph.declarations(manifest,true)) {
       if (edge.group==='peerDependencies' || roots.has(edge.name)) continue;
