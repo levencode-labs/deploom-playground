@@ -49,7 +49,7 @@ test('the starting picker offers declarations from the root; the graph keeps tra
   const data=index({'':{name:'app',refs:[edge('first','direct'),edge('first','direct')]},first:{name:'direct',refs:[edge('second','nested')]},second:{name:'nested'},orphan:{name:'orphan'}});
   const {startingNodes,layout}=require('../docs/dep-map-model');
   assert.deepEqual(startingNodes(data,true).map(n=>n.key),['','first']);
-  assert.deepEqual(startingNodes(data,false).map(n=>n.key),['']);
+  assert.deepEqual(startingNodes(data,false).map(n=>n.key),['','first','second','orphan']);
   const levels=neighborhood(data,'first',false,3);
   const lr=layout(levels,60,false).positions, tb=layout(levels,60,true).positions;
   assert.ok(lr.get('second').x > lr.get('first').x);
