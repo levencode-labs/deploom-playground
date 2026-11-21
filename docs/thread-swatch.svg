@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="252" height="88" viewBox="0 0 252 88" fill="none">
+  <defs>
+    <pattern id="warp" width="14" height="14" patternUnits="userSpaceOnUse">
+      <path d="M3.5 0v14m7-14v14" stroke="#91a4c2" stroke-width="1.2"/>
+    </pattern>
+    <pattern id="over" width="14" height="14" patternUnits="userSpaceOnUse">
+      <path d="M3.5 2v3m7 4v3" stroke="#bfcbda" stroke-width="2.1" stroke-linecap="round"/>
+    </pattern>
+  </defs>
+  <rect x="151" y="12" width="81" height="66" fill="url(#warp)"/>
+  <g stroke-width="2.2" stroke-linecap="round">
+    <path d="M27 50c28 0 22-35 53-35 24 0 40 2.5 69 2.5h89" stroke="#5489ce"/>
+    <path d="M10 42c25 1 40 16 63 11s43-28.5 76-28.5h93" stroke="#7765bd"/>
+    <path d="M35 69c19 0 33-38 56-41s35 3.5 58 3.5h88" stroke="#299ca2"/>
+    <path d="M3 61c25 0 43-27 65-27s49 4.5 81 4.5h94" stroke="#668bcd"/>
+    <path d="M19 31c32 0 41 36 66 33 22-2 39-18.5 64-18.5h90" stroke="#786ab9"/>
+    <path d="M29 22c26 0 37 19 58 24s41 6.5 62 6.5h93" stroke="#57a4b1"/>
+    <path d="M8 73c26 0 40-10 65-9s46-4.5 76-4.5h86" stroke="#5d87ca"/>
+    <path d="M44 45c23 3 27 23 48 23s36-1.5 57-1.5h91" stroke="#9587c4"/>
+  </g>
+  <rect x="151" y="14" width="81" height="58" fill="url(#over)"/>
+  <view id="hem" viewBox="0 100 60 12"/>
+  <g stroke-width="1.6" stroke-linecap="round">
+    <path d="M1 103h12c9 0 12 6 21 6h25" stroke="#309aab"/>
+    <path d="M1 109h13c10 0 12-6 21-6h24" stroke="#8472c6"/>
+  </g>
+</svg>
