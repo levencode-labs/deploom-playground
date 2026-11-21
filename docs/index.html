@@ -6,26 +6,28 @@
   <meta name="referrer" content="no-referrer">
   <title>DepLoom Migration Lab · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
-  <link rel="stylesheet" href="range-scale.css">
 </head>
 <body>
   <header data-nav></header>
   <main>
-<section class="masthead"><div><h1>DepLoom Migration Lab</h1><p data-en="Investigate a failed install, review a lockfile from a PR, or plan your own project upgrade.">Разберите упавшую установку, проверьте lock-файл из PR или спланируйте обновление своего проекта.</p></div><img src="loom.jpg" alt=""></section>
-<section class="panel peer-work" data-experiment="peer">
-<h2 data-en="Why won’t npm let me update just React DOM?">Почему npm не даёт обновить только React DOM?</h2>
-<div class="lab-work"><form id="input">
-<p data-en="The app selects a React version. React DOM declares which versions it supports.">Приложение выбирает версию React. React DOM указывает диапазон, с которым умеет работать.</p>
-<fieldset class="choice"><legend><span data-en="React in the app">React в приложении</span></legend><label><input type="radio" name="react" value="18.2.0" checked>18.2.0</label><label><input type="radio" name="react" value="18.3.1">18.3.1</label></fieldset>
-<input name="dom" type="hidden" value="18.3.1">
-<div class="peer-line"><code id="issuer"></code><span id="edge"></span><code id="chosen"></code></div>
-</form><div class="peer-out" id="result" aria-live="polite">
-<h3 id="verdict"></h3><div id="scale"></div><button type="button" class="evidence-line" id="evidence" aria-pressed="false"></button>
-<p data-en="Source — recorded strict-peer npm install for this pair. Select the line to highlight the requirement and selected version." class="hint">Источник — запись строгой установки npm для этой пары. Нажмите на строку, чтобы выделить требование и выбранную версию.</p>
-</div></div><div class="actions"><a class="primary" id="inspect-tree" href="tree.html"><span data-en="Inspect in the tree">Разобрать в дереве</span></a> <a href="tree.html?own=1"><span data-en="Open your own project">Открыть свой проект</span></a></div>
+<section class="masthead"><div><h1 id="merge-title" data-en="Two MRs are ready. What happens when they merge?">Два MR готовы. Что будет после Merge?</h1><p data-en="npm resolved each branch on its own. Try merging them.">Для каждой ветки npm собрал lock-файл. Попробуйте их объединить.</p></div><img src="loom.jpg" alt=""></section>
+<section class="panel quick-merge" id="quick-merge" aria-labelledby="merge-title">
+  <div class="merge-branches">
+    <div><h2 data-en="Build MR · Upgrade webpack">MR сборки · Обновить webpack</h2><code id="build-change"></code></div>
+    <div><h2 data-en="UI MR · Extract a stylesheet">UI MR · Вынести стили в файл</h2><code id="ui-change"></code></div>
+  </div>
+  <div class="merge-action"><button id="merge-action" class="button" type="button">Merge</button> <a id="merge-detail" href="combinations.html" data-en="Walk through the branches">Разобрать ветки по шагам</a></div>
+  <div id="merge-outcome" aria-live="polite" aria-atomic="true">
+    <div id="merge-report" class="lesson-step" hidden>
+      <h3 id="merge-heading"></h3>
+      <pre id="merge-evidence"></pre>
+      <p id="merge-lesson"></p>
+      <small class="hint" data-en="Recorded lockfile resolution with npm 11.16.0 and strict peer checks.">Источник — запись построения lock-файла в npm 11.16.0 со строгой проверкой peer-зависимостей.</small>
+    </div>
+  </div>
 </section>
 <section class="links-section"><h2 data-en="Recognize a problem from a PR?">Знакомая ситуация на ревью?</h2><div class="grid">
-<a class="link-card" href="combinations.html"><strong data-en="Each MR looks fine. Then we merge them.">Каждый MR выглядит хорошо. А если их объединить?</strong><span data-en="Merge a webpack upgrade with a page that needs a CSS plugin.">Соедините обновление webpack с новой страницей, которой нужен CSS-плагин.</span></a>
+<a class="link-card" href="ci.html"><strong data-en="One manifest edit and CI stops before the tests">Одна правка в манифесте, а CI упал ещё до тестов</strong><span data-en="See which two versions npm ci compared.">Посмотрите, какие две версии сравнил npm ci.</span></a>
 <a class="link-card" href="runtime.html"><strong data-en="The status renders, but its hint is gone">Статус на месте, а подсказка пропала</strong><span data-en="Hover a real React 19 component and try the one-line ref fix.">Наведите мышь на компонент React 19 и проверьте исправление в одну строку.</span></a></div></section>
 <section class="links-section tools"><h2 data-en="Try it on your own project">Попробовать на своём проекте</h2><div class="grid">
 <a class="link-card" href="audit.html"><strong data-en="Dependency audit">Аудит зависимостей</strong><span data-en="Compare installed versions with npm latest or check for known advisories.">Сравните версии с npm latest или проверьте их на известные уязвимости.</span></a>
@@ -35,7 +37,6 @@
   </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>
-  <script src="range-scale.js"></script>
-  <script src="experiments.js"></script>
+  <script src="combinations.js"></script>
 </body>
 </html>

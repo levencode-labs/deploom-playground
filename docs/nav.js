@@ -31,7 +31,7 @@
       ['tree.html#ranges', t('Диапазоны версий','Version ranges')],
     ]],
     [t('Примеры','Examples'), [
-      ['peers.html', t('Почему npm вернул ERESOLVE?','Why did npm return ERESOLVE?')],
+      ['peers.html', t('Почему npm не даёт обновить только React DOM?','Why won’t npm let me update just React DOM?')],
       ['runtime.html', t('Куда после обновления пропала подсказка?','Where did the hint go after upgrading?')],
       ['combinations.html', t('Почему совместимые ветки ломаются при слиянии?','Why do working branches break when merged?')],
       ['ci.html', t('Почему после правки манифеста упал npm ci?','Why did npm ci fail after a manifest edit?')],

@@ -8,17 +8,69 @@
   const base={webpack:'4.47.0','css-loader':'3.6.0','webpack-cli':'3.3.12'};
   const build={webpack:'5.91.0','css-loader':'6.11.0','webpack-cli':'4.10.0'};
   const ui={'mini-css-extract-plugin':'0.9.0'};
+  const merged={...build,...ui};
+  const fixed={...build,'mini-css-extract-plugin':'2.9.0'};
+  const mergeError='npm error code ERESOLVE\nnpm error Found: webpack@5.91.0\nnpm error peer webpack@"^4.4.0" from mini-css-extract-plugin@0.9.0';
   function conflicts(snapshot,semver=treeSemver){
     return Object.entries(snapshot).filter(([name,version])=>versions[name] && !semver.satisfies(snapshot.webpack,versions[name][version]));
   }
   if(typeof module==='object' && module.exports){module.exports={versions,base,build,ui,conflicts};return;}
   const {t}=Lab, el=id=>document.getElementById(id);
+  if (el('quick-merge')) {
+    const params = new URLSearchParams(location.search);
+    const validReact = value => ['18.2.0','18.3.1'].includes(value);
+    if (!params.has('merge') && validReact(params.get('react')) && validReact(params.get('dom'))) {
+      location.replace(Lab.urlFor('peers.html?' + new URLSearchParams({react:params.get('react'),dom:params.get('dom')})));
+      return;
+    }
+
+    const plugin = 'mini-css-extract-plugin';
+    const action = el('merge-action');
+    const report = el('merge-report');
+    const labels = {
+      ready: 'Merge',
+      merged: t('Проверить плагин ' + fixed[plugin], 'Try plugin ' + fixed[plugin]),
+      fixed: t('Вернуться к двум MR', 'Reset to the two MRs'),
+    };
+    let state = ['merged','fixed'].includes(params.get('merge')) ? params.get('merge') : 'ready';
+    el('build-change').textContent = 'webpack ' + base.webpack + ' → ' + build.webpack;
+    el('ui-change').textContent = '+ ' + plugin + '@' + ui[plugin];
+
+    function drawPreview() {
+      action.textContent = labels[state];
+      report.hidden = state === 'ready';
+      const step = {ready:0,merged:3,fixed:4}[state];
+      el('merge-detail').href = Lab.urlFor('combinations.html?step=' + step);
+      if (report.hidden) return;
+      const snapshot = state === 'merged' ? merged : fixed;
+      const blocked = conflicts(snapshot).length > 0;
+      report.dataset.status = blocked ? 'fail' : 'pass';
+      el('merge-heading').textContent = blocked
+        ? t('Git объединил изменения. npm остановился.', 'Git merged the changes. npm stopped.')
+        : t('Общий lock-файл собрался', 'npm resolved the merged lockfile');
+      el('merge-evidence').textContent = blocked ? mergeError :
+        plugin + '@' + fixed[plugin] + ' → webpack ' + versions[plugin][fixed[plugin]] + ' · ✓ ' + fixed.webpack + '\nnpm · exit 0';
+      el('merge-lesson').textContent = blocked
+        ? t('В сборке теперь webpack 5, а плагин из UI-ветки требует webpack 4. Если попросить DepLoom составить план на общей ветке, это требование покажет, почему плагин тоже надо включить в обновление.',
+            'The merged build uses webpack 5, but the UI plugin needs webpack 4. Ask DepLoom to plan against the combined manifest: this requirement explains why the plugin must be part of the upgrade.')
+        : t('Плагин 2.9.0 принимает webpack 5. Следующая проверка в проекте — собрать страницу и убедиться, что стили попали в CSS-файл.',
+            'Plugin 2.9.0 accepts webpack 5. Next, build the page and check that the stylesheet is emitted.');
+    }
+    action.addEventListener('click', () => {
+      state = {ready:'merged',merged:'fixed',fixed:'ready'}[state];
+      drawPreview();
+      Lab.setExampleState({merge:state});
+      if (!report.hidden && report.getBoundingClientRect().bottom > innerHeight) report.scrollIntoView({block:'nearest'});
+    });
+    drawPreview();
+    return;
+  }
   const stages=[
     [base,t('Общий коммит','Common starting commit'),t('Сборку запускает webpack-cli. webpack собирает приложение, а css-loader помогает подключить CSS. В этой версии проект ещё не извлекает CSS в отдельный файл.','webpack-cli starts the build, webpack bundles the app, and css-loader processes CSS imports. The project does not yet extract a separate CSS file.'),t('Открыть MR сборки →','Open the tooling branch →')],
     [build,t('MR сборки · новый css-loader','Tooling MR · upgrade css-loader'),t('Чтобы взять css-loader 6, нужен webpack 5. Прежний webpack-cli 3 запускал только webpack 4. Поэтому в этом MR обновили сразу три пакета.','css-loader 6 needs webpack 5. The old webpack-cli 3 requires webpack 4, so the developer updates three packages in this branch.'),t('Посмотреть отдельный UI MR →','Inspect the separate UI branch →')],
     [{...base,...ui},t('UI MR · вынести стили','UI MR · extract a stylesheet'),t('У второго разработчика всё ещё исходный webpack 4. Для новой страницы он добавил mini-css-extract-plugin. В его ветке диапазон плагина выполняется.','The other developer still has webpack 4 from the common commit. They add mini-css-extract-plugin for a new page. Its requirement is satisfied in this branch.'),t('Объединить обе ветки →','Merge the branches →')],
-    [{...build,...ui},t('После слияния','After the merge'),t('Из первой ветки приехал webpack 5, из второй — плагин для webpack 4. Разработчики меняли разные строки package.json. Git может их объединить, а менеджеру пакетов нужно ещё согласовать версии.','One branch brings webpack 5, the other brings a plugin that needs webpack 4. Git can merge separate manifest lines. The package manager must also reconcile the versions.'),t('Подобрать плагин для webpack 5 →','Try the plugin for webpack 5 →')],
-    [{...build,'mini-css-extract-plugin':'2.9.0'},t('Проверка общей версии','Check the combined versions'),t('У плагина 2.9.0 нижняя граница уже на пятой ветке webpack. Обе задачи теперь помещаются в один план. Следующая проверка — собрать страницу и убедиться, что CSS попал в результат.','Plugin 2.9.0 accepts webpack 5. Both changes now fit the same plan. Next, build the page and check that the stylesheet is emitted.'),t('Пройти ещё раз','Start again')]
+    [merged,t('После слияния','After the merge'),t('Из первой ветки приехал webpack 5, из второй — плагин для webpack 4. Разработчики меняли разные строки package.json. Git может их объединить, а менеджеру пакетов нужно ещё согласовать версии.','One branch brings webpack 5, the other brings a plugin that needs webpack 4. Git can merge separate manifest lines. The package manager must also reconcile the versions.'),t('Подобрать плагин для webpack 5 →','Try the plugin for webpack 5 →')],
+    [fixed,t('Проверка общей версии','Check the combined versions'),t('У плагина 2.9.0 нижняя граница уже на пятой ветке webpack. Обе задачи теперь помещаются в один план. Следующая проверка — собрать страницу и убедиться, что CSS попал в результат.','Plugin 2.9.0 accepts webpack 5. Both changes now fit the same plan. Next, build the page and check that the stylesheet is emitted.'),t('Пройти ещё раз','Start again')]
   ];
   const query=new URLSearchParams(location.search);
   let stage=Math.max(0,Math.min(4,Number(query.get('step') ?? (query.get('adapter')==='2'?4:0))||0));stage=Math.floor(stage);
@@ -37,7 +89,7 @@
       const at=Number(part.dataset.at);part.classList.toggle('visited',at<=stage);part.classList.toggle('current',at===stage);
     }
     el('npm-record').hidden=stage===0;
-    el('npm-record').textContent=stage===3?'npm error code ERESOLVE\nnpm error Found: webpack@5.91.0\nnpm error peer webpack@"^4.4.0" from mini-css-extract-plugin@0.9.0':
+    el('npm-record').textContent=stage===3?mergeError:
       t('Запись запуска npm · lock-файл построен · exit 0','Recorded npm run · lockfile resolved · exit 0');
     el('scene').dataset.status=bad.length?'fail':'pass';el('scene').classList.remove('step-enter');void el('scene').offsetWidth;el('scene').classList.add('step-enter');
     el('previous').disabled=!stage;el('next').textContent=next;el('takeaway').hidden=stage<3;
