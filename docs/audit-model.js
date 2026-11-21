@@ -169,5 +169,33 @@
     }
     return [...roots.values()];
   }
-  window.LabAudit={advisoryDate,advisoryMetadata,inventory,localInventory,check,registryAudit,directVersions,pool,limit,maxBytes};
+  // One advisory can cover several names or versions. Installed paths do not add findings.
+  function summarize(rows,records) {
+    const affected=new Map(), packages=new Set(), versions=new Set();
+    for(const row of rows) {
+      if (!row.ids.length) continue;
+      packages.add(row.name);versions.add(row.key);
+      for(const id of new Set(row.ids)) {
+        if(!affected.has(id))affected.set(id,new Map());
+        affected.get(id).set(row.key,row);
+      }
+    }
+    const groups=new Map(), severities={}, packageSeverities={}, rankedPackages=new Set();
+    const recordsInOrder=LabSeverity.sorted([...affected.keys()].map(id=>records.get(id)||{id,level:'Unknown'}));
+    for(const item of recordsInOrder) {
+      severities[item.level]=(severities[item.level]||0)+1;
+      const affectedRows=[...affected.get(item.id).values()];
+      const names=[...new Set(affectedRows.map(row=>row.name))].sort();
+      for(const name of names) {
+        if(rankedPackages.has(name))continue;
+        rankedPackages.add(name);
+        packageSeverities[item.level]=(packageSeverities[item.level]||0)+1;
+      }
+      const key=JSON.stringify(names);
+      if(!groups.has(key))groups.set(key,{label:names.join(', '),entries:[]});
+      groups.get(key).entries.push({item,rows:affectedRows});
+    }
+    return {total:affected.size,packages:packages.size,versions:versions.size,severities,packageSeverities,groups:[...groups.values()]};
+  }
+  window.LabAudit={summarize,advisoryDate,advisoryMetadata,inventory,localInventory,check,registryAudit,directVersions,pool,limit,maxBytes};
 })();
