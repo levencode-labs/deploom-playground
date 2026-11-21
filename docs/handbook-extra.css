@@ -1,0 +1,52 @@
+.book-module-routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: .75rem;
+}
+.book-module-route {
+  min-width: 0;
+  margin: 0;
+  padding: .65rem .8rem .85rem;
+  border: 1px solid #627d98;
+  border-radius: .65rem;
+  background: #10263e;
+}
+.book-module-route legend {
+  padding-inline: .3rem;
+  color: #e5f0fa;
+  font-weight: 650;
+}
+.book-module-route .experiment-options { margin: 0; }
+.book-module-path {
+  display: block;
+  margin-top: .7rem;
+  overflow-wrap: anywhere;
+  font-size: .875rem;
+}
+.book-adapter-file {
+  min-width: 0;
+  border-radius: .6rem;
+  background: #10283c;
+  color: #f3f8ff;
+}
+.book-adapter-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .85rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: .45rem .8rem;
+  color: #d4e4f1;
+  border-bottom: 1px solid #435d72;
+  font-size: .875rem;
+}
+.book-adapter-import {
+  display: block;
+  padding: .75rem .8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.book-adapter-import b { color: #a2e6d7; }
+.book-run-codemod { font-weight: 700; }
+
+.book-adapter-file + .experiment-options { margin-top: .75rem; }
