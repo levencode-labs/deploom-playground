@@ -5,6 +5,7 @@
   const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
   let generation=0, project, active, report, shown=40;
   let findings=new Map(), allowed=new Set();
+  let findingRows = new Map(), findingLimit = 30;
   const group=name=>name.startsWith('@')?name.split('/')[0]:t('Без префикса @','Unscoped names');
   const registryMode = () => LabRegistry.hostedAudit ? 'snapshot' : LabRegistry.base() === LabRegistry.defaultBase ? 'osv' : 'registry';
   const unavailable = e => e?.name==='TypeError' || e?.name==='TimeoutError' || [401,403,429,502,503,504].includes(e?.status);
@@ -13,7 +14,8 @@
   }
   function rowsForRun() {return project.rows.filter(eligible);}
   function resetResults() {
-    active?.abort();active=null;report=false;findings=new Map();
+    active?.abort();active=null;report=false;findings=new Map();findingRows=new Map();findingLimit=30;
+    $('finding-filter').value='';$('finding-level').value='';
     if(project) {
       project.rows=project.rows.map(row=>({...row,state:'ready',lookedUp:false,ids:[],reason:''}));
       project.direct=project.direct.map(d=>({...d,freshness:null,reason:''}));
@@ -52,6 +54,26 @@
     $('age-rows').replaceChildren(...lines.map(line=>el('li',line)));
     $('age-heading').textContent=t('Отставание прямых зависимостей','Direct dependency lag')+' · '+lines.length;
   }
+  function renderFindings() {
+    const list=$('findings');
+    const term=$('finding-filter').value.trim().toLowerCase(), level=$('finding-level').value;
+    const mode=registryMode();
+    const items=[...findingRows.keys()].map(id=>findings.get(id)||{id,level:'Unknown'});
+    const matches=LabSeverity.sorted(items.filter(item=>LabFindingCards.filter(item,findingRows.get(item.id),term,level)));
+    $('finding-tools').hidden=!items.length;
+    list.replaceChildren();
+    for(const item of matches.slice(0,findingLimit)) {
+      list.append(LabFindingCards.card(item,findingRows.get(item.id),project,mode));
+    }
+    if(!matches.length) {
+      const checked=project.rows.some(row=>row.state==='found'||row.state==='empty');
+      const empty=items.length ? t('По фильтру ничего не найдено.','No findings match the filter.')
+        : checked ? t('Источник не вернул записей для проверенных версий.','The source returned no advisories for the checked versions.')
+        : t('Пока нет результатов проверки уязвимостей.','No advisory results yet.');
+      list.append(el('li',empty));
+    }
+    $('more-findings').hidden=matches.length<=findingLimit;
+  }
   function render() {
     const rows=project.rows,direct=project.direct, mode=registryMode(), selected=rowsForRun();
     const byId=new Map();
@@ -59,11 +81,16 @@
     const checked=rows.filter(r=>r.state==='found'||r.state==='empty').length;
     const dated=direct.filter(d=>['fresh','stale'].includes(d.freshness?.status));
     const lag=d=>Math.max(0,Math.floor((Date.parse(d.freshness.latestReleased)-Date.parse(d.freshness.released))/86400000));
-    const stale=dated.filter(d=>Date.parse(d.freshness.latestReleased)-Date.parse(d.freshness.released)>365*86400000);
+    const stale=dated.filter(d=>d.freshness.status==='stale');
     $('age-count').textContent=report && dated.length?stale.length+' / '+dated.length+' · '+Math.round(100*stale.length/dated.length)+'%':'—';
-    $('age-coverage').textContent=t('Известны даты для ','Release dates available for ')+dated.length+' / '+direct.length+t(' прямых зависимостей',' direct dependencies');
-    $('vuln-count').textContent=byId.size || (report && checked===rows.length && checked>0?'0':checked>0?t('0 среди проверенных','0 among checked'):'—');
-    $('security-coverage').textContent=t('Получен ответ для ','Responses received for ')+rows.filter(r=>r.lookedUp || r.state==='found'||r.state==='empty').length+' / '+rows.length+t(' · с находками ',' · affected ')+rows.filter(r=>r.ids.length).length;
+    $('age-coverage').textContent=project.manifest
+      ? t('Известны даты для ','Release dates available for ')+dated.length+' / '+direct.length+t(' прямых зависимостей',' direct dependencies')
+      : t('Для определения прямых зависимостей добавьте package.json.','Add package.json to identify direct dependencies.');
+    const unverifiedPaths=r=>mode!=='registry' && !r.localOnly && r.publicPaths && r.paths.length>r.publicPaths.size;
+    const fullSecurity=checked>0 && checked===rows.length && !project.skipped.length && !rows.some(unverifiedPaths);
+    $('vuln-count').textContent=byId.size || (report && fullSecurity?'0':checked>0?t('0 среди проверенных','0 among checked'):'—');
+    $('security-coverage').textContent=t('Проверено пар «пакет + версия» ','Package/version checks completed ')+checked+' / '+rows.length+
+      t(' · с находками ',' · with findings ')+rows.filter(r=>r.ids.length).length;
     $('report-source').textContent=t('Отставание — разница дат выпуска установленной и старшей стабильной версии. Доля считается среди прямых зависимостей с известными датами. Уязвимости ищем и в зависимостях этих библиотек.','Lag compares the release dates of the installed and highest stable versions. The percentage covers direct dependencies with known dates. Security checks also cover transitive dependencies.');
     const address=LabRegistry.base();
     $('send-summary').textContent=mode==='snapshot'
@@ -71,32 +98,34 @@
       :mode==='registry'
       ?t('По кнопке имена и версии будут отправлены только в ','On click, names and versions go only to ')+address+t(' за датами и в его npm Bulk Advisory API.',' for release dates and its npm Bulk Advisory API.')
       :t('По кнопке npm получит имена для проверки версий, OSV — публичные имена и версии. Пути останутся в браузере.','On click, npm receives names for release lookups and OSV receives public names and versions. Paths stay in your browser.');
-    $('send-summary').textContent+=' '+t('В проверке ','Selected ')+selected.length+' / '+rows.length+'.';
-    $('run-audit').disabled=!!active || !selected.length;
+    $('send-summary').textContent+=' '+t('Выбрано пар «пакет + версия» ','Selected package/version pairs ')+selected.length+' / '+rows.length+
+      t(' · вне выбора ',' · outside selection ')+(rows.length-selected.length)+'.';
+    $('audit-actions').hidden=project.excerpt;
+    $('send-summary').hidden=project.excerpt;
+    $('run-audit').disabled=project.excerpt || !!active || !selected.length;
     for(const input of $('scope-options').querySelectorAll('input'))input.disabled=!!active;
     $('result-details').hidden=!report;
     if(!report)return;
-    const list=$('findings');list.replaceChildren();
-    for(const item of LabSeverity.sorted([...byId.keys()].map(id=>findings.get(id)||{id,level:'Unknown',score:null,href:'',summary:''}))) {
-      const li=el('li',''),detail=document.createElement('details'),summary=document.createElement('summary'),affected=byId.get(item.id);
-      summary.append(LabSeverity.badge(item),' '+item.id+(item.summary?' · '+item.summary:''));
-      detail.append(summary);for(const row of affected)detail.append(el('p',row.key),el('pre',row.paths.join('\n')));
-      if(item.href){const a=el('a',t('Открыть запись источника','Open source advisory'));a.href=item.href;detail.append(a);}
-      li.append(detail);list.append(li);
-    }
-    if(!byId.size) list.append(el('li',checked?t('Источник не вернул записей для проверенных версий.','The source returned no advisories for the checked versions.'):t('Пока нет результатов проверки уязвимостей.','No vulnerability results yet.')));
+    findingRows=byId;
+    renderFindings();
     showAgeRows(dated.sort((a,b)=>lag(b)-lag(a)).map(d=>d.name+' '+d.version+' → '+d.freshness.latest+' · '+lag(d)+t(' дн.',' d')+' ('+d.freshness.released.slice(0,10)+' → '+d.freshness.latestReleased.slice(0,10)+')'));
     const gaps=new Map();
     function gap(reason,detail){if(!gaps.has(reason))gaps.set(reason,[]);gaps.get(reason).push(detail);}
     for (const d of direct) if(!d.freshness || d.freshness.status==='unknown')gap(d.reason || t('Нет дат для расчёта отставания','Release dates unavailable'),d.name+' '+(d.version||d.range));
     for(const row of rows)if(row.state!=='found'&&row.state!=='empty')gap(row.reason||(!eligible(row)?t('Вне выбранной области','Outside selected scope'):t('Нет полного ответа о безопасности','No complete advisory response')),row.key);
-    for(const s of project.skipped)gap(t('Запись без точной версии','Entry without an exact version'),s.path);
+    for(const row of selected.filter(unverifiedPaths)) {
+      for(const path of row.paths) if(!row.publicPaths.has(path)) {
+        gap(t('Публичное происхождение копии не подтверждено','Copy has unconfirmed public provenance'),path);
+      }
+    }
+    for(const s of project.skipped)gap(t('Запись без проверяемой пары «имя + версия»','Entry without an auditable name/version pair'),s.path);
     const unknown=$('unknown-rows');unknown.replaceChildren();
     for(const [why,items] of gaps){const li=el('li',''),d=document.createElement('details');d.append(el('summary',why+' · '+items.length));d.ontoggle=()=>{if(d.open&&d.childElementCount===1)d.append(el('pre',items.join('\n')));};li.append(d);unknown.append(li);}
     $('unknown-heading').textContent=t('Пробелы в проверке','Coverage gaps')+' · '+[...gaps.values()].reduce((n,items)=>n+items.length,0);
   }
-  async function load(input,providedManifest) {
+  async function load(input,providedManifest,excerpt=false) {
     const gen=++generation;resetResults();project=null;$('inventory').hidden=true;$('parse-status').textContent='';
+    $('vitest-context').hidden=!excerpt;
     $('one-advisory').href=Lab.urlFor('advisories.html');
     try {
       let manifest=providedManifest;
@@ -111,7 +140,7 @@
       const format=LabYarn.format(lock.packages);
       const inventory=LabAudit.localInventory(lock);
       const root=manifest || lock.packages[''];
-      project={...inventory,direct:LabAudit.directVersions(root,lock),root:root?.name};
+      project={...inventory,lock,excerpt,manifest:manifest || (format ? null : root),direct:LabAudit.directVersions(root,lock),root:root?.name};
       $('parse-status').textContent=(root?.name?root.name+' · ':'')+(format||'npm')+' · '+t('прямых зависимостей ','direct dependencies ')+project.direct.length+t(', точных пар «имя + версия» ',', exact name/version pairs ')+project.rows.length+
         (format&&!manifest?t('. Добавьте package.json для оценки прямых зависимостей.','. Add package.json to assess direct dependencies.'):'');
       $('audit-filter').value='';shown=40;$('inventory').hidden=false;configure();renderVersions();
@@ -188,37 +217,64 @@
           const data=await LabRegistry.json('https://api.osv.dev/v1/vulns/'+encodeURIComponent(id),{},signal);
           if(data?.id!==id)throw Error('METADATA');
           if(data.withdrawn) {for(const row of rows){row.ids=row.ids.filter(x=>x!==id);if(row.state==='found'&&!row.ids.length)row.state=row.publicOrigin?'empty':'unknown';}}
-          else records.set(id,{id,href,summary:data.summary||'',...LabSeverity.rating(data)});
-        }catch(e){if(unavailable(e))detailError=e;records.set(id,{id,href,level:'Unknown',score:null,summary:t('Описание и оценка недоступны','Description and rating unavailable')});}done(1);
+          else records.set(id,{id,href,...LabAudit.advisoryMetadata(data,'OSV'),...LabSeverity.rating(data)});
+        }catch(e){if(unavailable(e))detailError=e;records.set(id,{id,href,source:'OSV',level:'Unknown',score:null,detailsUnavailable:true});}done(1);
       },signal);
     }
     if(active!==ctrl || gen!==generation)return;
     findings=records;active=null;progress.hidden=true;$('stop-audit').hidden=true;
-    if(detailError)issues.push(t('Часть описаний уязвимостей недоступна.','Some advisory descriptions are unavailable.'));
+    const missingDetails=[...records.values()].filter(item=>item.detailsUnavailable).length;
+    if(missingDetails)issues.push(t('Не удалось загрузить карточки OSV: ','OSV advisory details unavailable: ')+missingDetails+'.');
     const checked=rows.filter(r=>r.state==='found'||r.state==='empty').length;
     const dated=direct.filter(d=>['fresh','stale'].includes(d.freshness?.status)).length;
-    const complete=checked===rows.length && dated===project.direct.length && rows.length===project.rows.length && !project.skipped.length && !detailError;
+    const outside=project.rows.length-rows.length;
+    const unverified=mode==='registry'?0:rows.reduce((n,row)=>n+row.paths.length-row.publicPaths.size,0);
+    const securityGaps=rows.length-checked;
+    if(securityGaps)issues.push(t('Без полного ответа о безопасности: ','Advisory checks incomplete: ')+securityGaps+'.');
+    if(outside)issues.push(t('Вне выбора: ','Outside selection: ')+outside+'.');
+    if(project.skipped.length)issues.push(t('Записей без проверяемой версии: ','Entries without an auditable version: ')+project.skipped.length+'.');
+    if(unverified)issues.push(t('Копий без подтверждённого публичного источника: ','Copies with unconfirmed public provenance: ')+unverified+'.');
+    if(dated<project.direct.length)issues.push(t('Даты выпусков прямых зависимостей: ','Direct release dates: ')+dated+' / '+project.direct.length+'.');
+    if(!project.manifest)issues.push(t('Для оценки дат прямых зависимостей нужен package.json.','Direct dependency dates require package.json.'));
+    const complete=project.manifest && !securityGaps && dated===project.direct.length && !outside && !project.skipped.length && !unverified && !missingDetails;
     const status=signal.aborted?t('Остановлено. Сохранены полученные ответы.','Stopped. Completed responses are shown.'):
       complete?t('Проверка завершена.','Audit complete.'):t('Проверка неполная.','Audit incomplete.');
     $('audit-status').textContent=[status,...issues].join(' ');
     render();
   }
   window.addEventListener('lab-project',({detail})=>load(detail?.lock,detail?.manifest));
+  $('finding-filter').placeholder=t('Пакет, название, CVE, GHSA','Package, title, CVE, GHSA');
+  $('finding-filter').oninput=$('finding-level').onchange=()=>{findingLimit=30;renderFindings();};
+  $('more-findings').onclick=()=>{findingLimit+=30;renderFindings();};
   $('run-audit').onclick=run;$('stop-audit').onclick=()=>active?.abort();
   $('audit-filter').oninput=()=>{shown=40;renderVersions();};
   $('more-rows').onclick=()=>{shown+=40;renderVersions();};
   async function sample(rev,recorded=false) {
-    const data=SelectorLab.cases[rev];
-    await load(data.lock,data.manifest);if(!project)return;
-    $('one-advisory').href=ReviewExample.link('advisories.html','selector',rev,data.nthPath);
-    if(recorded && rev==='base') {
-      const saved=window.LabAuditCapture;
-      for(const row of project.rows){if(!Object.hasOwn(saved.results,row.key))continue;row.ids=saved.results[row.key];row.state=row.ids.length?'found':'empty';}
-      for(const d of project.direct)d.freshness=LabCriterion.freshness(saved.packument,d.version);
-      findings=new Map(Object.entries(saved.details));report=true;
-      $('audit-status').textContent=t('Запись аудита публичного примера от ','Recorded public example audit from ')+saved.captured+' · npmjs + OSV';render();
-    }else{$('audit-filter').value='nth-check';renderVersions();}
+    const excerpt=rev==='vitest';
+    const data=excerpt ? window.LabVitestCapture : SelectorLab.cases[rev];
+    await load(data.lock,data.manifest,excerpt);
+    if(!project || project.lock!==data.lock)return;
+    if(!excerpt) $('one-advisory').href=ReviewExample.link('advisories.html','selector',rev,data.nthPath);
+    if(!recorded){$('audit-filter').value='nth-check';renderVersions();return;}
+    const saved=excerpt ? data : window.LabAuditCapture;
+    for(const row of project.rows) {
+      if(Object.hasOwn(saved.results,row.key)) {
+        row.ids=saved.results[row.key];row.state=row.ids.length?'found':'empty';
+      } else {
+        row.state='unknown';
+        row.reason=t('В учебной записи есть данные только для Tinypool.','The example includes advisory data only for Tinypool.');
+      }
+    }
+    for(const d of project.direct) {
+      if(saved.packument)d.freshness=LabCriterion.freshness(saved.packument,d.version);
+      else d.reason=t('Даты выпусков в этом примере не проверялись.','Release dates were outside this example’s scope.');
+    }
+    findings=new Map(Object.entries(saved.details));report=true;
+    $('audit-status').textContent=excerpt
+      ? t('Сокращённый пример. Две записи OSV для tinypool@1.1.1 сохранены ','Branch excerpt. Two OSV records for tinypool@1.1.1 were captured on ')+saved.captured+'.'
+      : t('Запись аудита публичного примера от ','Recorded public example audit from ')+saved.captured+' · npmjs + OSV';
+    render();
   }
-  $('sample').onclick=()=>sample('base',true);
+  $('sample').onclick=()=>sample($('sample-choice').value==='vitest'?'vitest':'base',true);
   if(ReviewExample.kind==='selector' && Object.hasOwn(SelectorLab.cases,ReviewExample.revision))sample(ReviewExample.revision);
 })();
