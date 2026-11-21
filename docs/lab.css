@@ -32,11 +32,8 @@ header[data-nav] {
   }
 }
 @media (prefers-reduced-motion:no-preference) {
-  @view-transition {navigation:auto}
-  ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) {
-    animation-duration:140ms;
-    animation-timing-function:ease-out;
-  }
+  @keyframes content-appear {from {opacity:.84} to {opacity:1}}
+  main {animation:content-appear 130ms ease-out}
   .bar nav :is(a,summary), .language, .project-zone, .link-card, .audit-modes a, .button, .primary {
     transition:background-color 120ms ease-out,border-color 120ms ease-out,filter 120ms ease-out;
   }
@@ -48,7 +45,6 @@ header[data-nav] {
   }
 }
 @media (prefers-reduced-motion:reduce) {
-  @view-transition {navigation:none}
   *, *::before, *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
 @media (forced-colors:active) {
