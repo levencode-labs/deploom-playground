@@ -10,7 +10,9 @@
     output.textContent = '';
     delete output.dataset.status;
   }
-  document.getElementById('copy-note').onclick = async () => {
+  const copy = document.getElementById('copy-note');
+  copy.disabled = false;
+  copy.onclick = async () => {
     const note = document.getElementById('migration-note');
     const status = document.getElementById('copy-status');
     const range = document.createRange();
