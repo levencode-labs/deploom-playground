@@ -142,6 +142,57 @@ async function checkYarnAuditHandoff(browser,base) {
   } finally {await context.close();}
 }
 
+async function checkLanguageNavigation(browser, base) {
+  const pages=new URL('https://levencode-labs.github.io/deploom-playground/');
+  const mirror=new URL('https://deploom-migration-lab.beamyhorse.chatgpt.site/');
+  const context=await browser.newContext();
+  try {
+    // Preserve the two real hostnames and origin-scoped storage while serving all content locally.
+    await context.route('**/*',async route=>{
+      const url=new URL(route.request().url());
+      if(url.origin===base)return route.continue();
+      const host=[pages,mirror].find(site=>site.origin===url.origin);
+      if(!host || !url.pathname.startsWith(host.pathname))return route.abort();
+      const file=url.pathname.slice(host.pathname.length) || 'index.html';
+      return route.fulfill({response:await route.fetch({url:base+'/'+file+url.search})});
+    });
+    const page=await context.newPage();
+    for(const site of [pages,mirror]) {
+      await page.goto(site.href);
+      const language=page.getByRole('combobox',{name:'Language'});
+      assert.equal(await language.inputValue(),'en');
+      assert.deepEqual((await language.locator('option').allTextContents()).sort(),['EN','RU']);
+      assert.equal(await page.locator('html').getAttribute('lang'),'en');
+    }
+    await page.goto(base+'/lab/index.html');
+    assert.equal(await page.getByRole('combobox',{name:'Язык'}).inputValue(),'ru');
+    await page.goto(new URL('ci.html?lang=ru&platform=linux-x64-musl#mismatch',pages).href);
+    const manifestFile={name:'package.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(man))};
+    await page.locator('#shared-manifest').setInputFiles(manifestFile);
+    await page.locator('#shared-manifest-zone[data-filled=true]').waitFor();
+    await page.locator('#ci-next').click();
+    assert.equal(new URL(page.url()).hash,'#fixed');
+    await page.getByRole('combobox',{name:'Язык'}).selectOption('en');
+    await page.getByRole('combobox',{name:'Language'}).waitFor();
+    const switched=new URL(page.url());
+    assert.equal(switched.pathname,pages.pathname+'ci.html');
+    assert.equal(switched.hash,'#fixed');
+    assert.equal(switched.searchParams.get('platform'),'linux-x64-musl');
+    assert.equal(switched.searchParams.get('lang'),'en');
+    await page.locator('#shared-manifest-zone[data-filled=true]').waitFor();
+    await page.locator('header nav').getByRole('link',{name:'Overview'}).click();
+    assert.equal(new URL(page.url()).searchParams.get('lang'),'en');
+    await page.locator('#shared-manifest-zone[data-filled=true]').waitFor();
+    await page.getByRole('combobox',{name:'Language'}).selectOption('ru');
+    await page.getByRole('combobox',{name:'Язык'}).waitFor();
+    await page.goto(pages.href);
+    assert.equal(await page.locator('html').getAttribute('lang'),'ru','A saved choice overrides the host default');
+    await page.goto(new URL('index.html?lang=en',pages).href);
+    assert.equal(await page.locator('html').getAttribute('lang'),'en','An explicit query overrides the saved choice');
+    console.log('PASS language defaults on both public hosts, EN/RU dropdown, saved files and example state across language changes');
+  } finally {await context.close();}
+}
+
 async function run() {
   const server=http.createServer(async(req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname.replace(/^\/lab\//,'/');
@@ -156,6 +207,7 @@ async function run() {
   const base='http://127.0.0.1:'+server.address().port;
   const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, args:['--no-proxy-server']});
   try {
+    await checkLanguageNavigation(browser,base);
     // One unreachable source should not stop the other source or start one DNS lookup per package.
     const auditContext=await browser.newContext();
     const auditPage=await auditContext.newPage();
@@ -313,7 +365,7 @@ async function run() {
         }
         assert.ok(!p.url().includes(pkg) && !p.url().includes(man.name));
       }
-      await p.locator('a.language').click();await verifyComparison();assert.equal(await p.locator('html').getAttribute('lang'),'en');
+      await p.getByRole('combobox',{name:'Язык'}).selectOption('en');await verifyComparison();assert.equal(await p.locator('html').getAttribute('lang'),'en');
       await p.goto(route('compare','en')+'&example=rollup');await ready('after-source','Rollup');await filled(true,true);
       await p.locator('.project-bar a').click();await verifyComparison();
       const second=await ctx.newPage();await second.goto(route('advisories','en'));
