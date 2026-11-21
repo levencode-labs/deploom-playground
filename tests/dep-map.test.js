@@ -44,3 +44,16 @@ test('a lockfile without a project root waits for an explicit starting entry', (
   assert.equal(neighborhood(graph,null,false,2).size,0);
   assert.deepEqual([...neighborhood(graph,'b',true,2)],[['b',0],['a',1]]);
 });
+
+test('the starting picker offers declarations from the root; the graph keeps transitive copies',()=>{
+  const data=index({'':{name:'app',refs:[edge('first','direct'),edge('first','direct')]},first:{name:'direct',refs:[edge('second','nested')]},second:{name:'nested'},orphan:{name:'orphan'}});
+  const {startingNodes,layout}=require('../docs/dep-map-model');
+  assert.deepEqual(startingNodes(data,true).map(n=>n.key),['','first']);
+  assert.deepEqual(startingNodes(data,false).map(n=>n.key),['','first','second','orphan']);
+  const levels=neighborhood(data,'first',false,3);
+  const lr=layout(levels,60,false).positions, tb=layout(levels,60,true).positions;
+  assert.ok(lr.get('second').x > lr.get('first').x);
+  assert.equal(lr.get('second').y,lr.get('first').y);
+  assert.ok(tb.get('second').y > tb.get('first').y);
+  assert.equal(tb.get('second').x,tb.get('first').x);
+});

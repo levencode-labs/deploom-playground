@@ -27,7 +27,7 @@
         target.incoming.push(connection);
       }
     }
-    return { nodes, rootKey };
+    return {nodes,rootKey,copyKeys:copies.map(copy=>copy.path),hasLock:Boolean(packages)};
   }
 
   function neighborhood(data, anchor, reverse, maxDepth) {
@@ -48,7 +48,36 @@
     }
     return levels;
   }
-  const api = {create, neighborhood};
+  function startingNodes(data, hasManifest) {
+    const root = data.nodes.get(data.rootKey);
+    const starts = new Set(root ? [root.key] : []);
+    if (!hasManifest) for (const key of data.copyKeys) starts.add(key);
+    else if (root) for (const edge of root.outgoing) starts.add(edge.to);
+    return [...starts].map(key=>data.nodes.get(key));
+  }
+
+  function layout(levels, limit, vertical) {
+    const width = 178, height = 52;
+    const positions = new Map(), rows = [];
+    for (const [key,level] of levels) {
+      if (positions.size >= limit) break;
+      const row = rows[level] || 0;
+      rows[level] = row + 1;
+      positions.set(key,{level,row});
+    }
+    const longest = Math.max(1,...rows), depth = rows.length - 1;
+    for (const pos of positions.values()) {
+      const across = pos.row + (longest - rows[pos.level])/2;
+      pos.x = 50 + (vertical ? across * 200 : pos.level * 255);
+      pos.y = 30 + (vertical ? pos.level * 105 : across * 76);
+    }
+    const bounds = {
+      width: 100 + width + (vertical ? (longest - 1)*200 : depth*255),
+      height: 60 + height + (vertical ? depth*105 : (longest - 1)*76)
+    };
+    return {positions, bounds, width, height};
+  }
+  const api = {create, neighborhood, startingNodes, layout};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else window.DepMapModel = api;
 })();

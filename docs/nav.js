@@ -38,18 +38,20 @@
   }
   const sections = [
     [t('Инструменты','Tools'), [
-      ['audit.html', t('Аудит зависимостей проекта','Project dependency audit')],
-      ['plan.html', t('План для Yellow, Green или пакета','Plan for Yellow, Green, or a package')],
+      ['audit.html', t('Аудит проекта','Project audit')],
+      ['advisories.html', t('Аудит пакета','Package audit')],
+      ['plan.html', t('План обновления','Upgrade plan')],
       ['compare.html', t('Сравнить lock-файлы','Compare lockfiles')],
-      ['advisories.html', t('Уязвимости','Vulnerabilities')],
     ]],
     [t('Визуализации','Visualizations'), [
-      ['tree.html', t('Дерево зависимостей','Dependency tree')],
+      ['tree.html', t('Карта зависимостей','Dependency map')],
       ['ranges.html', t('Проверить диапазон','Check a version range')],
     ]],
     [t('Примеры','Examples'), [
+      ['examples.html', t('Все примеры','All examples')],
       [null, t('Установка и CI','Installation and CI')],
       ['peers.html', t('Конфликт React и React DOM','React and React DOM conflict')],
+      ['combinations.html#build-mr', t('Собери свой MR с webpack','Build your own webpack MR')],
       ['combinations.html', t('Слияние веток с webpack','Merging webpack branches')],
       ['ci.html', t('Rollup на Linux после сборки на Mac','Rollup on Linux after a Mac build')],
       [null, t('Запуск кода','Running the code')],
@@ -66,9 +68,13 @@
   skip.href = '#' + main.id;
   skip.className = 'skip';
   skip.textContent = t('К содержимому','Skip to content');
-  const brand = link('DepLoom', 'index.html');
+  const brand = link('DEPLOOM', 'index.html');
   brand.className = 'brand';
-  const mark=document.createElement('img'); mark.src='deploom-mark.svg'; mark.alt='';brand.prepend(mark);
+  const mark = document.createElement('img');
+  mark.src = 'deploom-mark.svg?v=2';
+  mark.alt = '';
+  mark.width = mark.height = 40;
+  brand.prepend(mark);
   const favicon=document.createElement('link'); favicon.rel='icon'; favicon.href=mark.src;document.head.append(favicon);
   const nav = document.createElement('nav');
   nav.setAttribute('aria-label', t('Разделы лаборатории','Lab sections'));
@@ -91,7 +97,7 @@
       }
       const anchor = link(title, path);
       const target = new URL(anchor.href);
-      if (target.pathname.endsWith('/' + page) && target.hash === currentURL.hash &&
+      if (target.pathname.endsWith('/' + page) && target.searchParams.get('example') === currentURL.searchParams.get('example') && target.hash === currentURL.hash &&
           target.searchParams.get('tool') === currentURL.searchParams.get('tool')) {
         anchor.setAttribute('aria-current','page');
       }

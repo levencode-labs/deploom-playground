@@ -11,32 +11,40 @@
 <body>
   <header data-nav></header>
   <main>
-<h1 data-en="Upgrade plan">План обновления</h1>
-<p data-en="Choose a goal to see which libraries need an update and what their neighbours require.">Выберите цель и посмотрите, какие библиотеки пора обновить и кто из соседей ограничивает выбор версии.</p>
-<section class="panel plan-input"><h2 data-en="Project and targets">Проект и цель</h2>
-<p id="project" class="hint"></p>
-<label class="field"><span data-en="Goal">Цель</span><select id="plan-mode">
-<option value="yellow" data-en="Reach Yellow">Достичь Yellow</option><option value="green" data-en="Reach Green">Достичь Green</option><option value="manual" data-en="Update specific packages">Обновить конкретные пакеты</option></select></label>
-<div id="manual-goal" hidden>
-<details id="local-metadata"><summary data-en="Use package metadata from disk">Добавить package.json библиотек для офлайн-проверки</summary>
-<p class="hint" data-en="Use the package.json of a target release or of a direct dependency already installed in node_modules. Its peerDependencies field lists its requirements.">Подойдёт package.json целевой версии или уже установленной прямой зависимости из node_modules. В нём перечислены требования к соседним пакетам.</p>
-<label class="field"><span data-en="Target package manifests">Манифесты целевых пакетов</span><input type="file" multiple id="meta-files" accept=".json,application/json"></label></details>
-<div class="grid">
-  <label class="field"><span data-en="Package to update">Какой пакет обновить?</span><select id="goal-package"></select></label>
-  <label class="field"><span data-en="Target version">До какой версии?</span><input id="goal-version" type="text" placeholder="1.2.3" spellcheck="false"></label>
-</div>
-<details id="batch-goals"><summary data-en="Set several targets in JSON">Задать несколько целей в JSON</summary>
-<textarea id="targets" aria-label="JSON" rows="3" spellcheck="false">{"react-dom": "18.3.1"}</textarea></details>
-</div>
-<div class="actions"><button type="button" class="button" id="make-plan"><span data-en="Calculate locally">Рассчитать локально</span></button><button type="button" id="sample"><span data-en="Restore React example">Вернуть пример React</span></button></div>
-</section>
-<section class="panel" id="plan-output"></section>
-<section class="panel" id="network" hidden>
-<h2 data-en="Look up missing requirements">Уточнить недостающие требования</h2>
-<p class="hint" id="send-host"></p>
-<div id="lookup-packages"></div>
-<button type="button" id="lookup" class="button" data-en="Look up selected releases">Запросить выбранные версии</button><p id="net-status" role="status"></p></section>
-<p data-en="Review the lockfile diff, run a frozen install with your package manager, then run application tests." class="hint">После правок проверьте diff lock-файла, запустите установку с зафиксированными версиями и тесты приложения.</p>
+    <h1 data-en="Upgrade plan">План обновления</h1>
+    <section class="panel plan-input" aria-label="Цель обновления" id="plan-form">
+      <label class="field" for="plan-mode"><span data-en="Goal">Цель обновления</span>
+        <select id="plan-mode">
+          <option value="yellow" data-en="Yellow · 80% of direct dependencies up to date">Yellow · 80% актуальных прямых зависимостей</option>
+          <option value="green" data-en="Green · all direct dependencies up to date">Green · все прямые зависимости актуальны</option>
+          <option value="manual" data-en="Update specific packages">Обновить конкретные пакеты</option>
+        </select>
+      </label>
+      <div id="manual-goal" hidden>
+        <div class="grid">
+          <label class="field"><span data-en="Package to update">Пакет для обновления</span><input id="goal-package" type="text" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span data-en="Target version">Целевая версия</span><input id="goal-version" type="text" placeholder="1.2.3" spellcheck="false"></label>
+        </div>
+      </div>
+      <p class="hint" id="project" role="status"></p>
+      <button type="button" class="button" id="make-plan" disabled data-en="Calculate plan">Рассчитать план</button>
+      <div id="plan-options" hidden></div>
+      <div id="manual-options" hidden>
+        <details id="batch-goals"><summary data-en="Set several targets in JSON">Несколько целей в JSON</summary>
+          <textarea id="targets" aria-label="JSON" rows="3" spellcheck="false">{}</textarea></details>
+        <details id="local-metadata"><summary data-en="Load package manifests for an offline check">Манифесты библиотек для офлайн-проверки</summary>
+          <label class="field"><span data-en="package.json for a target release or installed direct dependency">package.json целевой версии или установленной прямой зависимости</span><input type="file" multiple id="meta-files" accept=".json,application/json"></label></details>
+      </div>
+    </section>
+    <p id="plan-status" role="status"></p>
+    <section class="panel" id="plan-output" hidden></section>
+    <details class="panel" id="network" hidden>
+      <summary data-en="Look up missing requirements">Уточнить недостающие требования</summary>
+      <p class="hint" id="send-host"></p>
+      <div id="lookup-packages"></div>
+      <button type="button" id="lookup" data-en="Look up selected releases">Запросить выбранные версии</button>
+      <p id="net-status" role="status"></p>
+    </details>
   </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>
@@ -52,6 +60,7 @@
   <script src="registry.js"></script>
   <script src="criterion.js"></script>
   <script src="webpack-releases.js"></script>
+  <script src="package-combo.js"></script>
   <script src="package-picker.js"></script>
   <script src="criterion-plan.js"></script>
   <script src="plan.js"></script>

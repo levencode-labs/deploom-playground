@@ -1,0 +1,74 @@
+/* The same woven sample sits beside a heading or becomes a short selvedge on narrow screens. */
+.tool-home > h1,
+main:has(> #network-panel) > h1 {
+  position: relative;
+}
+.tool-home > h1::before,
+main:has(> #network-panel) > h1::before {
+  content: "";
+  display: block;
+  inline-size: 3.75rem;
+  block-size: .75rem;
+  margin-block-end: .55rem;
+  background: url("thread-swatch.svg#hem") left center / contain no-repeat;
+  pointer-events: none;
+}
+@media (min-width: 58rem) {
+  .tool-home > h1,
+  main:has(> #network-panel) > h1 {
+    padding-inline-end: clamp(10rem, 20vw, 15rem);
+  }
+  .tool-home > h1::before,
+  main:has(> #network-panel) > h1::before {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-start: 0;
+    inline-size: clamp(9rem, 18vw, 13.5rem);
+    block-size: auto;
+    aspect-ratio: 252 / 88;
+    margin: 0;
+    background-image: url("thread-swatch.svg");
+  }
+}
+
+.tool-home > .grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 36rem) {
+  .tool-home > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 62rem) {
+  .tool-home > .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.tool-home .link-card {
+  position: relative;
+  border-block-start: 1px solid var(--line);
+}
+.tool-home .link-card::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 1.15rem;
+  inset-block-start: .22rem;
+  inline-size: 2.8rem;
+  block-size: .65rem;
+  background: url("thread-swatch.svg#hem") left center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+.tool-home .link-card:is(:hover, :focus-visible) {
+  border-color: #5985bb;
+}
+
+#network-map .map-edge.active:not(.bad) { stroke: #69d5dd; }
+#network-map .map-edge.peer.active:not(.bad) { stroke: #b5a0ff; }
+#network-map .map-node.conflict[aria-pressed="true"] rect { stroke: #ffac84; }
+@supports (fill: context-stroke) {
+  #network-map marker path { fill: context-stroke; }
+}
+
+@media (forced-colors: active) {
+  .tool-home > h1,
+  main:has(> #network-panel) > h1 { padding-inline-end: 0; }
+  .tool-home > h1::before,
+  .tool-home .link-card::before,
+  main:has(> #network-panel) > h1::before { display: none; }
+  #network-map .map-edge.active:not(.bad) { stroke: Highlight; }
+}

@@ -4,7 +4,7 @@
   const {t} = Lab;
   const $ = id => document.getElementById(id);
   const svg = $('network-map'), panel = $('network-panel'), viewport = $('map-viewport');
-  const pick = $('map-start'), search = $('map-search');
+  const start = $('map-start');
   const ns = 'http://www.w3.org/2000/svg';
   const pageSize = 60;
   let data, commandFor, anchor = null, selected = null, budget = pageSize;
@@ -45,9 +45,10 @@
     const node=positions.get(anchor);
     if (!node || (bounds.width<=viewport.clientWidth && bounds.height<=viewport.clientHeight)) { fit(); return; }
     camera.zoom=1;
-    const anchorFraction = $('map-flip').getAttribute('aria-pressed') === 'true' ? .78 : .22;
-    camera.x = node.x + 90 - viewport.clientWidth * anchorFraction;
-    camera.y=node.y+26-viewport.clientHeight/2; paintCamera();
+    const vertical = $('map-layout').value === 'vertical';
+    camera.x = node.x + 89 - viewport.clientWidth * (vertical ? .5 : .23);
+    camera.y = node.y + 26 - viewport.clientHeight * (vertical ? .23 : .5);
+    paintCamera();
   }
   $('zoom-in').onclick=()=>scaleBy(1.25);
   $('zoom-out').onclick=()=>scaleBy(.8);
@@ -117,39 +118,22 @@
   function describe(node) { return node.name+(node.version?' · '+node.version:''); }
   function locationOf(node) {
     if (node.key==='') return t('Корень проекта','Project root');
+    if (!data.hasLock) return t('Требование без подтверждённой установки', 'Declared requirement; installation unconfirmed');
     if (node.key.startsWith('[')) return t('Требование без зафиксированной версии','Requirement with no locked version');
     return node.key;
   }
-  function choices() {
-    const query=search.value.trim().toLowerCase(), best=[], rest=[];
-    let count=0;
-    for (const node of data.nodes.values()) {
-      const name=node.name.toLowerCase(), key=node.key.toLowerCase(), label=(name+'@'+node.version).toLowerCase();
-      if (!name.includes(query) && !key.includes(query) && !label.includes(query)) continue;
-      count++;
-      if (query && (query===key || query===label || query===name)) {if(best.length<80) best.push(node);}
-      else if(rest.length<80) rest.push(node);
-    }
-    const items=[...best,...rest].slice(0,80);
-    const current=data.nodes.get(anchor);
-    if (!query && current && !items.includes(current)) items.unshift(current);
-    pick.replaceChildren(...items.map(node=>new Option(describe(node)+' · '+locationOf(node),node.key)));
-    if (!query && items.includes(current)) pick.value=anchor;
-    $('map-apply').disabled=!items.length;
-    $('map-search-count').textContent=count>80?t('Совпадений: ','Matches: ')+count+t('. Уточните запрос.','. Refine the query.') :
-      !count?t('Совпадений нет','No matches'):'';
+  function displayStart(node) {
+    return node.key === data.rootKey ? t('Корень проекта','Project root')+' · '+node.name : describe(node);
   }
+  const chooser = LabPackageCombo.attach(start,{onSelect:item=>focusOn(item.key)});
   function focusOn(key) {
     if (!data?.nodes.has(key)) return;
-    anchor=key;selected=key;budget=pageSize;search.value='';choices();draw();
+    anchor=key; selected=key; budget=pageSize;
+    chooser.setValue(displayStart(data.nodes.get(key)));
+    draw();
   }
-  $('map-focus-form').onsubmit=e=>{e.preventDefault();if(pick.selectedIndex>=0)focusOn(pick.value);};
-  search.oninput=choices;
   $('map-direction').onchange=$('map-depth').onchange=()=>{budget=pageSize;draw();};
-  $('map-flip').onclick=()=>{
-    const btn=$('map-flip');
-    btn.setAttribute('aria-pressed',String(btn.getAttribute('aria-pressed')!=='true'));draw();
-  };
+  $('map-layout').onchange=()=>draw();
   $('map-more').onclick=()=>{budget+=pageSize;draw(false);};
 
   function inspect(key) {
@@ -172,7 +156,7 @@
       const list=document.createElement('ul');
       for (const edge of adjacent) {
         const line=data.nodes.get(edge.from).name+' → '+data.nodes.get(edge.to).name+' · '+edge.group+' '+edge.range;
-        const status=edge.state==='bad' ? t('Конфликт','Conflict') : edge.state==='good' ? t('Подходит','Matches') : edge.reason || t('Без проверки','Unverified');
+        const status=edge.state==='bad' ? [t('Конфликт','Conflict'),edge.reason].filter(Boolean).join(' · ') : edge.state==='good' ? t('Подходит','Matches') : edge.reason || t('Без проверки','Unverified');
         list.append(html('li',line+' · '+status));
       }
       info.append(list);
@@ -182,30 +166,50 @@
     if (command) info.append(html('pre',command));
   }
 
+  function curve(a,b,width,height,vertical) {
+    if (vertical) {
+      const x=a.x+width/2, endX=b.x+width/2;
+      if (a.level===b.level) {
+        const y=a.y+height, endY=b.y+height;
+        return 'M'+x+' '+y+' C'+(x-22)+' '+(y+28)+' '+(endX+22)+' '+(endY+28)+' '+endX+' '+endY;
+      }
+      const down=b.y>a.y, y=a.y+(down?height:0), endY=b.y+(down?0:height);
+      const mid=(y+endY)/2;
+      return 'M'+x+' '+y+' C'+x+' '+mid+' '+endX+' '+mid+' '+endX+' '+endY;
+    }
+    const y=a.y+height/2, endY=b.y+height/2;
+    if (a.level===b.level) {
+      const x=a.x+width, endX=b.x+width;
+      return 'M'+x+' '+y+' C'+(x+44)+' '+(y-20)+' '+(endX+44)+' '+(endY+20)+' '+endX+' '+endY;
+    }
+    const right=b.x>a.x, x=a.x+(right?width:0), endX=b.x+(right?0:width);
+    const mid=(x+endX)/2;
+    return 'M'+x+' '+y+' C'+mid+' '+y+' '+mid+' '+endY+' '+endX+' '+endY;
+  }
   function draw(resetCamera=true) {
     svg.replaceChildren();positions=new Map();displayedEdges=[];
-    const reverse=$('map-direction').value==='in', flipped=$('map-flip').getAttribute('aria-pressed')==='true';
+    const reverse=$('map-direction').value==='in', vertical=$('map-layout').value==='vertical';
     const value=$('map-depth').value;
     const depth=value==='all'?Infinity:Number(value);
     const levels=DepMapModel.neighborhood(data,anchor,reverse,depth);
+    viewport.hidden=!levels.size;
     if (!levels.size){
-      $('network-info').replaceChildren();
-      $('map-limit').textContent=t('Выберите начальную запись. В этом lock-файле нет манифеста корневого проекта.','Choose a starting entry. This lockfile has no root project manifest.');
-      $('map-more').hidden=true;return;
+      const info=$('network-info');info.replaceChildren();
+      const copies=data.copyKeys, shown=copies.slice(0,budget);
+      $('map-limit').textContent=t('Копий в lock-файле: ','Lockfile copies: ')+copies.length+'. '+
+        t('Выберите копию, чтобы увидеть её связи. Для прямых зависимостей добавьте package.json.','Choose a copy to inspect its edges. Add package.json to identify direct dependencies.');
+      $('map-more').hidden=shown.length>=copies.length;
+      const list=html('ul','');list.className='map-copies';
+      for (const key of shown) {
+        const item=html('li',''),node=data.nodes.get(key),button=html('button',describe(node));
+        button.type='button';button.onclick=()=>focusOn(key);
+        item.append(button,html('code',key));list.append(item);
+      }
+      info.append(list);return;
     }
-    const rows=[];
-    const nodeWidth=178,nodeHeight=52,gapX=255,gapY=76;
-    for(const [key,level] of levels){
-      if (positions.size>=budget) break;
-      const row=rows[level]||0;rows[level]=row+1;
-      positions.set(key,{level,row});
-    }
-    const maxRows=rows.reduce((a,b)=>Math.max(a,b),0), last=rows.length-1;
-    bounds={width:last*gapX+nodeWidth+100,height:maxRows*gapY+40};
-    for(const pos of positions.values()){
-      pos.x=50+(flipped?last-pos.level:pos.level)*gapX;
-      pos.y=25+(pos.row+(maxRows-rows[pos.level])/2)*gapY;
-    }
+    const layout=DepMapModel.layout(levels,budget,vertical);
+    positions=layout.positions; bounds=layout.bounds;
+    const nodeWidth=layout.width, nodeHeight=layout.height;
     const defs=shape('defs',{});
     for(const [id,color] of [['arrow','#75a6dc'],['alert','#ff9978']]){
       const marker=shape('marker',{id,viewBox:'0 0 8 8',refX:7,refY:4,markerWidth:6,markerHeight:6,orient:'auto'});
@@ -216,10 +220,7 @@
       for(const edge of data.nodes.get(key).outgoing) {
         const b=positions.get(edge.to);
         if(!b)continue;
-        const direct=b.x>=a.x,x=a.x+(direct?nodeWidth:0),end=b.x+(direct?0:nodeWidth),y=a.y+nodeHeight/2,z=b.y+nodeHeight/2;
-        const d=a.level===b.level?
-          'M'+(a.x+nodeWidth)+' '+y+' C'+(a.x+nodeWidth+49)+' '+(y-25)+' '+(a.x+nodeWidth+49)+' '+(z+25)+' '+(b.x+nodeWidth)+' '+z :
-          'M'+x+' '+y+' C'+((x+end)/2)+' '+y+' '+((x+end)/2)+' '+z+' '+end+' '+z;
+        const d=curve(a,b,nodeWidth,nodeHeight,vertical);
         const line=shape('path',{d,class:'map-edge '+edge.state+(edge.group==='peerDependencies'?' peer':''),'marker-end':'url(#'+(edge.state==='bad'?'alert':'arrow')+')'});
         displayedEdges.push({...edge,line});svg.append(line);
       }
@@ -238,13 +239,17 @@
     inspect(positions.has(selected)?selected:anchor);
     if(resetCamera)centerAtAnchor();else paintCamera();
   }
-  function render(next, commands) {
+  function render(next, commands, hasManifest) {
     panel.hidden=!next;
-    if (!next) {data=null;anchor=null;svg.replaceChildren();return;}
-    const keep=data && data.rootKey===next.rootKey && next.nodes.has(anchor);
+    if (!next) {data=null;anchor=null;chooser.setItems([]);chooser.setValue('');svg.replaceChildren();return;}
+    const starts=DepMapModel.startingNodes(next,hasManifest);
+    const keep=data && data.rootKey===next.rootKey && data.nodes.get(data.rootKey)?.name===next.nodes.get(next.rootKey)?.name && starts.some(node=>node.key===anchor);
     data=next;commandFor=commands;
-    if (!keep) {anchor=next.rootKey;selected=anchor;budget=pageSize;search.value='';}
-    choices();draw();
+    if (!keep) {anchor=next.rootKey;selected=anchor;budget=pageSize;}
+    chooser.setItems(starts.map(node=>({key:node.key,value:displayStart(node),label:node.key===data.rootKey?t('Корень проекта','Project root'):node.name,detail:node.key===data.rootKey?node.name:!hasManifest ? node.version+' · '+node.key : node.version})));
+    start.disabled=!starts.length;
+    chooser.setValue(data.nodes.has(anchor) ? displayStart(data.nodes.get(anchor)) : '');
+    draw();
   }
   window.LabMap={render,focusOn};
 })();

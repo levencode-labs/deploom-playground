@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="range-scale.css">
   <link rel="stylesheet" href="map.css">
   <style>
-    .tree-controls { display:flex; flex-wrap:wrap; gap:.55rem; margin:.8rem 0 }
+    .tree-controls { display:flex; align-items:flex-end; flex-wrap:wrap; gap:.55rem; margin:.8rem 0 }
     .project-input textarea { width:100%; min-width:0; box-sizing:border-box; padding:.8rem; border:1px solid #a3afc1; border-radius:.45rem; background:#fff; color:#152c44; font: .92rem/1.45 "IBM Plex Mono", Consolas, monospace; resize:vertical }
     .tree-output .tree-filter { display:flex; align-items:center; gap:.5rem; margin:1rem 0 }
     .tree-output { overflow-wrap:anywhere }
@@ -27,12 +27,6 @@
     .tree-note { font-size:.91rem; line-height:1.4; color:#445a69; margin:.16rem 0 .3rem }
     #tree-error { color:#902c17; font-weight:600 }
     #tree-error:empty,#tree-limit:empty { display:none }
-    .tree-finder { border-top:1px solid var(--line); padding-top:1rem; margin-top:1.25rem }
-    .tree-finder input,.tree-finder select { display:block; width:100%; min-width:0; min-height:2.45rem; border:1px solid var(--line); border-radius:.35rem; padding:.35rem .6rem; background:white; color:var(--ink) }
-    .tree-finder select { text-overflow:ellipsis }
-    .tree-finder .button { margin:.6rem .3rem .4rem 0 }
-    .tree-route { padding-left:1.6rem }
-    .tree-route li { margin:.3rem 0; overflow-wrap:anywhere }
     #ranges { scroll-margin-top:1rem }
   </style>
 </head>
@@ -41,42 +35,40 @@
 <main>
   <h1 data-en="Dependency tree">Дерево зависимостей</h1>
   <section class="panel" id="lesson-copy" hidden><h2 data-en="Why is this version installed?">Почему установлена эта версия?</h2><p id="lesson-parent"></p><pre id="lesson-proof"></pre><button class="button" id="lesson-map" data-en="Inspect the full graph">Развернуть граф</button></section>
-  <p data-en="Select package.json or a lockfile in the header to build the map on this device. You can also paste a manifest below.">Выберите package.json или lock-файл в шапке, чтобы построить карту на этом устройстве. Манифест также можно вставить ниже.</p>
+  <p data-en="Choose package.json, a lockfile or both in the header.">Выберите в шапке package.json, lock-файл или оба файла.</p>
   <section class="panel project-input">
-      <details id="manifest-editor"><summary data-en="Paste a manifest or dependency list">Вставить манифест или список зависимостей</summary>
-        <textarea aria-label="package.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
-      <details class="tree-examples"><summary data-en="Try a sample project">Открыть учебный проект</summary><div class="tree-controls">
-        <button type="button" id="tree-broken" data-en="Peer conflict">Конфликт версий</button><button type="button" id="tree-two-copies" data-en="Two copies">Две копии</button><button type="button" id="tree-fixed" data-en="Matching versions">Совместимая пара</button><button type="button" id="yarn-classic">Yarn Classic</button><button type="button" id="yarn-berry">Yarn Berry</button></div></details>
+      <details id="manifest-editor"><summary data-en="Paste package.json or package-lock.json">Вставить package.json или package-lock.json</summary>
+        <p class="hint" data-en="Pasted JSON takes priority on this page. Clear the field to use the files from the header.">Вставленный JSON имеет приоритет на этой странице. Очистите поле, чтобы вернуться к файлам из шапки.</p>
+        <textarea aria-label="package.json / package-lock.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
+      <small id="tree-source" class="hint" role="status"></small>
       <p id="tree-error" role="alert"></p>
   </section>
   <section class="panel map-panel" id="network-panel" hidden>
     <div class="map-toolbar"><h2 data-en="Dependency map">Карта зависимостей</h2>
       <button id="map-fullscreen" type="button" aria-pressed="false" data-en="Full screen">На весь экран</button>
     </div>
-    <form id="map-focus-form" class="map-controls">
-      <label class="field"><span data-en="Find a package, version or path">Найти пакет, версию или путь</span><input type="search" id="map-search" spellcheck="false" autocomplete="off"></label>
-      <label class="field map-copy-field"><span data-en="Starting node">Начальный узел</span><select id="map-start"></select></label>
-      <button type="submit" id="map-apply" data-en="Explore from here">Построить отсюда</button>
-      <small id="map-search-count" role="status"></small>
-    </form>
     <div class="map-controls">
+      <label class="field map-copy-field"><span data-en="Starting package">Начальный узел</span>
+        <input type="text" id="map-start" spellcheck="false" autocomplete="off"></label>
       <label class="field"><span data-en="Trace">Что показать</span><select id="map-direction"><option value="out" data-en="Dependencies">Зависимости узла</option><option value="in" data-en="Dependents">Кто зависит от узла</option></select></label>
       <label class="field"><span data-en="Depth">Глубина</span><select id="map-depth"><option>1</option><option selected>2</option><option>3</option><option value="all" data-en="All levels">Все уровни</option></select></label>
-      <button type="button" id="map-flip" aria-pressed="false" data-en="Mirror layout">Развернуть схему</button>
+      <label class="field"><span data-en="Layout">Расположение</span><select id="map-layout"><option value="horizontal" data-en="Left to right">Слева направо</option><option value="vertical" data-en="Top to bottom">Сверху вниз</option></select></label>
       <div class="map-zoom"><button id="zoom-out" type="button">−</button><output id="network-zoom">100%</output><button id="zoom-in" type="button">+</button><button type="button" id="map-fit" data-en="Fit to view">Вписать</button></div>
     </div>
-    <p class="hint map-guide" id="map-guide" data-en="Arrows point from a consumer to its dependency. Dashed edges are peers. Select a node for its connections. Drag to pan, scroll to zoom. Use arrow keys to pan, +/− to zoom and 0 to fit.">Стрелка идёт от потребителя к зависимости. Пунктир обозначает peer-требование. Выберите узел, чтобы увидеть связи. Перетаскивайте карту и меняйте масштаб колёсиком. С клавиатуры — стрелки, +/− и 0, чтобы вписать схему.</p>
+    <p class="hint map-guide" id="map-guide" data-en="Arrows point from a consumer to its dependency. Dashed edges are peers. Select a node to see its connections. Drag to pan or use the arrow keys.">Стрелка идёт от потребителя к зависимости. Пунктир обозначает peer-требование. Выберите узел, чтобы увидеть связи. Перемещайтесь перетаскиванием или стрелками.</p>
     <div class="map-scroll" id="map-viewport" tabindex="0" aria-describedby="map-guide"><svg id="network-map" role="group"></svg></div>
     <div class="map-counts"><small id="map-limit" role="status"></small><button id="map-more" type="button" hidden data-en="Show more nodes">Показать ещё узлы</button></div>
     <div id="network-info" aria-live="polite"></div>
   </section>
   <details class="panel tree-output" id="tree-details" hidden><summary data-en="Inspect paths and version requirements">Разобрать пути и требования к версиям</summary>
       <details class="tree-input-lock" id="tree-netbox">
-        <summary data-en="Look up selected versions on npm">Сведения о выбранных версиях из npm</summary>
+        <summary data-en="Look up package metadata">Сведения о пакете из реестра</summary>
         <p id="tree-local" hidden><a href="index.html#local-download" data-en="Download the local version to look up package metadata in Nexus">Скачать локальную версию для получения метаданных пакетов из Nexus</a></p>
-        <p id="tree-source-hint" class="hint" data-en="Choose the names and exact versions to send to the selected npm registry. A lockfile supplies transitive versions.">Отметьте имена и точные версии, которые можно отправить в выбранный реестр npm. Для вложенных версий используйте lock-файл.</p>
-        <div id="tree-registry-list"></div>
-        <button class="button" type="button" id="tree-load-meta" data-en="Load selected metadata">Загрузить выбранные записи</button>
+        <p id="tree-source-hint" class="hint" data-en="Clicking the button sends the chosen name and exact version to the npm registry.">По кнопке выбранное имя и точная версия будут отправлены в реестр npm.</p>
+        <div class="tree-controls">
+          <label class="field"><span data-en="Pinned dependency from package.json">Зависимость с точной версией из package.json</span><input id="tree-registry-package" type="text"></label>
+        <button class="button" type="button" id="tree-load-meta" data-en="Load metadata" disabled>Загрузить сведения</button>
+        </div>
         <p class="hint" id="tree-network-result" role="status"></p>
       </details>
 
@@ -86,22 +78,7 @@
       <label class="tree-filter"><input type="checkbox" id="tree-filter"><span data-en="Show only paths with conflicts">Показать только ветки с конфликтами</span></label>
       <div id="tree-graph"></div>
       <p id="tree-limit" class="hint"></p>
-      <section class="tree-finder" aria-labelledby="tree-finder-title">
-        <h3 id="tree-finder-title" data-en="What brought this package here?">Кто привёл этот пакет?</h3>
-        <div id="tree-search-controls" hidden>
-          <label for="tree-query" data-en="Package name, version or path">Имя, версия или путь пакета</label>
-          <input id="tree-query" type="search" spellcheck="false" placeholder="shared-utils">
-          <label id="tree-copy-label"><span data-en="Lockfile entry">Запись lock-файла</span><select id="tree-copies"></select></label>
-        </div>
-        <p id="tree-find-hint" class="hint" role="status"></p>
-        <div id="tree-origin" aria-live="polite"></div>
-        <div id="tree-command-block" hidden>
-          <label for="tree-command" data-en="Run from the project root after installation">Команда из корня проекта после установки</label>
-          <input id="tree-command" readonly spellcheck="false">
-          <button type="button" class="button" id="tree-copy-command" data-en="Copy command">Скопировать команду</button>
-          <span role="status" id="tree-copied"></span>
-        </div>
-      </section>
+
   </details>
 </main>
 <script src="nav.js"></script>
@@ -113,10 +90,12 @@
 <script src="yarn-lock.js"></script>
 <script src="drop-files.js" defer></script>
 <script src="lock-samples.js"></script>
+<script src="package-combo.js"></script>
 <script src="dep-map-model.js"></script>
 <script src="dep-map.js"></script>
 <script src="selector-data.js"></script><script src="review-example.js"></script>
 <script src="registry.js"></script>
+<script src="tree-overrides.js"></script>
 <script src="tree.js"></script>
 </body>
 </html>

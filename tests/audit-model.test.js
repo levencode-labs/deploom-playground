@@ -131,3 +131,14 @@ test('published, modified, and aliases keep their source meaning across adapters
   assert.equal(api.advisoryMetadata({created:'2025-08-01',modified:'2025-08-01'},'npm registry').published,null);
   for(const invalid of ['2025-02-30','updated yesterday','2025-02-14T10:30:00',null,12]) assert.equal(api.advisoryDate(invalid),null);
 });
+test('counts advisory IDs once across packages, copies and affected versions',()=>{
+  const api=model(()=>assert.fail('Summary stays local'));
+  const summary=api.summarize([
+    {name:'one',key:'one@1',ids:['A','B','A']},{name:'one',key:'one@2',ids:['B']},
+    {name:'two',key:'two@3',ids:['A']},{name:'three',key:'three@1',ids:[]}
+  ],new Map([['A',{id:'A',level:'High'}]]));
+  assert.equal(summary.total,2);assert.equal(summary.packages,2);assert.equal(summary.versions,3);
+  assert.equal(summary.severities.High,1);assert.equal(summary.severities.Unknown,1);
+  assert.equal(summary.packageSeverities.High,2);assert.equal(summary.packageSeverities.Unknown,undefined);
+  assert.deepEqual(Array.from(summary.groups,g=>g.entries.length),[1,1]);
+});

@@ -7,9 +7,9 @@
     const name = descriptor.slice(0,at);
     return at > 0 && LabLockGraph.usableName(name) ? {name,range:descriptor.slice(at+1)} : null;
   }
-  function read(text) {
+  function read(text,manifest) {
     const source = text.replace(/^\uFEFF/,'').trimStart();
-    if (source.startsWith('{')) return JSON.parse(source);
+    if (source.startsWith('{')) return LabLockGraph.npmLock(JSON.parse(source),manifest);
     const classic = /^# yarn lockfile v1\s*$/m.test(source);
     if (!classic && !/^__metadata:\s*$/m.test(source)) throw Error('FORMAT');
     const raw = classic ? LabClassic.parse(source+'\n') : jsyaml.load(source,{schema:jsyaml.FAILSAFE_SCHEMA,maxAliases:0});
@@ -75,5 +75,5 @@
     }
     return {rows:[...rows.values()].sort((a,b)=>a.key.localeCompare(b.key)),skipped};
   }
-  window.LabYarn={read,parts,resolve,identity,inventory,format:packages=>formats.get(packages)};
+  window.LabYarn={read,withManifest:(lock,manifest)=>LabLockGraph.withManifest(lock,manifest),parts,resolve,identity,inventory,format:packages=>formats.get(packages)};
 })();

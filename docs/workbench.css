@@ -11,3 +11,9 @@
 .evidence-line,.panel pre{font: .94rem/1.5 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#f3fffc;background:#16355a;border:0;border-radius:.4rem;padding:.7rem .85rem;text-align:left;max-width:100%}
 .evidence-line[aria-pressed=true]{outline:3px solid #d18b33}.actions{gap:1.25rem}.actions a{font-weight:650}
 @media(max-width:48rem){.masthead img{display:none}.nav-links{position:static;max-width:100%;width:100%;box-shadow:none}.bar nav:has(details[open]){align-items:baseline}.nav-group[open]{flex:1 1 100%}.peer-work .lab-work{gap:.3rem}.peer-out{padding:.75rem}.bar nav{gap:.1rem}.nav-group summary{padding:.3rem .43rem}}
+
+.plan-input #plan-mode {max-width:100%;white-space:normal}
+.plan-input #make-plan {min-height:2.75rem;padding:.55rem 1rem}
+.plan-input #plan-options,.plan-input #manual-options {margin-top:1rem}
+.plan-input #manual-options details+details {margin-top:.45rem}
+.plan-input #project:empty,#plan-status:empty {display:none}

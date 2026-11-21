@@ -10,40 +10,6 @@
   const {t}=Lab, el=id=>document.getElementById(id);
   const buildRecord = 'webpack 5.91.0 · page.css\n.review-status { color: #1456a1; }';
   const plannerUrl = revision => Lab.urlFor('plan.html?example=webpack&revision='+revision+'#plan-output');
-  // Recorded with DepLoom Core 9d1b01d, plan_workspace_upgrade, on the UI branch lock.
-  // Goal: webpack 5.91.0. Candidates are the two lesson releases per mutable package.
-  function showCorePlan(visible) {
-    const panel = el('core-plan');
-    panel.hidden = !visible;
-    if (!visible || panel.childElementCount) return;
-    const line = (tag, text) => {
-      const node = document.createElement(tag);
-      node.textContent = text;
-      panel.append(node);
-      return node;
-    };
-    line('h3', t('Как выглядел бы план до Merge?', 'What would the plan look like before merging?'));
-    line('p', t('Вернёмся в UI-ветку. Стили уже вынесены. Цель — перейти на webpack 5.91.0. Версию css-loader пока оставляем прежней.',
-                'Go back to the UI branch. The stylesheet is already separate. The goal is webpack 5.91.0. Keep css-loader at its current version.'));
-    line('p', t('Если оставить CSS-плагин на 0.9.0, решения нет. Он требует webpack ^4.4.0. Разрешим DepLoom выбрать версию плагина.',
-                'Holding the CSS plugin at 0.9.0 leaves no solution. It requires webpack ^4.4.0. Now let DepLoom choose the plugin version.'));
-    line('strong', t('Один MR для трёх пакетов', 'One MR for three packages'));
-    const changes = line('ul', '');
-    for (const [name, before, after, why] of [
-      ['webpack', base.webpack, build.webpack, t('цель обновления', 'upgrade target')],
-      ['mini-css-extract-plugin', ui['mini-css-extract-plugin'], fixed['mini-css-extract-plugin'], t('новая версия принимает webpack ^5.0.0', 'the new version accepts webpack ^5.0.0')],
-      ['webpack-cli', base['webpack-cli'], build['webpack-cli'], t('старый CLI допускает только webpack 4.x.x', 'the old CLI accepts only webpack 4.x.x')],
-    ]) {
-      const li = document.createElement('li'), code = document.createElement('code');
-      code.textContent = name + ' ' + before + ' → ' + after;
-      li.append(code, ' — ' + why); changes.append(li);
-    }
-    line('small', t('Запись двух расчётов DepLoom Core (Z3) по lock-файлу UI-ветки. В расчёте доступны версии из этого примера. css-loader 3.6.0 уже поддерживает webpack 5.',
-                    'Two recorded DepLoom Core (Z3) runs on the UI branch lockfile, using the releases in this example. css-loader 3.6.0 already supports webpack 5.')).className = 'hint';
-    panel.append(' ');
-    const source = document.createElement('a'); source.href = 'webpack-plan.json';
-    source.textContent = t('Исходный результат расчёта', 'Recorded planner output'); panel.append(source);
-  }
   if (el('quick-merge')) {
     const params = new URLSearchParams(location.search);
     const validReact = value => ['18.2.0','18.3.1'].includes(value);
@@ -69,7 +35,14 @@
       report.hidden = state === 'ready';
       const step = {ready:0,merged:3,fixed:4}[state];
       el('merge-detail').href = Lab.urlFor('combinations.html?step=' + step);
-      showCorePlan(state !== 'ready');
+      const corePanel = el('core-plan');
+      corePanel.hidden = state === 'ready';
+      if (!corePanel.hidden && !corePanel.childElementCount) {
+        const link = document.createElement('a');
+        link.href = Lab.urlFor('combinations.html#build-mr');
+        link.textContent = t('Собрать свой MR с webpack 5 и css-loader 3.6.0', 'Build your own MR with webpack 5 and css-loader 3.6.0');
+        corePanel.append(link);
+      }
       el('webpack-planner').hidden = report.hidden;
       if (report.hidden) return;
       el('webpack-planner').href = plannerUrl(state);
@@ -83,8 +56,8 @@
       el('merge-evidence').textContent = blocked ? mergeError :
         buildRecord;
       el('merge-lesson').textContent = blocked
-        ? t('В сборке теперь webpack 5, а плагин из UI-ветки требует webpack 4. Ниже — план DepLoom на тот момент, когда обе ветки ещё можно было изменить.',
-            'The merged build uses webpack 5, but the UI plugin needs webpack 4. Below is DepLoom’s plan from the point when both branches could still change.')
+        ? t('В сборке теперь webpack 5, а плагин из UI-ветки требует webpack 4. Попробуйте составить план обновления для UI-ветки.',
+            'The merged build uses webpack 5, but the UI plugin needs webpack 4. Try planning the upgrade from the UI branch.')
         : t('В объединённой ветке сохранили css-loader 6.11.0 и подняли плагин до 2.9.0. После npm ci тест собрал страницу, открыл указанный в HTML файл page.css и нашёл правило для .review-status.',
             'The merged branch kept css-loader 6.11.0 and upgraded the plugin to 2.9.0. After npm ci, the test built the page, read the page.css linked by the HTML and found the .review-status rule.');
     }
@@ -97,6 +70,44 @@
     drawPreview();
     return;
   }
+  const neighbors=['webpack-cli','mini-css-extract-plugin'];
+  const selected={...base,...ui,webpack:build.webpack};
+  function drawMR() {
+    const bad=conflicts(selected);
+    const feedback=el('mr-feedback');
+    feedback.dataset.status=bad.length?'fail':'ready';
+    el('mr-goal').textContent=bad.length
+      ? t('Переход на webpack '+build.webpack+' заблокирован. Конфликтов: ','Upgrade to webpack '+build.webpack+' is blocked. Conflicts: ')+bad.length
+      : t('Переход на webpack '+build.webpack+' согласован по peerDependencies.','The peer ranges allow webpack '+build.webpack+'.');
+    const constraints=el('mr-requirements');
+    constraints.replaceChildren();
+    for(const [name,version] of Object.entries(selected)) {
+      if(!versions[name])continue;
+      const range=versions[name][version], row=document.createElement('li');
+      const requirement=document.createElement('code');
+      requirement.textContent=name+'@'+version+' → webpack '+range;
+      const matches=treeSemver.satisfies(selected.webpack,range);
+      row.append(requirement, matches?t(' · подходит',' · compatible'):t(' · блокирует обновление',' · blocks upgrade'));
+      row.className=matches?'mr-compatible':'mr-blocker';
+      constraints.append(row);
+    }
+    el('mr-check').textContent=bad.length
+      ? t('Смените версии блокирующих пакетов. npm со строгой проверкой peer-зависимостей требует согласовать эти диапазоны до сборки.',
+          'Change the packages with conflicting ranges. npm with strict peer checks requires these ranges to agree before the build.')
+      : t('Для этого набора npm построил lock-файл. Затем отдельно выполнили npm ci со строгой проверкой peerDependencies и собрали страницу с css-loader 3.6.0. В файле page.css, подключённом в HTML, нашли правило .review-status { color: #1456a1; }. В своём MR проверьте так же стили страницы, которую меняете.',
+          'npm resolved a lockfile for these versions. A separate run used npm ci with strict peer checks and built the page with css-loader 3.6.0. The linked page.css contained .review-status { color: #1456a1; }. Repeat that check for a page your MR changes.');
+    el('mr-record').hidden=Boolean(bad.length);
+  }
+  for(const name of neighbors) {
+    const label=document.createElement('label'), select=document.createElement('select');
+    const title=document.createElement('span');title.textContent=name;label.append(title,select);
+    select.id='mr-'+name;
+    for(const version of Object.keys(versions[name]))select.add(new Option(version,version));
+    select.value=selected[name];
+    select.onchange=()=>{selected[name]=select.value;drawMR();};
+    el('mr-neighbors').append(label);
+  }
+  drawMR();
   const stages=[
     [base,t('Общий коммит','Common starting commit'),t('Сборку запускает webpack-cli. webpack собирает приложение, а css-loader помогает подключить CSS. В этой версии проект ещё не извлекает CSS в отдельный файл.','webpack-cli starts the build, webpack bundles the app, and css-loader processes CSS imports. The project does not yet extract a separate CSS file.'),t('Открыть MR сборки →','Open the tooling branch →')],
     [build,t('MR сборки · новый css-loader','Tooling MR · upgrade css-loader'),t('Чтобы взять css-loader 6, нужен webpack 5. Прежний webpack-cli 3 запускал только webpack 4. Поэтому в этом MR обновили сразу три пакета.','css-loader 6 needs webpack 5. The old webpack-cli 3 requires webpack 4, so the developer updates three packages in this branch.'),t('Посмотреть отдельный UI MR →','Inspect the separate UI branch →')],
@@ -127,7 +138,6 @@
       t('Запись запуска npm · lock-файл построен · exit 0','Recorded npm run · lockfile resolved · exit 0');
     el('scene').dataset.status=bad.length?'fail':'pass';el('scene').classList.remove('step-enter');void el('scene').offsetWidth;el('scene').classList.add('step-enter');
     el('previous').disabled=!stage;el('next').textContent=next;el('takeaway').hidden=stage<3;
-    showCorePlan(stage>=3);
     if(share)Lab.setExampleState({step:stage});
   }
   for(const [name,records] of Object.entries(versions))for(const [v,range] of Object.entries(records)){

@@ -6,6 +6,57 @@
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const usableName = name => name.length <= 214 && packageName.test(name);
   const has = (obj, key) => Object.hasOwn(obj, key);
+  const normalized = new WeakSet();
+  const emptyRoot=Object.freeze({});
+  function withManifest(lock,manifest) {
+    if (lock?.lockfileVersion!==1) return lock;
+    const root=object(manifest) ? manifest : emptyRoot;
+    if (lock.packages['']===root) return lock;
+    const packages=Object.assign(Object.create(null),lock.packages,{'':root});
+    const linked={...lock,packages};
+    normalized.add(linked);
+    return linked;
+  }
+  function npmLock(raw,manifest) {
+    if (!object(raw)) throw Error('FORMAT');
+    if (normalized.has(raw)) return manifest===undefined ? raw : withManifest(raw,manifest);
+    if ([2,3].includes(raw.lockfileVersion)) {
+      if (!object(raw.packages) || !object(raw.packages['']) || !Object.values(raw.packages).every(object)) throw Error('FORMAT');
+      return raw;
+    }
+    if (raw.lockfileVersion!==1 || raw.packages!==undefined || (raw.dependencies!==undefined && !object(raw.dependencies))) throw Error('FORMAT');
+    const packages=Object.create(null);
+    const pending=[{entries:raw.dependencies || {},parent:'',depth:0}];
+    let count=0;
+    while (pending.length) {
+      const {entries,parent,depth}=pending.pop();
+      if (depth>80) throw Error('size');
+      for (const [name,record] of Object.entries(entries)) {
+        if (++count>60_000) throw Error('size');
+        if (!usableName(name) || !object(record)) throw Error('FORMAT');
+        const {dependencies:children,requires,bundled,...entry}=record;
+        if (children!==undefined && !object(children)) throw Error('FORMAT');
+        if (requires!==undefined) {
+          if (!object(requires) || Object.values(requires).some(value=>typeof value!=='string')) throw Error('FORMAT');
+          entry.dependencies=requires;
+        }
+        if (bundled!==undefined) entry.inBundle=bundled;
+        // v1 stores an npm alias in the version field and nests physical copies under dependencies.
+        if (typeof entry.version==='string' && entry.version.startsWith('npm:')) {
+          const at=entry.version.indexOf('@',5);
+          const original=entry.version.slice(4,at), version=entry.version.slice(at+1);
+          if (at>4 && usableName(original) && /^[0-9]/.test(version)) {entry.name=original;entry.version=version;}
+        }
+        const path=parent+'node_modules/'+name;
+        packages[path]=entry;
+        if (children) pending.push({entries:children,parent:path+'/',depth:depth+1});
+      }
+    }
+    packages['']=object(manifest) ? manifest : emptyRoot;
+    const lock={...raw,packages};
+    normalized.add(lock);
+    return lock;
+  }
   function publicTarball(record, name) {
     if (!object(record) || record.link || record.private || record.inBundle || typeof record.resolved !== 'string') return false;
     try {
@@ -31,7 +82,7 @@
 
   // A peer's provider must be placed beside or above its consumer.
   function lockedPackage(packages, owner, edge) {
-    if (window.LabYarn?.format(packages)) return LabYarn.resolve(packages,edge);
+    if (typeof window!=='undefined' && window.LabYarn?.format(packages)) return window.LabYarn.resolve(packages,edge);
     const dirs = owner ? owner.split('/') : [];
     if (edge.group === 'peerDependencies' && owner) {
       const lastModules = dirs.lastIndexOf('node_modules');
@@ -74,5 +125,7 @@
     return result.reverse();
   }
 
-  window.LabLockGraph = { groupKeys, usableName, publicTarball, declarations, lockedPackage, build, chain };
+  const api = { npmLock, withManifest, groupKeys, usableName, publicTarball, declarations, lockedPackage, build, chain };
+  if (typeof window!=='undefined') window.LabLockGraph=api;
+  if (typeof module==='object' && module.exports) module.exports=api;
 })();

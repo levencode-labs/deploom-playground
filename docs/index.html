@@ -10,42 +10,20 @@
 <body>
   <header data-nav></header>
   <main>
-<section class="masthead"><div><h1 id="merge-title" data-en="Two MRs are ready. What happens when they merge?">Два MR готовы. Что будет после Merge?</h1><p data-en="npm resolved each branch on its own. Try merging them.">Для каждой ветки npm собрал lock-файл. Попробуйте их объединить.</p></div><img src="loom.jpg" alt=""></section>
-<section class="panel quick-merge" id="quick-merge" aria-labelledby="merge-title">
-  <div class="merge-branches">
-    <div><h2 data-en="Build MR · Upgrade webpack">MR сборки · Обновить webpack</h2><code id="build-change"></code></div>
-    <div><h2 data-en="UI MR · Extract a stylesheet">UI MR · Вынести стили в файл</h2><code id="ui-change"></code></div>
+<section class="tool-home" aria-labelledby="tool-title">
+  <h1 id="tool-title" data-en="Dependency tools">Инструменты для зависимостей</h1>
+  <p data-en="Select your project files above or check an individual package by name and version.">Выберите файлы проекта в шапке или проверьте отдельный пакет по имени и версии.</p>
+  <div class="grid">
+<a class="link-card" href="audit.html"><strong data-en="Project audit">Аудит проекта</strong><span data-en="Count known advisories and see the share of direct dependencies lagging behind.">Посчитать известные уязвимости и долю отстающих прямых зависимостей.</span></a>
+<a class="link-card" href="advisories.html"><strong data-en="Package audit">Аудит пакета</strong><span data-en="Look up advisories for a single installed version.">Проверить одну установленную версию по базе уязвимостей.</span></a>
+<a class="link-card" href="plan.html"><strong data-en="Upgrade plan">План обновления</strong><span data-en="Choose a goal and see which requirements affect the upgrade.">Выбрать цель и посмотреть, какие требования мешают обновлению.</span></a>
+<a class="link-card" href="compare.html"><strong data-en="Compare lockfiles">Сравнить lock-файлы</strong><span data-en="See which versions and paths changed between two revisions.">Увидеть, какие версии и пути изменились между двумя ревизиями.</span></a>
+<a class="link-card" href="tree.html"><strong data-en="Dependency map">Карта зависимостей</strong><span data-en="Start with a manifest dependency and trace its connections in the lockfile.">Начать с библиотеки из package.json и проследить её связи в lock-файле.</span></a>
+<a class="link-card" href="ranges.html"><strong data-en="Version ranges">Диапазоны версий</strong><span data-en="See the bounds of a requirement and where a version falls.">Увидеть границы требования и положение выбранной версии.</span></a>
   </div>
-  <div class="merge-action"><button id="merge-action" class="button" type="button">Merge</button> <a id="merge-detail" href="combinations.html" data-en="Walk through the branches">Разобрать ветки по шагам</a></div>
-  <div id="merge-outcome" aria-live="polite" aria-atomic="true">
-    <div id="merge-report" class="lesson-step" hidden>
-      <h3 id="merge-heading"></h3>
-      <pre id="merge-evidence"></pre>
-      <p id="merge-lesson"></p>
-      <small class="hint" data-en="Recorded with Node 24.18.0 and npm 11.16.0.">Записано на Node 24.18.0 и npm 11.16.0.</small>
-      <a id="css-proof" hidden href="https://github.com/levencode-labs/deploom-playground/tree/main/tests/fixtures/webpack-css" data-en="Reproduce the build">Воспроизвести сборку</a>
-    </div>
-    <section id="core-plan" class="plan-record" hidden></section>
-    <a id="webpack-planner" href="plan.html" hidden data-en="Check this webpack revision in the planner">Проверить эту ревизию webpack в планировщике</a>
-  </div>
+  <p><a href="examples.html" data-en="Explore upgrade examples">Разобрать примеры обновлений</a></p>
 </section>
-<section class="links-section" aria-labelledby="checks"><h2 id="checks" data-en="Where did you first see the failure?">На каком этапе заметили поломку?</h2>
-<h3 data-en="During installation or on CI">При установке или в CI</h3><div class="grid">
-<a class="link-card" href="peers.html"><strong data-en="npm rejects a React DOM upgrade">npm отказывается ставить новый React DOM</strong><span data-en="Read the line in ERESOLVE that names the conflicting package.">Найдите в ERESOLVE строку с требованием к React.</span></a>
-<a class="link-card" href="ci.html"><strong data-en="Rollup works on a Mac. What will Linux CI load?">Rollup работает на Mac. Что загрузит Linux CI?</strong><span data-en="Compare the platform packages in two lockfiles for the same Rollup release.">Сравните платформенные пакеты в двух lock-файлах для одной версии Rollup.</span></a></div>
-<h3 data-en="When the application or build tool runs">При запуске приложения или инструмента сборки</h3><div class="grid">
-<a class="link-card" href="override.html"><strong data-en="An SVG selector breaks after an override">После override ломается CSS-селектор в SVG</strong><span data-en="The install passed. Predict what the parent package gets when it asks for the second rectangle.">Установка прошла. Что получит родительский пакет, когда попросит второй прямоугольник?</span></a></div>
-<h3 data-en="When someone uses the interface">Когда человек пользуется интерфейсом</h3><div class="grid">
-<a class="link-card" href="runtime.html"><strong data-en="The status renders, but its hint is gone">Статус на месте, а подсказка пропала</strong><span data-en="A case from the article. Hover the status, then try the same action with the keyboard.">Случай из статьи. Наведите мышь на статус, затем попробуйте открыть подсказку с клавиатуры.</span></a></div></section>
-<section class="links-section tools"><h2 data-en="Try it on your own project">Попробовать на своём проекте</h2><div class="grid">
-<a class="link-card" href="audit.html"><strong data-en="Dependency audit">Аудит зависимостей</strong><span data-en="Use your manifest and lockfile to find outdated direct dependencies and copies with known advisories.">Узнайте по своим файлам, какая доля прямых библиотек отстаёт больше чем на год и где установлены версии с известными уязвимостями.</span></a>
-<a class="link-card" href="plan.html"><strong data-en="Upgrade plan">План обновления</strong><span data-en="Aim for Yellow or Green, or set a target for one package. Check the known requirements of its neighbours.">Выберите Yellow, Green или цель для отдельного пакета. Проверьте известные требования соседних библиотек.</span></a>
-<a class="link-card" href="compare.html"><strong data-en="Compare lockfiles">Сравнить lock-файлы</strong><span data-en="Trace a changed installation path to the package that brought it in.">Найдите изменившийся путь и пакет, который его привёл.</span></a>
-</div></section>
   </main>
   <script src="nav.js"></script>
-  <script src="vendor/semver.js"></script>
-  <script src="webpack-data.js"></script>
-  <script src="combinations.js"></script>
 </body>
 </html>

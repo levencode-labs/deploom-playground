@@ -28,17 +28,14 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="Compare two lockfiles">Сравнить два lock-файла</h1>
-    <p data-en="What changed after the update? Compare two npm v3 locks by install path, or two Yarn locks by the requested package and range.">Что изменилось после обновления? Сравните две ревизии одного lock-файла. У npm v3 видны пути установленных копий, у Yarn Classic и Berry — запросы пакетов и выбранные для них версии.</p>
-    <section class="panel">
-      <h2 data-en="Lockfiles">Lock-файлы</h2>
+    <h1 id="compare-title" data-en="Compare two lockfiles">Сравнить два lock-файла</h1>
+    <section class="panel" aria-labelledby="compare-title">
       <div class="compare-files">
         <label><span data-en="Before the update">До обновления</span><input id="before" type="file" accept=".json,.lock"><small class="hint" id="before-source"></small></label>
         <label><span data-en="After the update">После обновления</span><input id="after" type="file" accept=".json,.lock"><small class="hint" id="after-source"></small></label>
       </div>
-      <p class="hint" data-en="Drop the before and after files onto their respective fields (up to 20 MiB each). The browser reads them on this device and switches from the example to your own pair.">Перетащите старый и новый файлы в соответствующие поля. Лимит — 20 МиБ на файл. Браузер читает их на вашем устройстве и переключается с примера на вашу пару.</p>
-      <button class="button" type="button" id="example" data-en="Compare the css-select override">Сравнить версии с override для css-select</button>
-      <a href="compare.html?example=root-range" data-en="Try a change to the root range alone">Пример с правкой только корневого диапазона</a>
+      <p class="hint" data-en="Compare two npm lockfiles (v1–v3), two Yarn Classic lockfiles or two Yarn Berry lockfiles. Up to 20 MiB each.">Выберите два lock-файла npm (v1–v3), два Yarn Classic или два Yarn Berry. До 20 МиБ на файл.</p>
+      <button class="button" type="button" id="compare-run" disabled data-en="Compare">Сравнить</button>
     </section>
     <p id="message" role="status" aria-live="polite"></p>
     <section class="panel" id="report" hidden>

@@ -23,18 +23,25 @@
     parent.append(element('dt',label),element('dd',value));
   }
 
-  function card(item, affected, project, mode) {
+  function card(item, affected, project, mode, grouped=false) {
     const li = element('li'), details = element('details'), header = element('summary');
     const label = element('span','','finding-label');
-    const title = item.summary && item.summary !== item.id ? item.summary
-      : t('Уязвимость в пакете ','Advisory for ') + affected[0].name;
+    // A compact hosted snapshot may omit titles. These pinned first-party examples also
+    // supply a few known OSV titles offline; unrecognized IDs keep an explicit fallback.
+    const captured=window.LabAuditCapture?.details?.[item.id] || window.LabVitestCapture?.details?.[item.id];
+    const availableTitle=[item.summary,captured?.summary].find(value=>typeof value==='string' && value.trim() && value!==item.id && !/^(?:GHSA|CVE)-[a-z0-9-]+$/i.test(value.trim()));
+    const fullTitle=availableTitle || t('Уязвимость в пакете ','Advisory for ')+affected[0].name;
+    let title=fullTitle;
+    if(grouped && affected.every(row=>row.name===affected[0].name) && title.toLowerCase().startsWith(affected[0].name.toLowerCase()+': ')) {
+      title=title.slice(affected[0].name.length+2);
+    }
     label.append(LabSeverity.badge({...item,score:null}),element('strong',title));
     const description = element('span','','finding-info');
-    const keys = affected.slice(0,2).map(row=>row.key);
-    if (affected.length>keys.length) keys.push('+' + (affected.length-keys.length));
-    description.append(element('span',keys.join(' · ')));
-    const locations=affected.reduce((sum,row)=>sum+row.paths.length,0);
-    description.append(element('span',t('Записей в lock-файле: ','Lockfile entries: ')+locations));
+    if(!grouped && project) {
+      const keys=affected.slice(0,2).map(row=>row.key);
+      if(affected.length>keys.length)keys.push('+'+(affected.length-keys.length));
+      description.append(element('span',keys.join(' · ')));
+    }
     const source = item.source || (mode==='registry'?'npm registry':'OSV');
     const published = timestamp(item.published);
     if (published) {
@@ -61,7 +68,7 @@
       }
       if (Number.isFinite(item.score)) metadataLine(meta,'CVSS',item.score.toFixed(1));
       body.append(meta);
-      if (!item.summary || item.summary===item.id) {
+      if (!availableTitle) {
         body.append(element('p',t('В загруженных данных нет названия этой записи.',
           'The loaded data has no title for this finding.'),'hint'));
       }
@@ -69,6 +76,7 @@
         const link=element('a',t('Открыть запись источника','Open source advisory'));
         link.href=item.href; body.append(link);
       }
+      if(!project){details.append(body);return;}
       body.append(element('h4',t('Откуда в проекте этот пакет','How the package entered the project')));
       for (const row of affected) {
         const section=element('section','','finding-package');
