@@ -90,6 +90,10 @@ window.LabAuditCapture = {
     "GHSA-rp65-9cf3-cjxr": {
       "id": "GHSA-rp65-9cf3-cjxr",
       "summary": "Inefficient Regular Expression Complexity in nth-check",
+      "source": "OSV",
+      "published": "2021-09-20T20:47:31Z",
+      "modified": "2026-09-10T03:49:08.829841257Z",
+      "aliases": ["CVE-2021-3803"],
       "href": "https://osv.dev/vulnerability/GHSA-rp65-9cf3-cjxr",
       "level": "High",
       "score": 7.5
