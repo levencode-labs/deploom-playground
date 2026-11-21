@@ -1,0 +1,89 @@
+name: Mirror the published playground
+
+on:
+  push:
+    branches: ['release/sites-*']
+    paths: ['.github/sites-release.sha256']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    if: startsWith(github.ref, 'refs/heads/release/sites-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the public release and update the review branch
+        shell: python
+        run: |
+          import concurrent.futures
+          import hashlib
+          from pathlib import Path
+          import os
+          import re
+          import subprocess
+          import tempfile
+
+          origin = 'https://deploom-migration-lab.beamyhorse.chatgpt.site/'
+          catalog = 'site-files.sha256'
+          release = Path('.github/sites-release.sha256').read_text().strip()
+          if not re.fullmatch(r'[0-9a-f]{64}', release):
+              raise ValueError('Expected a SHA-256 release digest')
+
+          def get(path):
+              return subprocess.check_output(['curl', '--fail', '--silent', '--show-error', '--location',
+                  '--proto', '=https', '--proto-redir', '=https', '--retry', '2', '--max-time', '90', origin + path])
+
+          manifest = get(catalog)
+          if hashlib.sha256(manifest).hexdigest() != release:
+              raise ValueError('Published manifest differs from the reviewed release')
+          files = {}
+          for line in manifest.decode('ascii').splitlines():
+              match = re.fullmatch(r'([a-f0-9]{64})  ([A-Za-z0-9_][A-Za-z0-9._-]*(?:/[A-Za-z0-9_][A-Za-z0-9._-]*)*)', line)
+              if not match or match[2] in files or match[2] == catalog:
+                  raise ValueError('Invalid or duplicate public asset path')
+              files[match[2]] = match[1]
+          if not {'index.html', 'tree.html', 'plan.html', 'audit.html'} <= files.keys():
+              raise ValueError('Incomplete playground release')
+
+          docs = Path('docs')
+          if docs.is_symlink() or any(p.is_symlink() for p in docs.rglob('*')):
+              raise ValueError('Expected a static directory without symbolic links')
+          with tempfile.TemporaryDirectory() as directory:
+              staging = Path(directory)
+              def fetch_file(name):
+                  destination = staging / name
+                  original = docs / name
+                  data = original.read_bytes() if original.is_file() else b''
+                  if hashlib.sha256(data).hexdigest() != files[name]:
+                      data = get(name)
+                  if hashlib.sha256(data).hexdigest() != files[name]:
+                      raise ValueError(f'Content mismatch for {name}')
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(data)
+              with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                  list(pool.map(fetch_file, files))
+              for name in files:
+                  target = docs / name
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes((staging / name).read_bytes())
+          (docs / catalog).write_bytes(manifest)
+          (docs / '.nojekyll').touch()
+          # Preserve supplemental repository files. Retire only assets from a previous managed release.
+          previous = subprocess.run(['git', 'show', f'HEAD:docs/{catalog}'], capture_output=True, text=True)
+          if previous.returncode == 0:
+              for line in previous.stdout.splitlines():
+                  entry = re.fullmatch(r'[a-f0-9]{64}  ([A-Za-z0-9_][A-Za-z0-9._-]*(?:/[A-Za-z0-9_][A-Za-z0-9._-]*)*)', line)
+                  if entry and entry[1] not in files:
+                      (docs / entry[1]).unlink(missing_ok=True)
+          subprocess.run(['git', 'add', '--', 'docs'], check=True)
+          if subprocess.run(['git', 'diff', '--cached', '--quiet']).returncode:
+              subprocess.run(['git', '-c', 'user.name=github-actions[bot]', '-c',
+                  'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+                  'commit', '-m', f'Mirror verified playground release {release[:12]}'], check=True)
+              subprocess.run(['git', 'push', 'origin', 'HEAD:' + os.environ['GITHUB_REF']], check=True)
