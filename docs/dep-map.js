@@ -118,6 +118,7 @@
   function describe(node) { return node.name+(node.version?' · '+node.version:''); }
   function locationOf(node) {
     if (node.key==='') return t('Корень проекта','Project root');
+    if (!data.hasLock) return t('Требование без подтверждённой установки', 'Declared requirement; installation unconfirmed');
     if (node.key.startsWith('[')) return t('Требование без зафиксированной версии','Requirement with no locked version');
     return node.key;
   }
@@ -191,10 +192,20 @@
     const value=$('map-depth').value;
     const depth=value==='all'?Infinity:Number(value);
     const levels=DepMapModel.neighborhood(data,anchor,reverse,depth);
+    viewport.hidden=!levels.size;
     if (!levels.size){
-      $('network-info').replaceChildren();
-      $('map-limit').textContent=t('Добавьте package.json, чтобы определить прямые зависимости проекта.','Add package.json to identify the project\'s direct dependencies.');
-      $('map-more').hidden=true;return;
+      const info=$('network-info');info.replaceChildren();
+      const copies=data.copyKeys, shown=copies.slice(0,budget);
+      $('map-limit').textContent=t('Копий в lock-файле: ','Lockfile copies: ')+copies.length+'. '+
+        t('Выберите копию, чтобы увидеть её связи. Для прямых зависимостей добавьте package.json.','Choose a copy to inspect its edges. Add package.json to identify direct dependencies.');
+      $('map-more').hidden=shown.length>=copies.length;
+      const list=html('ul','');list.className='map-copies';
+      for (const key of shown) {
+        const item=html('li',''),node=data.nodes.get(key),button=html('button',describe(node));
+        button.type='button';button.onclick=()=>focusOn(key);
+        item.append(button,html('code',key));list.append(item);
+      }
+      info.append(list);return;
     }
     const layout=DepMapModel.layout(levels,budget,vertical);
     positions=layout.positions; bounds=layout.bounds;
@@ -231,11 +242,11 @@
   function render(next, commands, hasManifest) {
     panel.hidden=!next;
     if (!next) {data=null;anchor=null;chooser.setItems([]);chooser.setValue('');svg.replaceChildren();return;}
-    const keep=data && data.rootKey===next.rootKey && next.nodes.has(anchor);
+    const starts=DepMapModel.startingNodes(next,hasManifest);
+    const keep=data && data.rootKey===next.rootKey && data.nodes.get(data.rootKey)?.name===next.nodes.get(next.rootKey)?.name && starts.some(node=>node.key===anchor);
     data=next;commandFor=commands;
     if (!keep) {anchor=next.rootKey;selected=anchor;budget=pageSize;}
-    const starts=DepMapModel.startingNodes(data,hasManifest);
-    chooser.setItems(starts.map(node=>({key:node.key,value:displayStart(node),label:node.key===data.rootKey?t('Корень проекта','Project root'):node.name,detail:node.key===data.rootKey?node.name:node.version})));
+    chooser.setItems(starts.map(node=>({key:node.key,value:displayStart(node),label:node.key===data.rootKey?t('Корень проекта','Project root'):node.name,detail:node.key===data.rootKey?node.name:!hasManifest ? node.version+' · '+node.key : node.version})));
     start.disabled=!starts.length;
     chooser.setValue(data.nodes.has(anchor) ? displayStart(data.nodes.get(anchor)) : '');
     draw();
