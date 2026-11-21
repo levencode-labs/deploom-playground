@@ -1,14 +1,22 @@
 'use strict';
 
+function readLegacyLock(lock) {
+  if (lock?.lockfileVersion!==1) return lock;
+  const graph=globalThis.LabLockGraph || (typeof require==='function' && require('./lock-graph'));
+  return graph.npmLock(lock);
+}
+
 function comparePackageLocks(before, after) {
+  before=readLegacyLock(before);
+  after=readLegacyLock(after);
   function object(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
   }
   function valid(lock) {
-    return object(lock) && (lock.lockfileVersion === 3 || globalThis.LabYarn?.format(lock.packages)) && object(lock.packages)
+    return object(lock) && ([1,2,3].includes(lock.lockfileVersion) || globalThis.LabYarn?.format(lock.packages)) && object(lock.packages)
       && Object.hasOwn(lock.packages, '') && Object.values(lock.packages).every(object);
   }
-  if (!valid(before) || !valid(after)) throw new TypeError('INVALID_ROOT_LOCK_V3');
+  if (!valid(before) || !valid(after)) throw new TypeError('INVALID_ROOT_LOCK');
 
   function equal(a, b) {
     if (a === b) return true;
@@ -20,6 +28,8 @@ function comparePackageLocks(before, after) {
       Object.hasOwn(b, key) && equal(a[key], b[key]));
   }
 
+  // Legacy records omit most package metadata. Across generations, compare installation paths and versions.
+  const crossGeneration = (before.lockfileVersion===1) !== (after.lockfileVersion===1);
   const changes = [];
   const paths = new Set([...Object.keys(before.packages), ...Object.keys(after.packages)]);
   paths.delete('');
@@ -30,8 +40,8 @@ function comparePackageLocks(before, after) {
       changes.push({path, type: oldRecord ? 'removed' : 'added', fields: []});
       continue;
     }
-    const fields = [...new Set([...Object.keys(oldRecord), ...Object.keys(newRecord)])]
-      .filter(key => !Object.hasOwn(oldRecord, key) || !Object.hasOwn(newRecord, key)
+    const fields = (crossGeneration ? ['version'] : [...new Set([...Object.keys(oldRecord), ...Object.keys(newRecord)])])
+      .filter(key => Object.hasOwn(oldRecord, key) !== Object.hasOwn(newRecord, key)
         || !equal(oldRecord[key], newRecord[key])).sort();
     if (fields.length) changes.push({path, type:'changed', fields});
   }
@@ -39,7 +49,7 @@ function comparePackageLocks(before, after) {
 }
 
 function compareRootRequirements(before, after) {
-  if (globalThis.LabYarn?.format(before.packages)) return [];
+  if (before.lockfileVersion===1 || after.lockfileVersion===1 || globalThis.LabYarn?.format(before.packages)) return [];
   const rows = [];
   for (const section of ['dependencies','devDependencies','optionalDependencies','peerDependencies']) {
     const a=before.packages[''][section] || {}, b=after.packages[''][section] || {};
