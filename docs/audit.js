@@ -4,13 +4,12 @@
   const $=id=>document.getElementById(id);
   const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
   let generation=0, project, active, report, shown=40;
-  let findings=new Map(), allowed=new Set();
+  let findings=new Map(), picker;
   let findingRows = new Map(), findingLimit = 30;
-  const group=name=>name.startsWith('@')?name.split('/')[0]:t('Без префикса @','Unscoped names');
   const registryMode = () => LabRegistry.hostedAudit ? 'snapshot' : LabRegistry.base() === LabRegistry.defaultBase ? 'osv' : 'registry';
   const unavailable = e => e?.name==='TypeError' || e?.name==='TimeoutError' || [401,403,429,502,503,504].includes(e?.status);
   function eligible(row) {
-    return !row.localOnly && (registryMode()!=='osv' || row.publicOrigin || allowed.has(group(row.name)));
+    return !row.localOnly && picker?.has(row.key);
   }
   function rowsForRun() {return project.rows.filter(eligible);}
   function resetResults() {
@@ -23,19 +22,19 @@
     $('audit-status').textContent='';$('report-progress').hidden=true;$('stop-audit').hidden=true;
   }
   function configure() {
-    resetResults();allowed.clear();if(!project)return;
-    const options=$('scope-options');options.replaceChildren();
-    const unknown=project.rows.filter(r=>!r.localOnly && !r.publicOrigin);
-    const groups=[...new Set(unknown.map(r=>group(r.name)))].sort();
-    $('scope-box').hidden=registryMode()!=='osv' || !groups.length;
-    $('scope-box').open=registryMode()==='osv' && groups.length>0 && !project.rows.some(r=>r.publicOrigin);
-    $('scope-title').textContent=t('Пакеты с зеркала или без публичного адреса','Packages from mirrors or without a public URL')+' · '+unknown.length;
-    $('scope-hint').textContent=t('Отметьте группы, для которых можно отправить имена в публичный npm и OSV.','Select groups whose names may be sent to public npm and OSV.');
-    for(const key of groups) {
-      const label=el('label',''),input=document.createElement('input');input.type='checkbox';
-      input.onchange=()=>{resetResults();if(input.checked)allowed.add(key);else allowed.delete(key);render();};
-      label.append(input,' '+key);options.append(label);
-    }
+    resetResults();picker=null;if(!project)return;
+    const mode=registryMode(), options=$('scope-options');
+    const destinations=mode==='osv' ? LabRegistry.defaultBase+t(' и ',' and ')+'https://api.osv.dev/'
+      : mode==='registry' ? LabRegistry.base() : null;
+    const items=project.rows.filter(row=>!row.localOnly).map(row=>({
+      key:row.key,label:row.key,publicOrigin:row.publicOrigin,selected:mode==='snapshot' || row.publicOrigin,
+    }));
+    options.hidden=project.excerpt || !items.length;
+    picker=LabPackagePicker.mount(options,{
+      items,publicDestination:destinations,exactReleases:true,
+      onChange:()=>{if(picker){resetResults();render();}},
+    });
+    options.querySelector('details').open=!!destinations && !!items.length && !items.some(item=>item.selected);
     render();
   }
   function renderVersions() {
@@ -97,13 +96,14 @@
       ?t('Страница скачает снимок публичной базы OSV и каталог выпусков с этого сайта. Имена пакетов, версии и пути останутся в браузере.','This page downloads the public OSV snapshot and release catalog from this site. Names, versions and paths stay in your browser.')
       :mode==='registry'
       ?t('По кнопке имена и версии будут отправлены только в ','On click, names and versions go only to ')+address+t(' за датами и в его npm Bulk Advisory API.',' for release dates and its npm Bulk Advisory API.')
-      :t('По кнопке npm получит имена для проверки версий, OSV — публичные имена и версии. Пути останутся в браузере.','On click, npm receives names for release lookups and OSV receives public names and versions. Paths stay in your browser.');
+      :t('После запуска https://registry.npmjs.org/ получит имена выбранных прямых зависимостей для проверки дат. В https://api.osv.dev/ уйдут выбранные имена и версии для проверки уязвимостей. Пути останутся в браузере.',
+         'On run, https://registry.npmjs.org/ receives selected direct dependency names for release dates. https://api.osv.dev/ receives selected names and versions for advisory checks. Paths stay in your browser.');
     $('send-summary').textContent+=' '+t('Выбрано пар «пакет + версия» ','Selected package/version pairs ')+selected.length+' / '+rows.length+
       t(' · вне выбора ',' · outside selection ')+(rows.length-selected.length)+'.';
     $('audit-actions').hidden=project.excerpt;
     $('send-summary').hidden=project.excerpt;
-    $('run-audit').disabled=project.excerpt || !!active || !selected.length;
-    for(const input of $('scope-options').querySelectorAll('input'))input.disabled=!!active;
+    $('run-audit').disabled=project.excerpt || !!active || !picker?.ready();
+    $('scope-options').inert=!!active;
     $('result-details').hidden=!report;
     if(!report)return;
     findingRows=byId;
@@ -147,11 +147,11 @@
     }catch(e){if(gen===generation)$('parse-status').textContent=e.message==='size'?t('Ограничение — 8 МиБ и 30 000 записей в одном файле.','Limit: 8 MiB and 30,000 entries per file.'):t('Проверьте формат: package.json и npm lock v3, Yarn Classic или Berry.','Check the format: package.json and an npm v3, Yarn Classic or Berry lockfile.');}
   }
   async function run() {
-    if(active || !project || $('run-audit').disabled)return;
+    if(active || !project || !picker?.ready() || $('run-audit').disabled)return;
     resetResults();
-    const mode=registryMode(), rows=rowsForRun(), eligibleKeys=new Set(rows.map(r=>r.key));
+    const mode=registryMode(), rows=rowsForRun(), selectedPaths=new Set(rows.flatMap(r=>r.paths));
     const ctrl=new AbortController(),signal=ctrl.signal;active=ctrl;report=true;
-    const direct=project.direct.filter(d=>eligibleKeys.has(d.name+'@'+d.version));
+    const direct=project.direct.filter(d=>selectedPaths.has(d.path) && picker.has(d.name+'@'+d.version));
     const chunks=[];for(let i=0;i<rows.length;i+=LabAudit.limit)chunks.push(rows.slice(i,i+LabAudit.limit));
     const progress=$('report-progress');progress.max=rows.length+direct.length;progress.value=0;progress.hidden=false;
     $('stop-audit').hidden=false;render();
