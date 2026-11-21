@@ -1,0 +1,10 @@
+#build-mr{scroll-margin-top:1rem}
+#mr-neighbors{display:flex;flex-wrap:wrap;gap:.65rem 1rem;margin:1.2rem 0}
+#mr-neighbors label{display:grid;gap:.25rem;font-weight:650}
+#mr-neighbors select{min-height:2.6rem;padding:.3rem .6rem;border:1px solid #8198b3;border-radius:.35rem;background:#fff;color:inherit;font:inherit}
+#mr-feedback ul{list-style:none;padding:0;margin:.65rem 0}
+#mr-feedback li{overflow-wrap:anywhere;margin:.28rem 0}
+#mr-feedback code{padding:0;background:transparent;color:inherit}
+#mr-feedback .mr-blocker{color:#953014;font-weight:600}
+#mr-feedback p{margin-bottom:.3rem}
+#mr-feedback[data-status=ready]{border-inline-start:.3rem solid #276749}
