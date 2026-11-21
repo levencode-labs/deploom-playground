@@ -7,13 +7,25 @@
   <title>Аудит проекта · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
   <link rel="stylesheet" href="report.css">
+  <link rel="stylesheet" href="finding-paths.css">
+  <link rel="stylesheet" href="package-picker.css">
 </head>
 <body>
   <header data-nav></header>
   <main>
     <h1 data-en="Project dependency audit">Аудит зависимостей проекта</h1>
     <p data-en="See which direct dependencies are over a year behind and which installed copies have known advisories.">Какие прямые зависимости отстают больше чем на год? Где в lock-файле остались версии с известными уязвимостями?</p>
-    <p><button type="button" id="sample" data-en="Try the css-select example">Попробовать на примере css-select</button></p>
+    <div class="finding-tools">
+      <label for="sample-choice"><span data-en="Public example">Публичный пример</span>
+        <select id="sample-choice"><option value="selector">css-select → nth-check</option><option value="vitest">Vitest → Tinypool</option></select>
+      </label>
+      <button type="button" id="sample" data-en="Open example">Открыть пример</button>
+    </div>
+    <div id="vitest-context" class="hint" hidden>
+      <p data-en="The reconstructed package.json and lockfile show one branch of a test project. The project declares Vitest as a dev dependency. Vitest 3.2.6 requests tinypool ^1.1.1, and the reconstructed lockfile selects 1.1.1. Only the two recorded Tinypool advisories are included.">Учебные package.json и lock-файл воспроизводят одну ветку тестового проекта. В проекте Vitest подключён как dev-зависимость. Vitest 3.2.6 запрашивает tinypool ^1.1.1, а в сокращённом lock-файле выбрана версия 1.1.1. В примере разобраны две записи OSV для Tinypool.</p>
+      <p data-en="Open a finding to see which dependency brought in Tinypool. OSV lists a fix in 2.1.1 for the worker options issue and in 2.1.2 for the run() issue. The ^1.1.1 range excludes both fixes.">Раскройте карточку, чтобы увидеть, через какую зависимость установлен Tinypool. По данным OSV, проблему в параметрах воркера исправили в 2.1.1, а в параметрах run() — в 2.1.2. Обе версии выходят за диапазон ^1.1.1.</p>
+      <a href="https://registry.npmjs.org/vitest/3.2.6" data-en="Published Vitest 3.2.6 manifest on npm">Манифест Vitest 3.2.6 в npm</a>
+    </div>
     <p id="parse-status" role="status"></p>
     <section class="panel" id="inventory" hidden>
       <h2 data-en="Project report">Отчёт по проекту</h2>
@@ -22,13 +34,22 @@
         <div><span data-en="Known advisories">Известные уязвимости</span><strong id="vuln-count"></strong><small id="security-coverage"></small></div>
       </div>
       <p class="hint" id="report-source"></p>
-      <details id="scope-box"><summary id="scope-title"></summary><p class="hint" id="scope-hint"></p><div id="scope-options" class="project-scopes"></div></details>
+      <div id="scope-options"></div>
       <p id="send-summary" class="hint"></p>
-      <div class="audit-actions"><button class="button" type="button" id="run-audit" data-en="Run project audit">Проверить проект</button>
+      <div class="audit-actions" id="audit-actions"><button class="button" type="button" id="run-audit" data-en="Run project audit">Проверить проект</button>
         <button type="button" id="stop-audit" hidden data-en="Stop">Остановить</button></div>
       <progress id="report-progress" hidden></progress><p id="audit-status" role="status"></p>
       <div id="result-details" hidden>
-        <h3 data-en="What needs attention">Что требует внимания</h3><ul id="findings" class="report-list"></ul>
+        <h3 data-en="What needs attention">Что требует внимания</h3>
+        <div id="finding-tools" class="finding-tools" hidden>
+          <label><span data-en="Search findings">Найти в отчёте</span><input id="finding-filter" type="search" placeholder="Пакет, название, CVE, GHSA" data-en-placeholder="Package, title, CVE, GHSA"></label>
+          <label><span data-en="Severity">Серьёзность</span><select id="finding-level">
+            <option value="" data-en="All levels">Все уровни</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>None</option>
+            <option value="Unknown" data-en="Unrated">Нет оценки</option>
+          </select></label>
+        </div>
+        <ul id="findings" class="report-list"></ul>
+        <button id="more-findings" type="button" hidden data-en="Show more findings">Показать ещё находки</button>
         <details id="age-details"><summary id="age-heading"></summary><ul id="age-rows" class="report-list"></ul></details>
         <details id="unknown-details"><summary id="unknown-heading"></summary><ul id="unknown-rows" class="report-list"></ul></details>
       </div>
@@ -47,7 +68,8 @@
 <script src="yarn-lock.js"></script>
   <script src="registry.js"></script><script src="severity.js"></script><script src="criterion.js"></script>
   <script src="audit-model.js"></script><script src="hosted-audit.js"></script>
+  <script src="package-picker.js"></script>
   <script src="selector-data.js"></script><script src="review-example.js"></script>
-  <script src="audit-capture.js"></script><script src="audit.js"></script>
+  <script src="audit-capture.js"></script><script src="finding-paths.js"></script><script src="finding-cards.js"></script><script src="audit.js"></script>
 </body>
 </html>

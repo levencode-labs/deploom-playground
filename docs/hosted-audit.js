@@ -10,9 +10,33 @@
   async function load(signal) {
     signal?.throwIfAborted();
     if(cached && cached.published<=now() && now()<cached.expires)return cached;
-    const response=await fetch(url,{method:'GET',mode:'same-origin',credentials:'same-origin',redirect:'error',referrerPolicy:'no-referrer',cache:'no-cache',signal});
+    const options={method:'GET',mode:'same-origin',credentials:'same-origin',redirect:'error',referrerPolicy:'no-referrer',cache:'no-cache',signal};
+    let response=await fetch(url,options);
+    let compressed=false;
+    if(response.status===404) {
+      response=await fetch(url+'.gz',options);
+      compressed=true;
+    }
     if(!response.ok)throw Error('HOSTED_SNAPSHOT');
-    const index=await response.json();
+    let index;
+    if(compressed) {
+      // Static hosts can serve an archive or send Content-Encoding and let the browser unpack it.
+      const blob=await response.blob();
+      const magic=new Uint8Array(await blob.slice(0,2).arrayBuffer());
+      const body=magic[0]===0x1f && magic[1]===0x8b
+        ? blob.stream().pipeThrough(new DecompressionStream('gzip')) : blob.stream();
+      // Decode incrementally; buffering the whole uncompressed byte stream again adds a large peak.
+      const reader=body.getReader(), decoder=new TextDecoder('utf-8',{fatal:true});
+      let json='';
+      while(true) {
+        const {value,done}=await reader.read();
+        if(done)break;
+        json+=decoder.decode(value,{stream:true});
+      }
+      index=JSON.parse(json+decoder.decode());
+    } else {
+      index=await response.json();
+    }
     if(!object(index) || index.schema!==1 || index.source!=='OSV' || index.coverage!=='npm-ecosystem' ||
       index.ecosystem!=='npm' || !seconds(index.published) || !seconds(index.expires) ||
       index.expires<=index.published || index.published>now() || !Number.isSafeInteger(index.rows) ||
@@ -75,6 +99,23 @@
     }
     return unknown || !versions.length && !ranges.length ? null : false;
   }
+  function findingDetails(index, entry) {
+    const catalog = index.advisories;
+    const details = object(catalog) && Object.hasOwn(catalog,entry.id) && object(catalog[entry.id])
+      ? catalog[entry.id] : {};
+    const text = key => typeof details[key] === 'string' ? details[key] : typeof entry[key] === 'string' ? entry[key] : '';
+    const aliases = Array.isArray(details.aliases) ? details.aliases : entry.aliases;
+    return {
+      id: entry.id,
+      source: 'OSV',
+      href: 'https://osv.dev/vulnerability/' + encodeURIComponent(entry.id),
+      summary: text('summary').slice(0,1200),
+      published: text('published'),
+      modified: text('modified'),
+      aliases: Array.isArray(aliases) ? aliases.filter(alias => typeof alias === 'string') : [],
+      ...LabSeverity.rating({severity: entry.severity}),
+    };
+  }
   function check(index,rows,records,signal) {
     if(!known.has(index))throw Error('HOSTED_SNAPSHOT');
     const {t}=Lab;
@@ -94,8 +135,7 @@
         if(result===null){unresolved.add(entry.id);continue;}
         if(!result)continue;
         matched.add(entry.id);
-        const finding={id:entry.id,href:'',summary:typeof entry.summary==='string'?entry.summary.slice(0,1200):'',
-          ...LabSeverity.rating({severity:typeof entry.severity==='string'?entry.severity:''})};
+        const finding=findingDetails(index,entry);
         const prior=records.get(entry.id);
         records.set(entry.id,prior?LabSeverity.sorted([prior,finding])[0]:finding);
       }

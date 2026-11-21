@@ -23,3 +23,15 @@ Open **docs/index.html** locally or serve **docs/** with a static HTTP server. S
 В планировщике доступны цели Yellow и Green и выбор конкретных пакетов. Для доли актуальных прямых зависимостей пороги — 80% и 100% соответственно. Условия безопасности проверяются отдельно. Для фактической проверки обновления нужны новый lock-файл, чистая установка и тесты приложения.
 
 Run the regression suite with `node --test tests/*.test.js`. The [version range tool](https://levencode-labs.github.io/deploom-playground/ranges.html?lang=en) includes saved examples from React DOM for offline use. The embedded npm semver bundle includes its ISC license. Yarn grammar (BSD-2-Clause), js-yaml (MIT), and React/React DOM/scheduler (MIT) licenses are in **docs/vendor/**. The React hint runs locally. Its strict TypeScript source is **examples/hint.tsx** (React 19.0.0, TypeScript 5.8.3).
+
+### Building the hosted OSV snapshot
+
+Hosted deployments that enable snapshot mode serve their snapshot from the same origin as the lab. During deployment use Python 3 to generate a compressed asset from the official complete npm OSV export:
+
+```sh
+python tools/build_hosted_osv.py docs/audit-data/osv-npm-v1.json.gz
+```
+
+The builder derives the snapshot date from the export's HTTP Last-Modified header. Refresh the file within its seven-day lifetime. To rebuild offline, supply `--archive /path/to/npm/all.zip --published 2026-11-21T03:33:18Z` with the saved archive's actual upstream date. Install the generated asset together with the hosted edition. Existing deployments can keep using `osv-npm-v1.json` by generating that filename instead. The client tries the plain file first and falls back to the .gz file on HTTP 404. When switching to .gz, publish the directory without an older plain file. Public GitHub Pages uses the live OSV adapter.
+
+Each OSV ID has one local metadata record for its title, publication and modification timestamps, and aliases. The package index retains the affected versions and ranges. Both come from the same export. Reading or expanding findings sends no package names or advisory IDs to an external service. Older v1 snapshots still support version matching; regenerate them to surface the optional metadata. Unavailable publication dates remain unknown.

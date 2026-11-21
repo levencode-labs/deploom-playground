@@ -33,11 +33,12 @@
     const yarn = window.LabYarn?.format(lock?.packages);
     const data = yarn ? window.LabYarn.inventory(lock) : inventory(lock);
     for (const row of data.rows) {
-      row.publicOrigin = row.paths.some(p => {
+      row.publicPaths = new Set(row.paths.filter(p => {
         const record=lock.packages[p];
         if (!yarn) return LabLockGraph.publicTarball(record,row.name);
         try {return ['https://registry.npmjs.org','https://registry.yarnpkg.com'].includes(new URL(record.resolved).origin) && LabYarn.identity(lock.packages,p)===row.name;} catch {return false;}
-      });
+      }));
+      row.publicOrigin = row.publicPaths.size > 0;
     }
     const rows = new Map(data.rows.map(row => [row.key,row]));
     const skipped = [];
@@ -54,7 +55,7 @@
         (!record.resolved || /^https?:\/\//i.test(record.resolved)) && (!record.resolution || record.resolution === name+'@npm:'+record.version);
       const key = name+'@'+record.version;
       const id = (registryVersion ? '' : 'local:') + key;
-      if (!rows.has(id)) rows.set(id,{id,key,name,version:record.version,paths:[],localOnly:!registryVersion,state:'ready',ids:[]});
+      if (!rows.has(id)) rows.set(id,{id,key,name,version:record.version,paths:[],publicPaths:new Set(),localOnly:!registryVersion,state:'ready',ids:[]});
       rows.get(id).paths.push(item.path);
     }
     return {rows:[...rows.values()].sort((a,b)=>a.key.localeCompare(b.key)),skipped};
@@ -109,6 +110,32 @@
     }
   }
 
+  // Only explicit advisory publication dates qualify. A capture, release, or modification date
+  // can be present even when the upstream source has no publication date.
+  function advisoryDate(raw) {
+    if (typeof raw !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/i.test(raw)) return null;
+    const datePart = raw.slice(0,10);
+    const midnight = Date.parse(datePart + 'T00:00:00Z');
+    if (!Number.isFinite(midnight) || new Date(midnight).toISOString().slice(0,10) !== datePart) return null;
+    const instant = Date.parse(raw);
+    return Number.isFinite(instant) ? new Date(instant).toISOString() : null;
+  }
+
+  function advisoryMetadata(record, source) {
+    const ids = Array.isArray(record.aliases) ? record.aliases : [];
+    const cves = Array.isArray(record.cves) ? record.cves : [];
+    const aliases = [...new Set([...ids,...cves].filter(value =>
+      typeof value === 'string' && /^[a-z0-9][a-z0-9.:_-]{0,159}$/i.test(value) && value !== record.id))];
+    const summary = [record.summary,record.title].find(value => typeof value === 'string' && value.trim());
+    return {
+      source,
+      summary:summary ? summary.trim().slice(0,1200) : '',
+      published:advisoryDate(record.published ?? record.published_at),
+      modified:advisoryDate(record.modified ?? record.updated_at),
+      aliases
+    };
+  }
+
   async function registryAudit(rows,findings,signal) {
     const payload=Object.create(null);
     for(const row of rows) (payload[row.name]??=[]).push(row.version);
@@ -126,7 +153,7 @@
           if(url.origin===new URL(endpoint).origin && !url.username && !url.password) href=url.href;
         } catch {}
         const id=ghsa || String(r.id || r.url);
-        findings.set(id,{id,summary:r.title || '',href,...LabSeverity.rating(r)});
+        findings.set(id,{...advisoryMetadata(r,'npm registry'),id,href,...LabSeverity.rating(r)});
         if(!row.ids.includes(id)) row.ids.push(id);
       }
       row.lookedUp=true;row.state=row.ids.length?'found':'empty';delete row.note;
@@ -142,5 +169,5 @@
     }
     return [...roots.values()];
   }
-  window.LabAudit={inventory,localInventory,check,registryAudit,directVersions,pool,limit,maxBytes};
+  window.LabAudit={advisoryDate,advisoryMetadata,inventory,localInventory,check,registryAudit,directVersions,pool,limit,maxBytes};
 })();
