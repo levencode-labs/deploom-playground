@@ -6,8 +6,9 @@
   const prefix = 'node_modules/';
   const groupNames = ['dependencies','devDependencies','optionalDependencies'];
   function read(manifest, lock, targets) {
+    if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock,manifest);
     const yarn = window.LabYarn?.format(lock?.packages);
-    if (!object(manifest) || (!yarn && lock?.lockfileVersion !== 3) || !object(lock.packages) || !object(lock.packages[''])) throw Error('files');
+    if (!object(manifest) || (!yarn && ![1,2,3].includes(lock?.lockfileVersion)) || !object(lock.packages) || !object(lock.packages[''])) throw Error('files');
     if (!object(targets) || !Object.keys(targets).length || Object.keys(targets).length > 20) throw Error('targets');
     return Object.entries(targets).map(([name, target]) => {
       const groups = groupNames.filter(group => has(manifest[group], name));
@@ -56,6 +57,7 @@
     return {checks,issues,unknown};
   }
   function assess(lock, changes, metadata, local = new Map(), allPeers = false) {
+    if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock);
     const packages = lock.packages;
     const byName = new Map(changes.map(change => [change.name, change]));
     const issues = [], unknown = [], checks = [];
@@ -63,9 +65,14 @@
       const direct = path.startsWith(prefix) ? byName.get(path.slice(prefix.length)) : null;
       const updating = direct && current?.version !== direct.target;
       const key = updating ? direct.name + '@' + direct.target : null;
-      const spec = updating ? local.get(key) || (direct.publicRegistry && metadata.get(key)) : current;
+      // v1 retains ordinary requirements, but omits installed packages' peer declarations.
+      const legacyInstalled = lock.lockfileVersion===1 && path && !updating;
+      const name = current?.name || path.split('node_modules/').at(-1);
+      const exact = name+'@'+current?.version;
+      const spec = updating ? local.get(key) || (direct.publicRegistry && metadata.get(key)) :
+        legacyInstalled ? local.get(exact) || (LabLockGraph.publicTarball(current,name) && metadata.get(exact)) : current;
       if (!object(spec) || spec.link) {
-        if (updating || current?.link) unknown.push(path);
+        if (updating || current?.link || legacyInstalled) unknown.push(path);
         continue;
       }
       if (spec.peerDependencies !== undefined && !object(spec.peerDependencies)) { unknown.push(path); continue; }
