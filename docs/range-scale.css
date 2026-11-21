@@ -11,7 +11,6 @@
 .range-tool .range-controls {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));margin:.95rem 0}
 .range-tool .field {min-width:0}
 .range-tool .field :is(input,select) {max-width:100%;width:100%}
-.range-tool #range-dep {width:min(24rem,100%)}
 .range-tool .range-result pre {white-space:pre-wrap;overflow-wrap:anywhere}
 .range-tool .range-lookup {border-top:1px solid var(--line);padding-top:.85rem}
 .range-tool .range-lookup p {margin:.45rem 0}
@@ -19,3 +18,18 @@
 #range-examples button {max-width:100%;text-align:left;white-space:normal;padding:.45rem .65rem}
 .range-tool details .field {margin-top:.65rem}
 .range-tool [id$="-status"]:empty {display:none}
+
+.range-intervals { margin:1rem 0; padding:.8rem 1rem; border:1px solid var(--line); border-radius:.45rem; background:#f5f8fc }
+.range-intervals figcaption { font-weight:650; margin-bottom:.35rem }
+.interval-expression { display:block; overflow-wrap:anywhere; font-size:1rem }
+.interval-track { height:4px; position:relative; background:#c0cbd8; margin:1.25rem 0 .55rem }
+.interval-band,.interval-bound,.interval-candidate { position:absolute }
+.interval-band { height:100%; background:#167567 }
+.interval-bound { width:10px; height:10px; top:50%; transform:translate(-50%,-50%); border:2px solid #167567; border-radius:50%; background:white }
+.interval-bound.inclusive { background:#167567 }
+.interval-candidate { bottom:9px; transform:translateX(-50%); border-left:5px solid transparent; border-right:5px solid transparent; border-top:7px solid #a33b20 }
+.interval-candidate[data-match=true] { border-top-color:#167567 }
+.interval-labels { display:grid; gap:.3rem; text-align:center; font: .85rem/1.35 Consolas,monospace; overflow-wrap:anywhere }
+.interval-labels small { display:block; font-family:system-ui,sans-serif }
+.range-intervals>small { display:block; margin:.65rem 0 .3rem }
+.range-tool .range-result:empty { display:none }
