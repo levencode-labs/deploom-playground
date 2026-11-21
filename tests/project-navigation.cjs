@@ -9,6 +9,71 @@ const pkg = 'local-project-widget';
 const man = {name:'private-project-marker',dependencies:{[pkg]:'^1.0.0'}};
 const lock = {lockfileVersion:3,packages:{'':man,['node_modules/'+pkg]:{version:'1.2.0'}}};
 
+async function checkNpmFormats(browser,base) {
+  const ctx=await browser.newContext();
+  const page=await ctx.newPage();page.setDefaultTimeout(5000);
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await ctx.route(/^https?:/,route=>new URL(route.request().url()).origin===base ? route.continue() : route.abort());
+  const visit=tool=>page.goto(base+'/lab/'+tool+'.html?lang=en');
+  const text=(id,part)=>page.waitForFunction(([id,part])=>document.getElementById(id).textContent.includes(part),[id,part]);
+  const name='css-select', version='4.3.0';
+  async function choose(id,detail) {
+    const input=page.locator('#'+id);
+    await input.fill(name);
+    await input.click();
+    await page.getByRole('listbox').getByRole('option').filter({hasText:name}).filter({hasText:detail}).click();
+  }
+  const fixture=path.join(__dirname,'fixtures/npm-lock-formats');
+  try {
+    for(const number of [1,2,3]) {
+      await visit('audit');
+      const buffer=await fs.readFile(path.join(fixture,'v'+number+'.json'));
+      const file={name:'package-lock.json',mimeType:'application/json',buffer};
+      await page.locator('#shared-lock').setInputFiles(file);
+      if(number===1) {
+        await text('parse-status','npm v1');
+        await text('parse-status','direct dependencies 0');
+        await page.locator('#shared-manifest').setInputFiles(path.join(fixture,'package.json'));
+      }
+      await text('parse-status','selector-check · npm v'+number+' · direct dependencies 2');
+      await page.locator('#run-audit').click();
+      await text('audit-status','Audit incomplete');
+      await text('security-coverage','0 / 10');
+      await text('age-coverage','0 / 2');
+      await visit('advisories');
+      await text('project-note','selector-check');
+      await choose('package',version);
+      assert.equal(await page.locator('#version').inputValue(),version);
+      await visit('ranges');
+      await text('manifest-status','package.json');
+      await choose('range-pkg',version);
+      assert.equal(await page.locator('[name=v]').inputValue(),version);
+      await text('range-scale',version);
+      await visit('plan');
+      await page.locator('#plan-options').waitFor();
+      await page.locator('#plan-mode').selectOption('manual');
+      await choose('goal-package',version);
+      await page.locator('#goal-version').fill('5.1.0');
+      await page.locator('#make-plan').click();
+      await text('plan-output',name+' '+version+' → 5.1.0');
+      if(number===1)await text('plan-output','v1 omits');
+      await visit('tree');
+      await page.locator('#network-map [role=button]').first().waitFor();
+      await choose('map-start',version);
+      await text('network-info',name);
+      await page.locator('#network-map [role=button]').filter({hasText:'nth-check'}).first().waitFor();
+      await visit('compare');
+      await page.locator('#before').setInputFiles(file);
+      await page.locator('#compare-run').click();
+      await text('empty','Installed copies match');
+      assert.deepEqual(await page.locator('#counts b').allTextContents(),['0','0','0']);
+    }
+    assert.deepEqual(errors,[]);
+    console.log('PASS npm-generated v1/v2/v3 locks across all six tools with offline audit, nested copy and legacy manifest boundaries');
+  } finally {await ctx.close();}
+}
+
 async function run() {
   const server=http.createServer(async(req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname.replace(/^\/lab\//,'/');
@@ -40,6 +105,7 @@ async function run() {
       pkgs['node_modules/'+name]={version:'1.0.0',resolved:'https://registry.npmjs.org/'+name+'/-/'+name+'-1.0.0.tgz'};
     }
     await auditPage.goto(base+'/lab/audit.html?lang=en');
+    await auditPage.locator('#shared-manifest').setInputFiles({name:'package.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({dependencies:deps}))});
     await auditPage.locator('#shared-lock').setInputFiles({name:'package-lock.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({lockfileVersion:3,packages:pkgs}))});
     const runAudit=async()=>{
       await auditPage.locator('#run-audit').click();
@@ -56,6 +122,7 @@ async function run() {
     assert.ok(npmCalls>0 && npmCalls<=4);assert.ok(osvCalls>0 && osvCalls<=3);
     await auditContext.close();
     console.log('PASS DNS outage with 96 versions: advisory checks continue independently, both failed sources stop early');
+    await checkNpmFormats(browser,base);
     for(const [prefix,width] of [['/',1200],['/lab/',360]]) {
       const ctx=await browser.newContext({viewport:{width,height:800},hasTouch:width<400});
       const external=[], errors=[];
@@ -76,6 +143,26 @@ async function run() {
       const filled=(manifest,lock,page=p)=>page.waitForFunction(([m,l])=>
         document.getElementById('shared-manifest-zone')?.dataset.filled===String(m) &&
         document.getElementById('shared-lock-zone')?.dataset.filled===String(l),[manifest,lock]);
+      const selectDirect=async(page,id,detail)=>{
+        const input=page.locator('#'+id);
+        await input.fill('widget');
+        await input.click();
+        const entry=page.getByRole('listbox').getByRole('option').filter({hasText:pkg});
+        await (detail ? entry.filter({hasText:detail}) : entry).click();
+      };
+      const verifyPackage=async(page,version,projectName=man.name)=>{
+        await page.waitForFunction(name=>document.getElementById('project-note').textContent.includes(name)
+          && !document.getElementById('query-button').disabled,projectName);
+        await selectDirect(page,'package',version);
+        assert.equal(await page.locator('#package').inputValue(),pkg);
+        assert.equal(await page.locator('#version').inputValue(),version);
+      };
+      const verifyComparison=async()=>{
+        await p.waitForFunction(()=>document.getElementById('after').files[0]?.name==='package-lock.json');
+        assert.equal(await p.locator('#before').inputValue(),'');
+        assert.ok(await p.locator('#compare-run').isDisabled());
+        assert.equal(await p.locator('#report').isVisible(),false);
+      };
       const drop=async(...files)=>{
         await p.evaluate(specs=>{for(const [slot,name,data,size] of specs) {
           const dt=new DataTransfer();dt.items.add(new File([size?'x'.repeat(size):data],name));
@@ -114,7 +201,7 @@ async function run() {
           return JSON.parse(await row.lock.text()).lockfileVersion===n;
         },[prefix,older.lockfileVersion]);
       }
-      await p.goto(route('advisories'));await ready('project-choice',pkg+'@1.2.0');
+      await p.goto(route('advisories'));await verifyPackage(p,'1.2.0');
       const valid=await stored();
       for(const [slot,name,value,size] of [
         ['manifest','package-lock.json',lock],['manifest','package.json','{broken'],['lock','package-lock.json',{lockfileVersion:2}],
@@ -126,30 +213,57 @@ async function run() {
       }
       assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await p.reload();await filled(true,true);
-      for(const [page,id,part] of [['ranges','range-dep',pkg],['advisories','project-choice',pkg+'@1.2.0'],['audit','parse-status',man.name],['plan','goal-package',pkg],['tree','tree-mode','npm'],['compare','after-source','package-lock.json']]) {
+      for(const page of ['ranges','advisories','audit','plan','tree','compare']) {
         await go(page);await filled(true,true);
-        if(page==='tree') await p.waitForFunction(value=>document.getElementById('tree-manifest').value.includes(value),pkg);
-        else await ready(id,part);
-        if(page==='compare') {assert.equal(await p.locator('#before-source').textContent(),'');assert.equal(await p.locator('#report').isVisible(),false);}
+        if(page==='ranges') {
+          await ready('manifest-status','package.json');
+          await selectDirect(p,'range-pkg',man.dependencies[pkg]);
+          assert.equal(await p.locator('[name=range]').inputValue(),man.dependencies[pkg]);
+          assert.equal(await p.locator('[name=v]').inputValue(),'1.2.0');
+          await ready('range-scale','1.2.0');
+        } else if(page==='advisories') {
+          await verifyPackage(p,'1.2.0');
+        } else if(page==='audit') {
+          await ready('parse-status',man.name);
+          assert.ok(await p.locator('#run-audit').isEnabled());
+          assert.equal(await p.locator('#inventory').isVisible(),false);
+        } else if(page==='plan') {
+          await p.locator('#plan-options').waitFor();
+          await p.locator('#plan-mode').selectOption('manual');
+          await selectDirect(p,'goal-package',man.dependencies[pkg]);
+          await p.locator('#goal-version').fill('1.3.0');
+          await p.locator('#make-plan').click();
+          await ready('plan-output',pkg);
+          await ready('plan-output','1.3.0');
+        } else if(page==='tree') {
+          await p.locator('#network-map [role=button]').first().waitFor();
+          await selectDirect(p,'map-start','1.2.0');
+          await ready('network-info',pkg);
+        } else {
+          await verifyComparison();
+        }
         assert.ok(!p.url().includes(pkg) && !p.url().includes(man.name));
       }
-      await p.locator('a.language').click();await ready('after-source','package-lock.json');assert.equal(await p.locator('html').getAttribute('lang'),'en');
+      await p.locator('a.language').click();await verifyComparison();assert.equal(await p.locator('html').getAttribute('lang'),'en');
       await p.goto(route('compare','en')+'&example=rollup');await ready('after-source','Rollup');await filled(true,true);
-      await p.locator('.project-bar a').click();await ready('after-source','package-lock.json');
+      await p.locator('.project-bar a').click();await verifyComparison();
       const second=await ctx.newPage();await second.goto(route('advisories','en'));
-      await second.locator('#project-choice option').filter({hasText:pkg+'@1.2.0'}).waitFor({state:'attached'});
-      await go('advisories');await ready('project-choice',pkg+'@1.2.0');
+      await verifyPackage(second,'1.2.0');
+      await go('advisories');await verifyPackage(p,'1.2.0');
       const yarn='# yarn lockfile v1\n\n"'+pkg+'@^1.0.0":\n  version "1.4.0"\n';
-      await drop(['lock','yarn.lock',yarn]);await ready('project-choice',pkg+'@1.4.0');
+      await drop(['lock','yarn.lock',yarn]);
+      await p.waitForFunction(()=>document.getElementById('version').value==='');
+      await verifyPackage(p,'1.4.0');
       assert.equal((await stored()).man,valid.man);
       assert.equal(await p.evaluate(()=>window.slotEvents.at(-1)),'lock');
-      await second.locator('#project-choice option').filter({hasText:pkg+'@1.4.0'}).waitFor({state:'attached'});
+      await second.waitForFunction(()=>document.getElementById('version').value==='');
+      await verifyPackage(second,'1.4.0');
       const alternate={...man,name:'another-local-project'};
-      await drop(['manifest','package.json',alternate],['lock','package-lock.json',lock]);await ready('project-note',alternate.name);await ready('project-choice',pkg+'@1.2.0');
+      await drop(['manifest','package.json',alternate],['lock','package-lock.json',lock]);await verifyPackage(p,'1.2.0',alternate.name);
       assert.equal(JSON.parse((await stored()).man).name,alternate.name);
       const otherScope=prefix==='/'?'/lab/':'/';
       await p.goto(base+otherScope+'index.html?lang=en');await filled(false,false);
-      await p.goBack();await filled(true,true);await ready('project-choice',pkg+'@1.2.0');
+      await p.goBack();await filled(true,true);await verifyPackage(p,'1.2.0',alternate.name);
       await p.click('#shared-lock-clear');await filled(true,false);await filled(true,false,second);
       await ready('project-note',alternate.name);assert.equal(JSON.parse((await stored()).man).name,alternate.name);
       await p.click('#shared-manifest-clear');await filled(false,false);await filled(false,false,second);
