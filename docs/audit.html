@@ -22,10 +22,10 @@
     <p data-en="List the exact installed copies locally, then choose which public package versions to check for published advisories.">Сначала соберите локальный список установленных копий. Затем выберите, для каких публичных версий искать известные уязвимости.</p>
     <section class="panel">
       <h2 data-en="Read a lockfile">Прочитать lock-файл</h2>
-      <label class="field"><span data-en="Open package-lock.json v3">Открыть package-lock.json v3</span><input id="audit-file" type="file" accept=".json,application/json"></label>
-      <details><summary data-en="Paste JSON instead">Вставить JSON текстом</summary>
-        <label for="audit-text">package-lock.json</label><textarea id="audit-text" spellcheck="false"></textarea>
-        <button type="button" id="read-text" class="button" data-en="Read pasted JSON">Разобрать текст</button>
+      <label class="field"><span data-en="Open yarn.lock or package-lock.json v3">Открыть yarn.lock или package-lock.json v3</span><input id="audit-file" type="file" accept=".json,.lock"></label>
+      <details><summary data-en="Paste lockfile text">Вставить текст lock-файла</summary>
+        <label for="audit-text">yarn.lock / package-lock.json</label><textarea id="audit-text" spellcheck="false"></textarea>
+        <button type="button" id="read-text" class="button" data-en="Read pasted lockfile">Разобрать текст</button>
       </details>
       <div class="audit-actions"><button type="button" class="button" id="sample" data-en="Load example lockfile">Загрузить учебный lock-файл</button></div>
       <p class="hint" data-en="Parsing happens in your browser. Up to 8 MiB and 30,000 package paths. Loading a file or example makes no network requests.">Разбор идёт в браузере. Лимит — 8 МиБ и 30 000 путей к пакетам. При загрузке файла или примера сетевых запросов нет.</p>
@@ -42,7 +42,7 @@
       </div>
       <ul class="audit-items" id="audit-rows"></ul>
       <button type="button" id="more-rows" hidden data-en="Show more versions">Показать ещё версии</button>
-      <p class="hint" data-en="Eligible paths must point to a public npm tarball. Before querying OSV, the browser confirms each selected release in the public npm registry. It sends only the selected names and versions, never the lockfile or paths.">Для проверки нужен путь к архиву публичного npm. Перед запросом к OSV браузер сверит выбранные версии с публичным реестром npm. Этим сервисам передаются только выбранные названия и версии. Файл и пути остаются в браузере.</p>
+      <p class="hint" data-en="For Yarn Berry, an npm: locator identifies a registry package. Confirm that the selected names are public even if your project uses a private registry. Before querying OSV, the browser confirms each selected release in the public npm registry. It sends only the selected names and versions, never the lockfile or paths.">В Yarn Berry запись npm: указывает тип пакета, а адрес реестра может быть корпоративным. Подтверждайте только действительно публичные имена. Перед запросом к OSV браузер сверит выбранные версии с публичным реестром npm. Этим сервисам передаются только выбранные названия и версии. Файл и пути остаются в браузере.</p>
       <label><input type="checkbox" id="consent"> <span data-en="I confirm the selected names are public.">Подтверждаю, что выбранные названия публичные.</span></label>
       <div class="audit-actions"><button class="button" type="button" id="run-audit" disabled data-en="Check selected versions">Проверить выбранные версии</button><button type="button" id="latest" disabled data-en="Compare with npm latest">Сравнить с npm latest</button><span id="pick-count"></span></div>
       <p class="hint" data-en="Compare with npm latest sends the selected public names to registry.npmjs.org. The latest tag can point to a different major. Review breaking changes before using it as a target.">Кнопка «Сравнить с npm latest» запрашивает выбранные публичные имена в registry.npmjs.org. Тег latest может указывать на другую мажорную ветку. Проверьте изменения API, прежде чем выбирать цель.</p>
@@ -58,6 +58,10 @@
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>
   <script src="lock-graph.js"></script>
+<script src="vendor/yarn-classic.js"></script>
+<script src="vendor/js-yaml.min.js"></script>
+<script src="yarn-lock.js"></script>
+<script src="drop-files.js" defer></script>
   <script src="audit-model.js"></script>
   <script src="audit.js"></script>
 </body>

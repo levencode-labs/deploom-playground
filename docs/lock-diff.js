@@ -5,7 +5,7 @@ function comparePackageLocks(before, after) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
   }
   function valid(lock) {
-    return object(lock) && lock.lockfileVersion === 3 && object(lock.packages)
+    return object(lock) && (lock.lockfileVersion === 3 || globalThis.LabYarn?.format(lock.packages)) && object(lock.packages)
       && Object.hasOwn(lock.packages, '') && Object.values(lock.packages).every(object);
   }
   if (!valid(before) || !valid(after)) throw new TypeError('INVALID_ROOT_LOCK_V3');

@@ -38,8 +38,12 @@
     const record = packages[row.path];
     container.append(el('p',t('Версия — ','Version — ')+version(record)));
     const graph = graphs[side];
-    const chain = LabLockGraph.chain(graph,row.path);
-    if (!chain) {
+    const yarn = LabYarn.format(packages);
+    const chain = yarn ? null : LabLockGraph.chain(graph,row.path);
+    if (yarn) {
+      const owners = graph.get(row.path) || [];
+      container.append(el('p',owners.length ? t('Запрашивают: ','Requested by: ')+owners.slice(0,15).join(', ') : t('Родитель не указан в этом lock-файле. Проверьте манифест проекта или workspace.', 'No requesting entry in this lockfile. Check the project or workspace manifest.')));
+    } else if (!chain) {
       container.append(el('p',graph.clipped
         ? t('Достигнут предел обхода. Цепочка до этой копии не подтверждена.','The traversal limit was reached. No chain to this copy was confirmed.')
         : t('Цепочка от корня не подтверждена. Возможна локальная ссылка или отдельная запись без разрешённого ребра.', 'No chain from the root was confirmed. This may be a local link or an entry with no resolved incoming dependency.')));
@@ -104,7 +108,7 @@
     byId('empty').hidden = visible.length > 0;
     byId('empty').textContent = changes.length
       ? t('По этим условиям записей нет.','No entries match these filters.')
-      : t('Записи установленных копий совпадают.','All installed-copy entries match.');
+      : t('Записи lock-файлов совпадают.','All lockfile entries match.');
     byId('pagination').hidden = filtered.length <= pageSize;
     byId('prev').disabled = start === 0;
     byId('next').disabled = start + pageSize >= filtered.length;
@@ -127,8 +131,22 @@
     try {
       const before = state.before.lock;
       const after = state.after.lock;
+      if (LabYarn.format(before.packages) !== LabYarn.format(after.packages)) {
+        message.textContent=t('Выберите две ревизии одного формата lock-файла.', 'Choose two revisions of the same lockfile format.');
+        return;
+      }
       changes = comparePackageLocks(before,after);
-      graphs = {before:LabLockGraph.build(before.packages), after:LabLockGraph.build(after.packages)};
+      graphs = {};
+      for (const side of sides) {
+        const pkgs=state[side].lock.packages;
+        if (!LabYarn.format(pkgs)) { graphs[side]=LabLockGraph.build(pkgs); continue; }
+        const parents=new Map();
+        for (const [owner,record] of Object.entries(pkgs)) for (const edge of LabLockGraph.declarations(record,false)) {
+          const hit=LabYarn.resolve(pkgs,edge);
+          if (hit) { if (!parents.has(hit.key)) parents.set(hit.key,[]); parents.get(hit.key).push(owner); }
+        }
+        graphs[side]=parents;
+      }
     } catch {
       message.textContent = t('Нужны два корректных корневых package-lock.json версии 3 с разделом packages.', 'Supply two valid root npm v3 lockfiles with a packages section.');
       return;
@@ -176,16 +194,16 @@
     if (!file) return;
     try {
       if (file.size > fileLimit) throw new Error('SIZE');
-      const lock = JSON.parse(await file.text());
+      const lock = LabYarn.read(await file.text());
       if (reads[side] !== generation) return;
-      if (!lock || lock.lockfileVersion !== 3 || !lock.packages || !Object.hasOwn(lock.packages,'')) throw new Error('FORMAT');
+      if (!lock || (!LabYarn.format(lock.packages) && lock.lockfileVersion !== 3) || !lock.packages || !Object.hasOwn(lock.packages,'')) throw new Error('FORMAT');
       state[side] = {lock,name:file.name};
       refresh();
     } catch (error) {
       if (reads[side] !== generation) return;
       sourceErrors[side] = file.name +' — '+ (error.message === 'SIZE'
         ? t('файл превышает 20 МиБ','file exceeds 20 MiB')
-        : t('не удалось прочитать корневой npm lock-файл версии 3','could not read a root npm v3 lockfile'));
+        : t('не удалось прочитать yarn.lock или npm lock-файл v3','could not read a Yarn lock or npm v3 lockfile'));
       refresh();
     }
   }

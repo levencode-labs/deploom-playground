@@ -13,7 +13,7 @@
 <h1 data-en="Upgrade plan">План обновления</h1>
 <p data-en="Choose exact targets for your direct dependencies. Find out which neighbour needs another edit before changing your branch.">Выберите, до каких версий хотите поднять прямые зависимости. Узнайте, какой пакет потребует ещё одной правки, до того как менять ветку.</p>
 <section class="panel plan-input"><h2 data-en="Project and targets">Проект и цель</h2>
-<div class="grid"><label class="field">package.json<input id="manifest-file" type="file" accept=".json,application/json"></label><label class="field">package-lock.json v3<input id="lock-file" type="file" accept=".json,application/json"></label></div>
+<div class="grid"><label class="field">package.json<input id="manifest-file" type="file" accept=".json,application/json"></label><label class="field">yarn.lock / package-lock.json v3<input id="lock-file" type="file" accept=".json,.lock"></label></div>
 <p id="project" class="hint"></p>
 <details><summary data-en="Supply target metadata locally">Добавить требования целевых версий с диска</summary>
 <p class="hint" data-en="Choose the published package.json for each target version, for example from its unpacked tarball. This also works offline for private packages.">Выберите package.json каждой целевой версии, например из распакованного архива пакета. Так можно проверить и внутренние библиотеки без обращения в реестр.</p>
@@ -27,11 +27,15 @@
 <p data-en="Only the names and exact versions below will be sent to registry.npmjs.org. Confirm that these are public packages before looking them up.">В registry.npmjs.org уйдут только перечисленные ниже имена и точные версии. Отметьте действие, если эти пакеты публичны.</p>
 <pre id="send-list"></pre><label><input type="checkbox" id="public-ok"> <span data-en="I confirm these packages are public">Подтверждаю публичность этих пакетов</span></label>
 <button type="button" id="lookup" disabled><span data-en="Look up versions in npm">Запросить версии в npm</span></button><p id="net-status" role="status"></p></section>
-<p data-en="The plan checks peer requirements at their current install paths in a root npm project. After editing, regenerate the lockfile, review the diff, then run npm ci and your application tests." class="hint">План проверяет peer-требования при текущем размещении пакетов в корневом npm-проекте. После правок пересоберите lock-файл, просмотрите diff, запустите npm ci и тесты приложения.</p>
+<p data-en="Review the lockfile diff, run a frozen install with your package manager, then run application tests." class="hint">После правок проверьте diff lock-файла, запустите установку с зафиксированными версиями и тесты приложения.</p>
   </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>
   <script src="lock-graph.js"></script>
+<script src="vendor/yarn-classic.js"></script>
+<script src="vendor/js-yaml.min.js"></script>
+<script src="yarn-lock.js"></script>
+<script src="drop-files.js" defer></script>
   <script src="plan-model.js"></script>
   <script src="plan.js"></script>
 </body>

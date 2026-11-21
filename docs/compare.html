@@ -29,25 +29,25 @@
   <header data-nav></header>
   <main>
     <h1 data-en="Compare two lockfiles">Сравнить два lock-файла</h1>
-    <p data-en="What changed after the update? Compare two root npm package-lock.json files (v3). Each installed copy has its own path. Select one to trace it back to the project.">Что изменилось после обновления? Сравните два корневых npm-файла package-lock.json версии 3. Каждая установленная копия имеет свой путь. Выберите одну, чтобы увидеть, как она связана с проектом.</p>
+    <p data-en="What changed after the update? Compare two npm v3 locks by install path, or two Yarn locks by the requested package and range.">Что изменилось после обновления? Сравните две ревизии одного lock-файла. У npm v3 видны пути установленных копий, у Yarn Classic и Berry — запросы пакетов и выбранные для них версии.</p>
     <section class="panel">
       <h2 data-en="Lockfiles">Lock-файлы</h2>
       <div class="compare-files">
-        <label><span data-en="Before the update">До обновления</span><input id="before" type="file" accept=".json,application/json"><small class="hint" id="before-source"></small></label>
-        <label><span data-en="After the update">После обновления</span><input id="after" type="file" accept=".json,application/json"><small class="hint" id="after-source"></small></label>
+        <label><span data-en="Before the update">До обновления</span><input id="before" type="file" accept=".json,.lock"><small class="hint" id="before-source"></small></label>
+        <label><span data-en="After the update">После обновления</span><input id="after" type="file" accept=".json,.lock"><small class="hint" id="after-source"></small></label>
       </div>
-      <p class="hint" data-en="Choose two files of up to 20 MiB each. The browser reads them on this device and switches from the example to your own pair.">Выберите два файла до 20 МиБ каждый. Браузер читает их на вашем устройстве и переключается с примера на вашу пару.</p>
+      <p class="hint" data-en="Drop the before and after files onto their respective fields (up to 20 MiB each). The browser reads them on this device and switches from the example to your own pair.">Перетащите старый и новый файлы в соответствующие поля. Лимит — 20 МиБ на файл. Браузер читает их на вашем устройстве и переключается с примера на вашу пару.</p>
       <button class="button" type="button" id="example" data-en="Load example pair">Загрузить пару примеров</button>
     </section>
     <p id="message" role="status" aria-live="polite"></p>
     <section class="panel" id="report" hidden>
-      <h2 data-en="Changes by installation path">Изменения по месту установки</h2>
+      <h2 data-en="Lockfile changes">Что изменилось в lock-файле</h2>
       <p id="evidence" class="meta"></p>
       <div id="counts" class="compare-counts"></div>
-      <p class="hint" data-en="Changes include version and metadata edits. Moving a copy creates one removed and one added path. The project root itself is excluded.">Учитываются изменения версий и метаданных. При переносе копии один путь исчезает, другой добавляется. Корень самого проекта в счётчики не входит.</p>
+      <p class="hint" data-en="Changes include versions and metadata. Yarn entries are compared by request; a change of selector removes the old request and adds the new one.">Учитываются версии и метаданные. Для Yarn сравниваются запросы пакетов. Новый диапазон появится в списке добавленных, прежний — в удалённых.</p>
       <div class="compare-filters">
         <label><span data-en="Change type">Тип изменения</span><select id="kind"><option value="" data-en="All">Все</option><option value="added" data-en="Added">Добавлены</option><option value="removed" data-en="Removed">Удалены</option><option value="changed" data-en="Changed">Изменены</option></select></label>
-        <label><span data-en="Find an installation path">Найти путь установки</span><input id="query" type="search"></label>
+        <label><span data-en="Find a path or package request">Найти путь или запрос пакета</span><input id="query" type="search"></label>
       </div>
       <ul id="changes" class="compare-list"></ul>
       <p id="empty" hidden></p>
@@ -56,7 +56,7 @@
       </div>
       <section id="details" aria-label="Детали записи" hidden>
         <h3 class="compare-path"><code id="path"></code></h3>
-        <p class="hint" data-en="Each side shows one resolved path through declared dependencies to this copy. A physical directory path alone cannot tell which dependency requested it.">Для каждой стороны показан один найденный путь по объявленным зависимостям до выбранной копии. По одному только расположению каталога нельзя определить, кто запросил пакет.</p>
+        <p class="hint" data-en="For npm, inspect a chain from the root. For Yarn, inspect the entries requesting this package.">У npm можно проследить цепочку от корня. У Yarn можно увидеть, какие записи ссылаются на выбранный запрос.</p>
         <div class="compare-sides"><section id="old-side" class="compare-side"></section><section id="new-side" class="compare-side"></section></div>
       </section>
     </section>
@@ -64,6 +64,10 @@
   <script src="nav.js"></script>
   <script src="lock-samples.js"></script>
   <script src="lock-graph.js"></script>
+<script src="vendor/yarn-classic.js"></script>
+<script src="vendor/js-yaml.min.js"></script>
+<script src="yarn-lock.js"></script>
+<script src="drop-files.js" defer></script>
   <script src="lock-diff.js"></script>
   <script src="compare.js"></script>
 </body>

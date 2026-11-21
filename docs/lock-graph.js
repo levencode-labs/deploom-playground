@@ -31,6 +31,7 @@
 
   // A peer's provider must be placed beside or above its consumer.
   function lockedPackage(packages, owner, edge) {
+    if (window.LabYarn?.format(packages)) return LabYarn.resolve(packages,edge);
     const dirs = owner ? owner.split('/') : [];
     if (edge.group === 'peerDependencies' && owner) {
       const lastModules = dirs.lastIndexOf('node_modules');

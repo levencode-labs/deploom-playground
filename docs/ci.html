@@ -9,14 +9,15 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="Why did npm ci stop?">Почему остановился npm ci?</h1>
+    <h1 data-en="I changed one package. Why did CI stop before the tests?">Поменял одну зависимость. Почему CI остановился ещё до тестов?</h1>
     <p data-en="A PR updates one dependency range. Will the build still install the same dependency tree? Move between the three revisions to see the exact lines npm compared.">В PR обновили диапазон одной зависимости. Сможет ли сборка установить зафиксированное дерево? Переключите ревизию и посмотрите, какие строки сравнил npm.</p>
-    <fieldset class="choice">
+    <div class="lesson-nav"><button id="ci-next" type="button"></button></div>
+    <details><summary data-en="Jump to a revision">Перейти к конкретной ревизии</summary><fieldset class="choice">
       <legend data-en="PR revision">Ревизия PR</legend>
       <label><input type="radio" name="stage" value="base" checked><span data-en="Before the PR">До PR</span></label>
       <label><input type="radio" name="stage" value="mismatch"><span data-en="Only the manifest changed">Изменён только манифест</span></label>
       <label><input type="radio" name="stage" value="fixed"><span data-en="Both files updated">Обновлены оба файла</span></label>
-    </fieldset>
+    </fieldset></details>
     <div class="lab-work">
       <section class="panel">
         <h2 data-en="Files in this revision">Файлы ревизии</h2>
@@ -33,6 +34,7 @@
       </section>
     </div>
     <section class="panel">
+      <p data-en="DepLoom can plan the version change. This CI failure is about agreement between two files. Regenerate the lock with your project’s package manager, then repeat the frozen install on the merged revision.">DepLoom может предложить версию. Здесь сборка остановилась раньше тестов: в репозитории записаны два разных ответа на вопрос «что ставить?». После применения плана обновите lock-файл и повторите чистую установку на той ревизии, которую собираетесь вливать.</p>
       <h2 data-en="What to check in your own PR">Что проверить в своём PR</h2>
       <p data-en="Run npm install --package-lock-only with your project's npm version and registry settings. Review the lockfile diff, then run npm ci and the project checks with the same settings as CI.">Выполните npm install --package-lock-only с версией npm и настройками реестра вашего проекта. Посмотрите diff lock-файла, затем запустите npm ci и проверки проекта с настройками CI.</p>
       <p class="hint" data-en="Recorded on Node 24.18.0 and npm 11.16.0. The isolated exercise registry offers exactly demo-lib 1.2.3 and 2.0.0. The page displays recorded results and runs offline.">Записано на Node 24.18.0 и npm 11.16.0. В изолированном учебном реестре доступны ровно две версии demo-lib — 1.2.3 и 2.0.0. Страница показывает результаты прогонов и работает без сети.</p>

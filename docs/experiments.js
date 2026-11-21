@@ -8,6 +8,7 @@
   for (const radio of form.querySelectorAll('input[type="radio"]')) {
     if (radio.value === publicState.get(radio.name)) radio.checked = true;
   }
+  if (!peer && (publicState.has('api') || publicState.has('stack'))) el('ssr-case').open=true;
   function show(changed) {
     const data = Object.fromEntries(new FormData(form));
     if (changed) setExampleState(data);

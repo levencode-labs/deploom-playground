@@ -16,23 +16,25 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="Why is the old version still installed?">Почему старая версия всё ещё установлена?</h1>
+    <h1 data-en="I fixed a vulnerable library. Why is the scanner still reporting it?">Библиотеку обновили. Почему сканер по-прежнему её находит?</h1>
     <p data-en="Both ui-kit and build-tool bring in shared-utils 1.2.3. The PR pins the copy under ui-kit to 1.2.4. Inspect each copy to see what the change covers.">И ui-kit, и build-tool устанавливают shared-utils 1.2.3. В PR заменяют версию под ui-kit на 1.2.4. Выберите копию в дереве и проследите, какую ветку затрагивает правка.</p>
-    <fieldset class="choice">
+    <div class="lesson-nav"><button id="override-next" type="button"></button></div>
+    <details><summary data-en="Choose a revision">Выбрать ревизию</summary><fieldset class="choice">
       <legend data-en="Root package.json">Корневой package.json</legend>
       <label><input type="radio" name="scope" value="before" checked><span data-en="Without override">Без overrides</span></label>
       <label><input type="radio" name="scope" value="after"><span data-en="Override under ui-kit">Замена под ui-kit</span></label>
-    </fieldset>
+    </fieldset></details>
     <pre><code id="override-rule"></code></pre>
     <div class="lab-work">
       <section class="panel"><h2 data-en="Before the PR">До PR</h2><ul id="before-tree" class="branches"></ul></section>
       <section class="panel"><h2 data-en="Selected revision">Выбранная ревизия</h2><p class="hint" data-en="Select a copy to see who brought it in.">Нажмите на копию, чтобы увидеть, кто её привёл.</p><ul id="after-tree" class="branches"></ul></section>
     </div>
-    <section class="panel verdict" aria-live="polite" aria-atomic="true">
+    <section class="panel verdict" id="who-brought-it" aria-live="polite" aria-atomic="true">
       <h2 id="parent-title"></h2><p id="parent-reason"></p><pre id="copy-path"></pre>
       <p class="hint" data-en="Source — teaching packages and the recorded nested npm install.">Источник — учебные пакеты и запись установки npm в режиме nested.</p>
     </section>
     <section class="panel">
+      <p data-en="In a security PR, compare the lockfiles first. Audit the remaining exact version and use its parent to decide which branch to upgrade next. A successful change in one branch covers only that branch.">Представьте, что вы уже исправили уязвимость, а сканер опять прислал ту же находку. Сравнение lock-файлов в лаборатории покажет, какая запись поменялась. Аудит и дерево помогут проверить оставшуюся версию и найти родителя для следующего обновления.</p>
       <h2 data-en="Check the path in your project">Как проверить путь у себя</h2>
       <p data-en="Run npm ls shared-utils --all to see all copies. Pass the exact path from your lockfile to npm explain to identify the parent. Tests for one parent do not exercise the other.">Вызовите npm ls shared-utils --all, чтобы увидеть все копии. Передайте точный путь из своего lock-файла в npm explain и посмотрите, какой пакет её установил. У каждого родителя свои проверки.</p>
       <p class="hint" data-en="The fixture uses npm's nested install strategy so both physical paths stay visible. With default hoisting the layout may differ. The version numbers and package names are teaching examples.">В учебном проекте выбран режим установки npm nested, поэтому видны оба физических пути. При стандартном подъёме пакетов пути могут отличаться. Имена и версии здесь учебные.</p>

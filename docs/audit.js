@@ -71,7 +71,7 @@
       }
       if(row.note) item.append(' ('+notes[row.note]+')');
       const details=document.createElement('details');
-      details.append(make('summary',t('Пути в lock-файле','Lockfile paths')+' ('+row.paths.length+')'));
+      details.append(make('summary',t('Записи в lock-файле','Lockfile entries')+' ('+row.paths.length+')'));
       details.addEventListener('toggle',()=>{
         if(!details.open || details.querySelector('ul')) return;
         const paths=document.createElement('ul');
@@ -111,16 +111,18 @@
       }
       if(typeof lock==='string') {
         if(new Blob([lock]).size>maxBytes) throw Error('size');
-        lock=JSON.parse(lock);
+        lock=LabYarn.read(lock);
       }
       if(revision!==generation) return;
-      data=inventory(lock);
+      const yarn=LabYarn.format(lock?.packages);
+      data=yarn ? LabYarn.inventory(lock) : inventory(lock);
+      if(yarn) $('parse-status').textContent=yarn+t(' · Прочитаны запросы из yarn.lock.',' · Read package requests from yarn.lock.');
       rowCount=50;skipCount=50;$('audit-filter').value='';$('consent').checked=false;
       $('inventory').hidden=false;renderSkips();coverage();renderRows();
     } catch(e) {
       if(revision!==generation) return;
       $('parse-status').textContent=e.message==='size' ? t('Лимит — 8 МиБ и 30 000 путей.','Limit: 8 MiB and 30,000 package paths.') :
-        t('Нужен корректный JSON package-lock версии 3 с объектом packages и записью корня.','Use a valid package-lock v3 JSON object with a packages map and root entry.');
+        t('Нужен yarn.lock (Classic или Berry) либо корневой npm lock-файл v3.','Use a Yarn Classic or Berry lock, or a root npm v3 lockfile.');
     }
   }
   $('sample').addEventListener('click',()=>{ $('audit-file').value='';$('audit-text').value='';load(example); });

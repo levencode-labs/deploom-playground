@@ -3,59 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Сочетания версий · DepLoom</title>
+  <meta name="referrer" content="no-referrer">
+  <title>Почему две ветки ломаются при слиянии? · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
-  <style>
-    .combo-chain{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.4rem;list-style:none;padding:0;margin:1rem 0}
-    .combo-chain li{position:relative;border:1px solid var(--line);border-top:4px solid var(--sea);border-radius:.5rem;padding:1rem;min-width:0}
-    .combo-chain li+li::before{content:"→";position:absolute;left:-1.2rem;top:30%;color:var(--muted)}
-    .combo-chain li[data-blocked=true]{border-top-color:#ad492b}
-    .combo-chain strong,.combo-chain span{display:block}.combo-chain strong{font-size:1.17rem}
-    .combo-control{display:flex;gap:.6rem;align-items:center;cursor:pointer;margin:.8rem 0;font-weight:650}
-    .combo-control input{width:1.1rem;height:1.1rem}
-    .combo-outcome{padding:.5rem 1rem;border-left:.25rem solid var(--purple);margin:1.2rem 0}
-    .combo-outcome[data-valid=true]{border-color:var(--sea)}.combo-outcome p{margin:.25rem 0}
-    .combo-table{border-collapse:collapse;width:100%;margin:.7rem 0}
-    .combo-table th,.combo-table td{text-align:left;border-bottom:1px solid var(--line);padding:.45rem .3rem;overflow-wrap:anywhere}
-    .combo-table td[data-valid=true]{color:var(--sea);font-weight:650}
-    .combo-prompt{display:block;width:min(100%,60rem);min-height:6rem;border:1px solid var(--line);border-radius:.4rem;padding:.7rem;font:inherit;color:var(--ink);margin:.7rem 0}
-    @media(max-width:42rem){.combo-chain{grid-template-columns:1fr;gap:1.2rem}.combo-chain li+li::before{content:"↓";left:1rem;top:-1.6rem}.combo-table{font-size:.9rem}}
-  </style>
 </head>
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="Why does one upgrade need three edits?">Почему для одного обновления нужны три правки?</h1>
-    <p data-en="Your goal is plugin v2. All three packages start at v1. The bundler can change, but a neighbouring module still pins its adapter. Trace the requirements, then try changing that one constraint.">Вы хотите обновить плагин до версии 2. Сейчас у всех трёх пакетов версия 1. Сборщик можно обновить, а соседний модуль пока закрепляет адаптер. Проследите требования по цепочке и попробуйте изменить это условие.</p>
-    <section class="panel">
-      <h2 data-en="Follow the requirements">Проследите требования</h2>
-      <ol class="combo-chain">
-        <li><strong data-en="Plugin · v2">Плагин · v2</strong><span data-en="The target version needs bundler v2.">Для целевой версии нужен сборщик v2.</span></li>
-        <li><strong data-en="Bundler · v2">Сборщик · v2</strong><span data-en="Allowed to change. Only adapter v2 supports this bundler.">Можно менять. С таким сборщиком работает только адаптер v2.</span></li>
-        <li id="adapter-node"><strong id="adapter-version"></strong><span id="adapter-reason"></span></li>
-      </ol>
-      <label class="combo-control"><input type="checkbox" id="allow-adapter"><span data-en="Allow the neighbouring module’s adapter to change">Разрешить обновить адаптер соседнего модуля</span></label>
-      <div class="combo-outcome" id="outcome" role="status" aria-atomic="true"></div>
-      <p class="meta" data-en="Source — the two teaching rules above. The browser evaluates all eight combinations.">Источник — два учебных правила выше. Браузер проверяет все восемь сочетаний.</p>
-      <details>
-        <summary data-en="Show all eight combinations">Показать все восемь сочетаний</summary>
-        <table class="combo-table">
-          <thead><tr><th scope="col" data-en="Plugin">Плагин</th><th scope="col" data-en="Bundler">Сборщик</th><th scope="col" data-en="Adapter">Адаптер</th><th scope="col" data-en="Outcome">Результат</th></tr></thead>
-          <tbody id="matrix"></tbody>
-        </table>
-      </details>
-    </section>
-    <section class="panel">
-      <h2 data-en="Try it with DepLoom in your project">Попробовать с DepLoom в своём проекте</h2>
-      <p data-en="Replace the names and target version in brackets with your actual packages. Send the request from your project directory.">Подставьте в квадратные скобки имена своих пакетов и целевую версию. Отправьте запрос из каталога проекта.</p>
-      <label for="prompt" data-en="Planning request">Запрос на план</label>
-      <textarea readonly class="combo-prompt" id="prompt"></textarea>
-      <button class="button" type="button" id="copy" data-en="Copy request">Скопировать запрос</button>
-      <span id="copied" role="status"></span>
-      <p data-en="After approving the plan, check the resulting lockfile with a clean npm ci, inspect the installed tree with npm ls and run the build and tests for the affected module.">Когда согласуете план, проверьте полученный lock-файл чистой установкой npm ci, посмотрите дерево через npm ls и запустите сборку и тесты затронутого модуля.</p>
-    </section>
+<h1 data-en="Both branches look compatible. Why does the merge fail?">Ветки по отдельности совместимы. Почему вместе они ломаются?</h1>
+<p data-en="One developer upgrades the build tools. Another extracts page styles into a CSS file. Both start from the same commit. Walk through their changes, then merge them.">Один разработчик обновляет инструменты сборки. Другой выносит стили страницы в отдельный CSS-файл. Оба ответвились от одного коммита. Посмотрите по очереди, что попадёт в каждый MR, а потом объедините их.</p>
+<section class="panel"><div class="map-toolbar"><h2 id="step-name"></h2><span id="step-count" class="hint"></span></div>
+<svg id="branch-map" viewBox="0 0 620 120" role="img" aria-label="Git merge">
+<g fill="none" stroke-linecap="round"><path data-at="1" d="M58 60 C115 60 120 27 183 27"/><path data-at="2" d="M58 60 C115 60 120 93 183 93"/><path data-at="3" d="M183 27 C287 27 294 60 382 60 M183 93 C287 93 294 60 382 60"/><path data-at="4" d="M382 60 H550"/></g>
+<g data-at="0" transform="translate(58,60)"><circle r="8"/><text y="26">main</text></g>
+<g data-at="1" transform="translate(183,27)"><circle r="8"/><text x="19" y="5" text-anchor="start" data-en="Build MR">MR сборки</text></g>
+<g data-at="2" transform="translate(183,93)"><circle r="8"/><text x="19" y="5" text-anchor="start">UI MR</text></g>
+<g data-at="3" transform="translate(382,60)"><circle r="8"/><text y="27">merge</text></g>
+<g data-at="4" transform="translate(550,60)"><circle r="8"/><text y="27">fix</text></g></svg>
+<div class="lesson-step" id="scene" aria-live="polite"><p id="situation"></p><pre id="branch-diff"></pre><p><strong id="step-result"></strong></p><p id="reason"></p><pre id="npm-record" hidden></pre></div>
+<div class="lesson-nav"><button type="button" id="previous" data-en="Back">Назад</button><button type="button" id="next"></button></div>
+<details><summary data-en="Inspect the exact peer requirements">Развернуть исходные peer-требования</summary><ul id="sources"></ul><a id="branch-manifest" download="package.json" data-en="Download this revision’s package.json">Скачать package.json этой ревизии</a><p class="hint" data-en="Source — npm package manifests and recorded lockfile resolution in npm 11.16.0, Node 24.18.0. Command: npm install --package-lock-only --ignore-scripts --strict-peer-deps. The run checks dependency resolution.">Источник — манифесты пакетов и запись разрешения зависимостей в npm 11.16.0 на Node 24.18.0. Команда: npm install --package-lock-only --ignore-scripts --strict-peer-deps. После проверки lock-файла предстоит сборка приложения.</p></details></section>
+<section class="panel" id="takeaway" hidden><h2 data-en="What would DepLoom change in this PR?">Где здесь пригодится DepLoom?</h2>
+<p data-en="Recalculate the plan on the merge target. Ask which packages share a webpack requirement and review them together. After merging, install from the resulting lockfile and build a page that imports CSS.">Пересчитайте план на ветке, куда собираетесь вливать изменения. Попросите показать все пакеты, которые требуют webpack, и обсудите их обновление вместе. После слияния установите зависимости по итоговому lock-файлу и соберите страницу, которая импортирует CSS.</p>
+<label for="prompt" data-en="Request for your agent">Запрос для агента</label><textarea id="prompt" readonly rows="4" style="width:100%"></textarea>
+<button class="button" type="button" id="copy" data-en="Copy request">Скопировать запрос</button> <span id="copied" role="status"></span>
+<p><a href="plan.html" data-en="Open the browser planner">Открыть планировщик в браузере</a></p></section>
+<details class="panel"><summary data-en="Why did the tooling branch need three package changes? See all eight choices">Почему в ветке сборки пришлось поменять три пакета? Все восемь вариантов</summary>
+<p data-en="Target css-loader 6.11.0. Of these two releases per package, just one triple satisfies that goal and both webpack requirements.">Цель — css-loader 6.11.0. Для каждого пакета рассматриваем две версии. Только одна тройка достигает цели и удовлетворяет обоим требованиям к webpack.</p>
+<div style="overflow:auto"><table><thead><tr><th>css-loader</th><th>webpack</th><th>webpack-cli</th><th data-en="Outcome">Результат</th></tr></thead><tbody id="matrix"></tbody></table></div></details>
   </main>
   <script src="nav.js"></script>
+  <script src="vendor/semver.js"></script>
   <script src="combinations.js"></script>
 </body>
 </html>

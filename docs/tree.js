@@ -52,7 +52,11 @@
 
   function readLock() {
     if (!lockInput.value.trim()) return null;
-    const value = parseJson(lockInput.value, false);
+    if (lockInput.value.length > limit.chars) throw Error(t('Лимит поля — 8 млн символов.', 'Input limit: 8 million characters.'));
+    let value;
+    try { value = LabYarn.read(lockInput.value); }
+    catch { throw Error(t('Не удалось прочитать lock-файл. Проверьте формат и маркеры конфликта Git.', 'Cannot read this lockfile. Check its format and Git conflict markers.')); }
+    if (LabYarn.format(value?.packages)) return value.packages;
     if (!object(value) || value.lockfileVersion !== 3 || !object(value.packages) || !object(value.packages[''])) {
       throw Error(t('Нужен package-lock.json версии 3 с таблицей packages и корневой записью.', 'Use a v3 package-lock.json with a packages table and a root entry.'));
     }
@@ -65,6 +69,9 @@
 
   function installedEntries(packages) {
     const entries = [];
+    if (LabYarn.format(packages)) return Object.entries(packages).filter(([key])=>key).map(([key,record])=>({
+      path:key, name:LabYarn.parts(key).name, label:LabYarn.parts(key).name+'@'+record.version
+    }));
     // Only paths composed of package names can become a terminal command.
     const safePath = /^node_modules\/(?:@[a-z\d~][a-z\d._~-]*\/)?[a-z\d~][a-z\d._~-]*(?:\/node_modules\/(?:@[a-z\d~][a-z\d._~-]*\/)?[a-z\d~][a-z\d._~-]*)*$/i;
     for (const [path, record] of Object.entries(packages)) {
@@ -101,7 +108,11 @@
         t('Поиск ограничен первыми 20 000 связей. Путь к этой копии не найден в просмотренной части.', 'The search stops after 20,000 edges. No path to this copy was found in the visited subgraph.') :
         t('Запись есть в lock-файле. Путь из указанного манифеста не найден. Проверьте соответствие файлов и ссылки workspaces.', 'This entry is present in the lockfile. No path was found from the supplied manifest. Check that the files match and inspect workspace links.')));
     }
-    $('tree-command').value = 'npm explain "' + chosen + '"';
+    const yarn = LabYarn.format(lockPackages);
+    if (yarn) {
+      const name = LabYarn.parts(chosen).name;
+      $('tree-command').value = yarn === 'Yarn Classic' ? 'yarn why '+name : 'yarn why -R '+name;
+    } else $('tree-command').value = 'npm explain "' + chosen + '"';
     $('tree-command-block').hidden = false;
   }
 
@@ -159,6 +170,8 @@
           if (match && object(match.record) && !match.record.link) {
             key = match.key; record = match.record;
             version = typeof record.version === 'string' ? record.version : undefined;
+          } else if (LabYarn.format(packages) && edge.group === 'peerDependencies') {
+            reason = t('Поставщик peer зависит от окружения установки Yarn.', 'Peer provider depends on the Yarn install environment.');
           } else if (match?.record?.link) {
             reason = t('Локальная ссылка или workspace. Ветка требует отдельной проверки.', 'Local link or workspace. Check this branch separately.');
           } else {
@@ -175,8 +188,9 @@
           if (!version) reason = t('Точная версия неизвестна. Добавьте lock-файл.', 'The exact version is unknown. Add a lockfile.');
           else if (!record) reason = t('Версия задана в манифесте. Для проверки её зависимостей нужны метаданные.', 'Version pinned in the manifest. Its dependencies need package metadata.');
         }
-        if (version && treeSemver.valid(version) && treeSemver.validRange(edge.range) !== null) {
-          const matches = treeSemver.satisfies(version, edge.range);
+        const constraint = LabYarn.format(packages) ? edge.range.replace(/^npm:/,'') : edge.range;
+        if (version && treeSemver.valid(version) && treeSemver.validRange(constraint) !== null) {
+          const matches = treeSemver.satisfies(version, constraint);
           if (packages || (owner && edge.group === 'peerDependencies')) {
             if (matches) state = 'good';
             else if (manifest.overrides) reason = t('Версия вне исходного диапазона. Проверьте overrides.', 'Version outside the original range. Check overrides.');
@@ -207,6 +221,7 @@
   function drawTree() {
     if (!graph) return;
     const onlyConflicts = $('tree-filter').checked;
+    LabMap.render(graph,currentManifest,onlyConflicts);
     function branch(nodes, depth) {
       const list = el('ul', 'tree-branches');
       for (const node of nodes) {
@@ -302,6 +317,8 @@
       $('tree-mode').textContent = packages ?
         t('Версии из lock-файла. Каждая связь сравнивает требование с версией в ближайшей доступной папке. Проверки приложения и движка выполняются отдельно.', 'Lockfile versions. Each edge compares a requirement with the version in the nearest valid location. Runtime and engine checks are separate.')
         : t('План по манифесту. Для React 18.2.0 и 18.3.1 встроены требования React DOM. Сторонние пакеты можно дополнить данными npm. Расположение и фактические версии даёт lock-файл.', 'Manifest preview. React DOM peer requirements are built in for 18.2.0 and 18.3.1. You can load npm metadata for other packages. A lockfile supplies actual versions and locations.');
+      const yarn = LabYarn.format(packages);
+      if (yarn) $('tree-mode').textContent = yarn + t(' · Связи из манифеста и yarn.lock. Путь установки и фактический поставщик peer-пакета проверяются в проекте через yarn why.', ' · Edges from the manifest and yarn.lock. Verify install layout and actual peer providers in the project with yarn why.');
       $('tree-netbox').hidden = Boolean(packages);
       if (resetChoices) {
         showChoices(manifest);
@@ -309,6 +326,7 @@
       }
       drawTree();
     } catch (error) {
+      LabMap.render(null);
       $('tree-error').textContent = error instanceof SyntaxError ? t('Проверьте синтаксис JSON в заполненных полях.', 'Check JSON syntax in both input fields.') : error.message;
       for (const id of ['tree-mode', 'tree-count', 'tree-graph', 'tree-limit']) $(id).replaceChildren();
       $('tree-netbox').hidden = true;
@@ -366,14 +384,6 @@
 
   manifestInput.addEventListener('input', changed);
   lockInput.addEventListener('input', changed);
-  $('tree-file').addEventListener('change', async event => {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (file.size > limit.chars) { $('tree-error').textContent = t('Лимит файла — 8 МБ.', 'The file limit is 8 MB.'); return; }
-    try {
-      lockInput.value = await file.text(); changed();
-    } catch { $('tree-error').textContent = t('Не удалось прочитать файл.', 'Could not read this file.'); }
-  });
   $('tree-broken').addEventListener('click', () => seed('18.2.0'));
   $('tree-fixed').addEventListener('click', () => seed('18.3.1'));
   $('tree-filter').addEventListener('change', drawTree);
@@ -395,6 +405,19 @@
     $('tree-query').value = 'shared-utils';
     changed(); clearTimeout(timer); render(true);
   });
+  function yarnSample(berry) {
+    manifestInput.value=JSON.stringify({name:'terminal-colors',dependencies:{'color-convert':'^2.0.1'}},null,2);
+    const lines=berry?['__metadata:','  version: 8']:['# yarn lockfile v1'];
+    for(const [name,range,version] of [['color-convert','^2.0.1','2.0.1'],['color-name','~1.1.4','1.1.4']]){
+      lines.push('',JSON.stringify(name+'@'+(berry?'npm:':'')+range)+':');
+      lines.push(berry?'  version: '+version:'  version "'+version+'"');
+      lines.push(berry?'  resolution: "'+name+'@npm:'+version+'"':'  resolved "https://registry.yarnpkg.com/'+name+'/-/'+name+'-'+version+'.tgz"');
+      if(name==='color-convert')lines.push('  dependencies:',berry?'    color-name: "npm:~1.1.4"':'    color-name "~1.1.4"');
+    }
+    lockInput.value=lines.join('\n')+'\n';$('tree-file').value='';$('tree-filter').checked=false;
+    $('tree-query').value='color-name';changed();clearTimeout(timer);render(true);
+  }
+  for(const name of ['classic','berry'])$('yarn-'+name).onclick=()=>yarnSample(name==='berry');
   const query = new URLSearchParams(location.search);
   if (query.get('own') === '1') {
     manifestInput.value = ''; lockInput.value = '';
@@ -403,6 +426,8 @@
     $('tree-mode').textContent = t('Вставьте манифест, чтобы построить дерево.', 'Paste a manifest to build the tree.');
     findCopies();
     manifestInput.focus({ preventScroll: true });
+  } else if (['classic','berry'].includes(query.get('yarn'))) {
+    yarnSample(query.get('yarn')==='berry');
   } else {
     const known = ['18.2.0', '18.3.1'];
     const react = query.get('react');

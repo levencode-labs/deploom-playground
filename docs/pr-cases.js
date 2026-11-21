@@ -27,6 +27,9 @@
       el('ci-verdict').textContent = failed ? t('npm ci остановился','npm ci stopped') : t('Установка прошла','Installation passed');
       el('ci-why').textContent = why;
       el('ci-log').textContent = failed ? "$ npm ci\nnpm error code EUSAGE\nnpm error Invalid: lock file's demo-lib@1.2.3 does not satisfy demo-lib@2.0.0" : '$ npm ci\nexit 0\ndemo-lib@'+locked;
+      const next = stage==='base'?'mismatch':stage==='mismatch'?'fixed':'base';
+      el('ci-next').textContent={base:t('Изменить одну строку в package.json →','Edit one line in package.json →'),mismatch:t('Обновить lock и повторить npm ci →','Update the lock and retry npm ci →'),fixed:t('Вернуться к исходной ветке','Back to the original branch')}[stage];
+      el('ci-next').onclick=()=>{sync(next);render();};
       sync(stage);
     }
     for (const input of document.querySelectorAll('input[name=stage]')) input.addEventListener('change',()=>{sync(input.value);render();});
@@ -56,7 +59,7 @@
             button.type='button';
             button.textContent='└ '+label;
             button.setAttribute('aria-label',name+' → '+label);
-            button.setAttribute('aria-pressed',String(name===parent));
+            button.setAttribute('aria-pressed',String(state.get('parent')===name));
             button.addEventListener('click',()=>{sync('scope='+stage+'&parent='+name);render();el('after-tree').querySelector('[aria-pressed=true]').focus();});
             li.append(button);
           }
@@ -64,13 +67,17 @@
         }
         list.replaceChildren(...buttons);
       }
+      const picked=parents.includes(state.get('parent'));
+      el('who-brought-it').hidden=!picked;
+      el('override-next').textContent=stage==='before'?t('Обновить копию под ui-kit →','Update the copy under ui-kit →'):t('Отменить override','Undo the override');
+      el('override-next').onclick=()=>{sync(stage==='before'?'scope=after':'scope=before');render();};
       const physical = samplePath(parent), version = sample.packages[physical].version;
       el('parent-title').textContent = parent+' → shared-utils@'+version;
       el('parent-reason').textContent = stage==='before' ? t('Родитель запрашивает ровно 1.2.3. В этой ревизии замен нет.','The parent requests exactly 1.2.3. This revision declares no overrides.') :
         parent==='ui-kit' ? t('В манифесте ui-kit указана 1.2.3. Правило в корне проекта меняет именно эту копию на 1.2.4.','ui-kit declares 1.2.3. The root override selects 1.2.4 for this copy.') :
           t('У build-tool собственная копия. Правило ограничено веткой ui-kit, поэтому под build-tool остаётся 1.2.3.','build-tool has its own copy. The rule is scoped to ui-kit, so build-tool keeps 1.2.3.');
       el('copy-path').textContent = 'npm explain '+physical;
-      sync('scope='+stage+'&parent='+parent);
+      sync('scope='+stage+(picked?'&parent='+parent:''));
     }
     for (const input of document.querySelectorAll('input[name=scope]')) input.addEventListener('change',()=>{
       const state=params();state.set('scope',input.value);sync(state.toString());render();

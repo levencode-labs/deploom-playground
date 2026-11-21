@@ -24,6 +24,8 @@
 <p data-en="Source — recorded strict-peer npm install for this pair. Select the line to highlight the requirement and selected version." class="hint">Источник — запись строгой установки npm для этой пары. Нажмите на строку, чтобы выделить требование и выбранную версию.</p>
 </div></div><div class="actions"><a class="primary" id="inspect-tree" href="tree.html"><span data-en="Inspect in the tree">Разобрать в дереве</span></a> <a href="tree.html?own=1"><span data-en="Open your own project">Открыть свой проект</span></a></div>
 <p data-en="In your project, find peer … from … in the npm log and compare it with the version from npm explain react." class="hint">В своём проекте найдите в логе строку peer … from … и сравните её с версией из npm explain react.</p></section>
+    <p data-en="In a real PR this often starts with a failed dependency install, before a single test runs. Ask DepLoom for an upgrade plan with React held at its current version, then allow React to move. Compare the dependency that appears in the second plan.">В настоящем MR это часто выглядит так: вы обновили одну строку, а CI упал ещё до первого теста. Попросите DepLoom построить план с зафиксированным React, затем разрешите обновить его. Сравните, почему во втором плане появилась ещё одна строка.</p>
+    <a href="plan.html" data-en="Try both plans">Сравнить два плана</a>
   </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>

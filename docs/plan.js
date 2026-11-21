@@ -34,7 +34,7 @@
   }
   function errorText(err) {
     const messages = {
-      files:t('Выберите package.json и корневой package-lock.json версии 3.','Select a package.json and its root version 3 package-lock.json.'),
+      files:t('Выберите package.json и соответствующий yarn.lock либо npm lock-файл v3.','Select a package.json and its Yarn lockfile or npm v3 lockfile.'),
       evidence:t('Выберите до 20 манифестов целевых пакетов. Имя и точная версия каждого должны совпадать с одной из целей.', 'Select up to 20 target package manifests. Each name and exact version must match a target.'),
       'meta-size':t('Манифест целевой версии должен помещаться в 1 МиБ.','Each target manifest can be up to 1 MiB.'),
       size:t('Максимальный размер файла — 20 МиБ.','Each file can be up to 20 MiB.'),
@@ -56,9 +56,10 @@
         const files = [manifestFile(),lockFile()];
         if (!files.every(Boolean)) throw Error('files');
         if (files.some(file => file.size > 20*1024*1024)) throw Error('size');
-        [man,lock] = await Promise.all(files.map(async file => JSON.parse(await file.text())));
+        [man,lock] = await Promise.all([files[0].text().then(JSON.parse), files[1].text().then(LabYarn.read)]);
       }
       if (current !== revision) return;
+      const yarn = LabYarn.format(lock.packages);
       const changes = LabPlan.read(man,lock,JSON.parse(el('targets').value));
       const evidence = new Map(metadata);
       const fromLock = new Set();
@@ -82,7 +83,7 @@
         if (local.has(key)) throw Error('evidence');
         local.set(key,record);
       }
-      const result = LabPlan.assess(lock,changes,evidence,local);
+      const result = yarn ? LabPlan.assessYarn(man,lock,changes,evidence,local) : LabPlan.assess(lock,changes,evidence,local);
       add('h2',t('Предлагаемые изменения','Proposed changes'));
       for (const change of changes) {
         for (const group of change.groups) {
@@ -94,6 +95,7 @@
         }
         add('p',change.groups.map(group => group + '.' + change.name).join(', ') + ' · ' + change.record.version + ' → ' + change.target);
       }
+      if (yarn) add('p',yarn+t(' · Проверены доступные peer-требования прямых зависимостей выбранного манифеста. Окончательное окружение и транзитивные peer-пакеты проверяет Yarn при установке. Команда для CI — ', ' · Checks available peer requirements among direct dependencies of the selected manifest. Yarn resolves the final environment and transitive peers at install time. CI command — ')+(yarn==='Yarn Classic'?'yarn install --frozen-lockfile':'yarn install --immutable'));
       const labels = [t('Совместимые требования','Matching requirements'),t('Конфликты','Conflicts'),t('Нет данных','Unknown')];
       add('h3',labels.map((label,i) => label + ' · ' + [result.checks,result.issues,result.unknown][i].length).join('   /   '));
       const lines = document.createElement('ul');
@@ -123,8 +125,8 @@
         if (suggested.has(name) || changes.some(c => c.name === name)) continue;
         const direct = ['dependencies','optionalDependencies','devDependencies'].some(group => Object.hasOwn(man[group] || {},name));
         const owner = row.path === '.' ? '' : row.path;
-        const installed = LabLockGraph.lockedPackage(lock.packages,owner,{name,group:'peerDependencies'});
-        if (!direct || installed?.key !== 'node_modules/'+name) continue;
+        const installed = !yarn && LabLockGraph.lockedPackage(lock.packages,owner,{name,group:'peerDependencies'});
+        if (!direct || (!yarn && installed?.key !== 'node_modules/'+name)) continue;
         const target = row.range.replace(/^[~^]/,'');
         if (treeSemver.valid(target) !== target || !treeSemver.satisfies(target,row.range)) continue;
         suggested.add(name);

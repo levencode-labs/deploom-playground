@@ -48,24 +48,32 @@
 <header data-nav></header>
 <main>
   <h1 data-en="Dependency tree">Дерево зависимостей</h1>
-  <p data-en="Paste a package.json or its dependency list. Add a package-lock.json v3 to explore resolved versions and the peer requirements of installed packages. Both files stay in this browser.">Вставьте package.json или его список зависимостей. Добавьте package-lock.json версии 3, чтобы увидеть зафиксированные версии и требования пакетов друг к другу. Оба файла остаются в браузере.</p>
+  <p data-en="Paste a package.json or its dependency list. Add a yarn.lock (Classic or Berry) or package-lock.json v3 to explore resolved versions and the peer requirements of installed packages. Both files stay in this browser.">Вставьте package.json или его список зависимостей. Добавьте yarn.lock (Classic или Berry) либо package-lock.json версии 3, чтобы увидеть зафиксированные версии и требования пакетов друг к другу. Оба файла остаются в браузере.</p>
+  <section class="panel map-panel" id="network-panel" hidden>
+    <div class="map-toolbar"><h2 data-en="Dependency map">Карта зависимостей</h2><div><button id="zoom-out" type="button" aria-label="Zoom out">−</button> <output id="network-zoom">100%</output> <button id="zoom-in" type="button" aria-label="Zoom in">+</button></div></div>
+    <p class="hint" data-en="Select a package to see who requested it. Dashed arrows mark peer requirements. An orange arrow marks a conflict.">Выберите пакет, чтобы увидеть, кто его запросил. Пунктиром показаны peer-требования, оранжевой стрелкой — конфликт.</p>
+    <div class="map-scroll" tabindex="0"><svg id="network-map" role="group" aria-label="Dependency graph"></svg></div>
+    <div id="network-info" aria-live="polite"></div><small id="map-limit" data-en="The map shows a bounded selection of up to 42 nodes. Explore more entries below.">На карте выборка до 42 узлов. Остальные записи можно исследовать ниже.</small>
+  </section>
   <div class="tree-workbench">
     <section class="panel">
       <h2 data-en="Project files">Файлы проекта</h2>
-      <p class="hint" data-en="Start with a React example or paste your own JSON.">Начните с примера React или вставьте свой JSON.</p>
+      <p class="hint" data-en="Drop a file onto its field, choose a file, or paste its contents.">Перетащите файл прямо в его поле, выберите с диска или вставьте текст.</p>
       <div class="tree-controls">
         <button class="button" type="button" id="tree-broken" data-en="Peer conflict">Конфликт версий</button>
         <button class="button" type="button" id="tree-two-copies" data-en="Two installed copies">Две копии пакета</button>
         <button class="button" type="button" id="tree-fixed" data-en="Matching versions">Совместимая пара</button>
       </div>
+      <div class="tree-controls"><button type="button" id="yarn-classic">Yarn Classic</button><button type="button" id="yarn-berry">Yarn Berry</button></div>
       <label for="tree-manifest">package.json</label>
+      <input type="file" id="tree-manifest-file" data-fill="tree-manifest" accept=".json" aria-label="package.json">
       <textarea id="tree-manifest" rows="9" spellcheck="false" autocapitalize="off"></textarea>
       <details class="tree-input-lock" id="tree-lockbox">
-        <summary data-en="Add package-lock.json (v3)">Добавить package-lock.json (v3)</summary>
+        <summary data-en="Add yarn.lock or npm lockfile">Добавить yarn.lock или npm lock-файл</summary>
         <label for="tree-file" data-en="Open a local file">Открыть файл на компьютере</label>
-        <input id="tree-file" type="file" accept=".json,application/json">
+        <input id="tree-file" type="file" data-fill="tree-lock" accept=".json,.lock,application/json">
         <label for="tree-lock" data-en="Or paste its contents">Или вставить содержимое</label>
-        <textarea id="tree-lock" rows="5" spellcheck="false" autocapitalize="off" placeholder="package-lock.json"></textarea>
+        <textarea id="tree-lock" rows="5" spellcheck="false" autocapitalize="off" placeholder="yarn.lock / package-lock.json"></textarea>
       </details>
       <details class="tree-input-lock" id="tree-netbox">
         <summary data-en="Look up selected versions on npm">Сведения о выбранных версиях из npm</summary>
@@ -88,14 +96,14 @@
         <div id="tree-search-controls" hidden>
           <label for="tree-query" data-en="Package name, version or path">Имя, версия или путь пакета</label>
           <input id="tree-query" type="search" spellcheck="false" placeholder="shared-utils">
-          <label id="tree-copy-label"><span data-en="Installed copy">Копия в lock-файле</span><select id="tree-copies"></select></label>
+          <label id="tree-copy-label"><span data-en="Lockfile entry">Запись lock-файла</span><select id="tree-copies"></select></label>
         </div>
         <p id="tree-find-hint" class="hint" role="status"></p>
         <div id="tree-origin" aria-live="polite"></div>
         <div id="tree-command-block" hidden>
           <label for="tree-command" data-en="Run from the project root after installation">Команда из корня проекта после установки</label>
           <input id="tree-command" readonly spellcheck="false">
-          <button type="button" class="button" id="tree-copy-command" data-en="Copy npm explain">Скопировать npm explain</button>
+          <button type="button" class="button" id="tree-copy-command" data-en="Copy command">Скопировать команду</button>
           <span role="status" id="tree-copied"></span>
         </div>
       </section>
@@ -111,7 +119,12 @@
 <script src="vendor/semver.js"></script>
 <script src="range-scale.js"></script>
 <script src="lock-graph.js"></script>
+<script src="vendor/yarn-classic.js"></script>
+<script src="vendor/js-yaml.min.js"></script>
+<script src="yarn-lock.js"></script>
+<script src="drop-files.js" defer></script>
 <script src="lock-samples.js"></script>
+<script src="dep-map.js"></script>
 <script src="tree.js"></script>
 </body>
 </html>

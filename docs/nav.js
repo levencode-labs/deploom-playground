@@ -32,8 +32,8 @@
     ]],
     [t('Примеры','Examples'), [
       ['peers.html', t('Почему npm вернул ERESOLVE?','Why did npm return ERESOLVE?')],
-      ['runtime.html', t('Почему установка прошла, а кнопка пропала?','Why did the install pass but the button disappear?')],
-      ['combinations.html', t('Почему ради плагина нужны три обновления?','Why does one plugin need three upgrades?')],
+      ['runtime.html', t('Куда после обновления пропала подсказка?','Where did the hint go after upgrading?')],
+      ['combinations.html', t('Почему совместимые ветки ломаются при слиянии?','Why do working branches break when merged?')],
       ['ci.html', t('Почему после правки манифеста упал npm ci?','Why did npm ci fail after a manifest edit?')],
       ['override.html', t('Откуда осталась старая версия?','Where did the old copy come from?')],
     ]],
@@ -48,6 +48,8 @@
   skip.textContent = t('К содержимому','Skip to content');
   const brand = link('DepLoom', 'index.html');
   brand.className = 'brand';
+  const mark=document.createElement('img'); mark.src='deploom-mark.svg'; mark.alt='';brand.prepend(mark);
+  const favicon=document.createElement('link'); favicon.rel='icon'; favicon.href=mark.src;document.head.append(favicon);
   const nav = document.createElement('nav');
   nav.setAttribute('aria-label', t('Разделы лаборатории','Lab sections'));
   const home = link(t('Обзор','Overview'), 'index.html');
