@@ -5,7 +5,8 @@
   const maxBytes = 8 * 1024 * 1024;
   const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   function inventory(lock) {
-    if (lock?.lockfileVersion !== 3 || !isObject(lock.packages) || !isObject(lock.packages[''])) throw Error('format');
+    if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock);
+    if (![1,2,3].includes(lock?.lockfileVersion) || !isObject(lock.packages) || !isObject(lock.packages[''])) throw Error('format');
     const entries = Object.entries(lock.packages);
     if (entries.length > 30001) throw Error('size');
     const rows = new Map();
@@ -30,6 +31,7 @@
   }
 
   function localInventory(lock) {
+    if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock);
     const yarn = window.LabYarn?.format(lock?.packages);
     const data = yarn ? window.LabYarn.inventory(lock) : inventory(lock);
     for (const row of data.rows) {
@@ -161,6 +163,7 @@
   }
 
   function directVersions(manifest,lock) {
+    if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock,manifest);
     const roots=new Map();
     for (const edge of LabLockGraph.declarations(manifest || {},true)) {
       if(edge.group==='peerDependencies' || roots.has(edge.name)) continue;
