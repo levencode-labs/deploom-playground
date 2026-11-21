@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const read = file => fs.readFileSync(path.join(__dirname, '../docs', file), 'utf8');
 const html = read('handbook.html');
 const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map(match => ({
-  file: match[1].match(/\bsrc=["']([^"']+)["']/)?.[1],
+  file: match[1].match(/\bsrc=["']([^"']+)["']/)?.[1]?.split('?')[0],
   inline: match[2],
 }));
 
