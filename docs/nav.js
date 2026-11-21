@@ -20,11 +20,16 @@
     addEventListener('hashchange', followOldRangeLink);
     followOldRangeLink();
   }
+  const languages = ['en','ru'];
+  const requested = currentURL.searchParams.get('lang');
+  const publicHost = ['.github.io','.chatgpt.site'].some(suffix=>currentURL.hostname.endsWith(suffix));
   let saved;
   try { saved = localStorage.getItem('deploom-lab-language'); } catch {}
-  const lang = (currentURL.searchParams.get('lang') || saved) === 'en' ? 'en' : 'ru';
+  const lang = [requested,saved].find(code=>languages.includes(code)) || (publicHost ? 'en' : 'ru');
   const t = (ru, en) => lang === 'en' ? en : ru;
-  try { localStorage.setItem('deploom-lab-language', lang); } catch {}
+  if (languages.includes(requested)) {
+    try { localStorage.setItem('deploom-lab-language', requested); } catch {}
+  }
   document.documentElement.lang = lang;
 
   function urlFor(path) {
@@ -46,11 +51,14 @@
       ['compare.html', t('Сравнить lock-файлы','Compare lockfiles')],
     ]],
     [t('Визуализации','Visualizations'), [
-      ['tree.html', t('Карта зависимостей','Dependency map')],
+      ['tree.html', t('Дерево зависимостей','Dependency tree')],
+      ['tree.html?view=packages', t('Пакеты по группам','Packages by group')],
+      ['tree.html?view=groups', t('Группы','Groups')],
       ['ranges.html', t('Проверить диапазон','Check a version range')],
     ]],
     [t('Примеры','Examples'), [
       ['examples.html', t('Все примеры','All examples')],
+      ['tree.html?example=webpack-groups&view=packages', t('Группы пакетов в webpack','Package groups in webpack')],
       [null, t('Установка и CI','Installation and CI')],
       ['peers.html', t('Конфликт React и React DOM','React and React DOM conflict')],
       ['combinations.html#build-mr', t('Собери свой MR с webpack','Build your own webpack MR')],
@@ -100,7 +108,7 @@
       const anchor = link(title, path);
       const target = new URL(anchor.href);
       if (target.pathname.endsWith('/' + page) && target.searchParams.get('example') === currentURL.searchParams.get('example') && target.hash === currentURL.hash &&
-          target.searchParams.get('tool') === currentURL.searchParams.get('tool')) {
+          target.searchParams.get('tool') === currentURL.searchParams.get('tool') && target.searchParams.get('view') === currentURL.searchParams.get('view')) {
         anchor.setAttribute('aria-current','page');
       }
       list.append(anchor);
@@ -123,23 +131,26 @@
     });
     document.addEventListener('click', event => { if (!group.contains(event.target)) group.open = false; });
   }
-  const language = document.createElement('a');
-  language.lang = t('en','ru');
-  language.textContent = t('English','Русский');
+  const language = document.createElement('select');
   language.className = 'language';
-  function refreshLanguageLink() {
-    const url = new URL(location.href);
-    url.searchParams.set('lang', language.lang);
-    language.href = url.href;
+  language.setAttribute('aria-label',t('Язык','Language'));
+  for (const code of languages) {
+    const option = document.createElement('option');
+    option.value = option.lang = code;
+    option.textContent = code.toUpperCase();
+    language.append(option);
   }
+  language.value = lang;
+  language.addEventListener('change',()=>{
+    const url = new URL(location.href);
+    url.searchParams.set('lang', language.value);
+    location.assign(url.href);
+  });
   function setExampleState(fields) {
     const url = new URL(location.href);
     for (const [name, value] of Object.entries(fields)) url.searchParams.set(name, value);
     try { history.replaceState(null, '', url); } catch {}
-    refreshLanguageLink();
   }
-  refreshLanguageLink();
-  language.addEventListener('click', refreshLanguageLink);
   bar.append(skip, brand, nav, language);
   window.Lab = { page, lang, t, urlFor, setExampleState };
   document.querySelector('[data-nav]').append(bar);

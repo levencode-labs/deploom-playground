@@ -43,31 +43,21 @@ main:has(> #network-panel) > h1::before {
   border-block-start: 1px solid var(--line);
 }
 
-.tool-home [data-thread="project"] { --thread: url("tile-threads.svg#project"); }
-.tool-home [data-thread="package"] { --thread: url("tile-threads.svg#package"); }
-.tool-home [data-thread="plan"] { --thread: url("tile-threads.svg#plan"); }
-.tool-home [data-thread="compare"] { --thread: url("tile-threads.svg#compare"); }
-.tool-home [data-thread="map"] { --thread: url("tile-threads.svg#map"); }
-.tool-home [data-thread="range"] { --thread: url("tile-threads.svg#range"); }
+.weave-defs {
+  position: absolute;
+  pointer-events: none;
+}
 
-.tool-home .link-card::before {
-  content: "";
+.tool-home .tile-weave {
   display: block;
   inline-size: 8.5rem;
   aspect-ratio: 160 / 42;
   margin-block: -.3rem .45rem;
-  background: var(--thread) left center / contain no-repeat;
-  transform-origin: left center;
   pointer-events: none;
 }
 
 .tool-home .link-card:is(:hover, :focus-visible) {
   border-color: #5985bb;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .tool-home .link-card::before { transition: transform 160ms ease-out; }
-  .tool-home .link-card:is(:hover, :focus-visible)::before { transform: scaleX(1.055); }
 }
 
 #network-map .map-edge.active:not(.bad) { stroke: #69d5dd; }
@@ -81,7 +71,18 @@ main:has(> #network-panel) > h1::before {
   .tool-home > h1,
   main:has(> #network-panel) > h1 { padding-inline-end: 0; }
   .tool-home > h1::before,
-  .tool-home .link-card::before,
+  .tool-home .tile-weave,
   main:has(> #network-panel) > h1::before { display: none; }
   #network-map .map-edge.active:not(.bad) { stroke: Highlight; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tile-weave.is-weaving .weave-glint {
+    animation: thread-glint 650ms ease-in-out both;
+  }
+  @keyframes thread-glint {
+    to { transform: translateX(204px); }
+  }
+  main > h1 { animation:lab-arrive 220ms ease-out; }
+  @keyframes lab-arrive { from { opacity:.35; transform:translateY(5px) } to { opacity:1; transform:none } }
 }

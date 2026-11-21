@@ -7,7 +7,7 @@
   const start = $('map-start');
   const ns = 'http://www.w3.org/2000/svg';
   const pageSize = 60;
-  let data, commandFor, anchor = null, selected = null, budget = pageSize;
+  let data, commandFor, advisoryIndex, anchor = null, selected = null, budget = pageSize;
   let positions = new Map(), displayedEdges = [], bounds = {width:1,height:1};
   let camera = {x:0,y:0,zoom:1}, moved = false, pointer;
   svg.setAttribute('aria-label',t('Интерактивная карта зависимостей','Interactive dependency map'));
@@ -126,15 +126,101 @@
     return node.key === data.rootKey ? t('Корень проекта','Project root')+' · '+node.name : describe(node);
   }
   const chooser = LabPackageCombo.attach(start,{onSelect:item=>focusOn(item.key)});
+  const past = [], future = [];
+  const back = $('map-back'), forward = $('map-forward');
+  function historyButtons() {
+    back.hidden = !past.length;
+    forward.hidden = !future.length;
+  }
+  function currentView() {
+    return {anchor,selected,budget,camera:{...camera},direction:$('map-direction').value,
+      depth:$('map-depth').value,layout:$('map-layout').value};
+  }
+  function updateStart() {
+    chooser.setValue(data.nodes.has(anchor) ? displayStart(data.nodes.get(anchor)) : '');
+  }
+  function travel(from,to,oppositeButton) {
+    if (!from.length) return;
+    const lastStep = from.length === 1;
+    to.push(currentView());
+    const view = from.pop();
+    anchor=view.anchor; selected=view.selected; budget=view.budget; camera=view.camera;
+    $('map-direction').value=view.direction;
+    $('map-depth').value=view.depth;
+    $('map-layout').value=view.layout;
+    updateStart();
+    historyButtons();
+    draw(false);
+    if (lastStep) oppositeButton.focus();
+  }
+  back.onclick = () => travel(past,future,forward);
+  forward.onclick = () => travel(future,past,back);
   function focusOn(key) {
     if (!data?.nodes.has(key)) return;
+    if (anchor === key) {updateStart(); inspect(key); return;}
+    past.push(currentView());
+    future.length=0;
     anchor=key; selected=key; budget=pageSize;
-    chooser.setValue(displayStart(data.nodes.get(key)));
+    updateStart();
+    historyButtons();
     draw();
   }
   $('map-direction').onchange=$('map-depth').onchange=()=>{budget=pageSize;draw();};
   $('map-layout').onchange=()=>draw();
   $('map-more').onclick=()=>{budget+=pageSize;draw(false);};
+
+  const severityLabels = {Critical:'Critical', High:'High', Medium:'Moderate', Moderate:'Moderate', Low:'Low', None:'None'};
+  const publicationDate = new Intl.DateTimeFormat(t('ru-RU','en-GB'),{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+
+  function markSeverity(group, result) {
+    const level = result.state === 'found' && severityLabels[result.entries[0]?.level];
+    if (!['Critical','High','Moderate'].includes(level)) return;
+    group.dataset.severity = level.toLowerCase();
+    const label = group.getAttribute('aria-label') + ' · ' + level;
+    group.setAttribute('aria-label',label);
+    group.querySelector('title').textContent = label;
+    // Leave room for the severity word even when a prerelease version is long.
+    const version = group.querySelector('.map-version');
+    if (version.textContent.length > 12) version.textContent = version.textContent.slice(0,11) + '…';
+    const width = Number(group.querySelector('rect').getAttribute('width'));
+    group.append(shape('text',{class:'map-severity',x:width-10,y:41,'text-anchor':'end'},level));
+  }
+
+  function showAdvisories(section, result, node) {
+    if (!section.isConnected) return;
+    section.replaceChildren();
+    if (result.entries.length) {
+      const heading = result.state === 'found' ? t('Уязвимости','Advisories') : t('Возможные совпадения','Possible advisory matches');
+      section.append(html('h3',heading + ' · ' + result.entries.length));
+      const list = document.createElement('ul');
+      for (const entry of result.entries) {
+        const row = document.createElement('li');
+        const level = severityLabels[entry.level] || t('Без оценки','Unrated');
+        row.append(html('strong',level), ' · ', entry.summary || t('Уязвимость в пакете ','Advisory for ') + node.name);
+        const meta = document.createElement('small');
+        const date = new Date(entry.published || NaN);
+        if (Number.isFinite(date.getTime())) {
+          const time = html('time',publicationDate.format(date));
+          time.dateTime = date.toISOString();
+          meta.append(t('Опубликовано ','Published '),time,' · ');
+        }
+        if (entry.href) {
+          const link = html('a',entry.id);
+          link.href = entry.href;
+          meta.append(link);
+        } else meta.append(entry.id);
+        row.append(meta); list.append(row);
+      }
+      section.append(list);
+    } else if (result.state === 'empty') {
+      section.append(html('p',t('Для этой версии в снимке OSV уязвимостей не найдено.','No advisories for this version in the OSV snapshot.')));
+    } else if (!result.reason) {
+      section.append(html('p',t('Недостаточно данных для проверки этой копии.','This copy could not be verified.')));
+    }
+    if (result.reason || result.source) {
+      section.append(html('small',[result.reason,result.source].filter(Boolean).join(' · ')));
+    }
+  }
 
   function inspect(key) {
     const node=data.nodes.get(key);
@@ -143,21 +229,31 @@
     const info=$('network-info');
     const path=html('code',locationOf(node));path.className='map-id';
     info.replaceChildren(html('strong',describe(node)),path);
+    info.scrollTop=0;
     for(const [id,pos] of positions) pos.g.setAttribute('aria-pressed',String(id===key));
     for(const edge of displayedEdges) edge.line.classList.toggle('active',edge.from===key||edge.to===key);
     if(key!==anchor){
       const btn=html('button',t('Построить от этого узла','Explore from this node'));
       btn.type='button';btn.onclick=()=>focusOn(key);info.append(btn);
     }
+    if (advisoryIndex && key !== data.rootKey) {
+      const section = html('section',t('Проверяем сведения об уязвимостях…','Checking advisories…'));
+      section.id='map-advisories'; info.append(section);
+      advisoryIndex.lookup(key).then(result=>showAdvisories(section,result,node));
+    }
     const counts=html('p',t('Зависимостей: ','Dependencies: ')+node.outgoing.length+' · '+t('Входящих связей: ','Incoming edges: ')+node.incoming.length);
     info.append(counts);
-    const adjacent=[...node.incoming.slice(0,12),...node.outgoing.slice(0,12)].slice(0,12);
+    const connections=[...node.incoming,...node.outgoing];
+    const conflicts=connections.filter(edge=>edge.state==='bad');
+    const adjacent=[...conflicts,...connections.filter(edge=>edge.state!=='bad')].slice(0,12);
     if (adjacent.length) {
       const list=document.createElement('ul');
       for (const edge of adjacent) {
         const line=data.nodes.get(edge.from).name+' → '+data.nodes.get(edge.to).name+' · '+edge.group+' '+edge.range;
         const status=edge.state==='bad' ? [t('Конфликт','Conflict'),edge.reason].filter(Boolean).join(' · ') : edge.state==='good' ? t('Подходит','Matches') : edge.reason || t('Без проверки','Unverified');
-        list.append(html('li',line+' · '+status));
+        const row=html('li',line+' · '+status);
+        if (edge.state==='bad') row.className='map-connection-conflict';
+        list.append(row);
       }
       info.append(list);
       if(node.incoming.length+node.outgoing.length>12) info.append(t('Показаны первые 12 связей.','Showing the first 12 connections.'));
@@ -233,17 +329,22 @@
       g.onclick=()=>{if(!moved)inspect(key);};
       g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();inspect(key);}};
       pos.g=g;svg.append(g);
+      if (advisoryIndex && key !== data.rootKey) {
+        advisoryIndex.lookup(key).then(result=>{if (g.isConnected) markSeverity(g,result);});
+      }
     }
     $('map-limit').textContent=t('Узлов в выбранном обходе: ','Nodes in this traversal: ')+levels.size+' · '+t('показано: ','shown: ')+positions.size+' · '+t('во всём индексе: ','in the full index: ')+data.nodes.size;
     $('map-more').hidden=positions.size>=levels.size;
     inspect(positions.has(selected)?selected:anchor);
     if(resetCamera)centerAtAnchor();else paintCamera();
   }
-  function render(next, commands, hasManifest) {
+  function render(next, commands, hasManifest, advisories, resetProject) {
+    advisoryIndex=advisories;
     panel.hidden=!next;
+    if (!next || resetProject) {past.length=0; future.length=0; historyButtons();}
     if (!next) {data=null;anchor=null;chooser.setItems([]);chooser.setValue('');svg.replaceChildren();return;}
     const starts=DepMapModel.startingNodes(next,hasManifest);
-    const keep=data && data.rootKey===next.rootKey && data.nodes.get(data.rootKey)?.name===next.nodes.get(next.rootKey)?.name && starts.some(node=>node.key===anchor);
+    const keep=!resetProject && data && data.rootKey===next.rootKey && data.nodes.get(data.rootKey)?.name===next.nodes.get(next.rootKey)?.name && starts.some(node=>node.key===anchor);
     data=next;commandFor=commands;
     if (!keep) {anchor=next.rootKey;selected=anchor;budget=pageSize;}
     chooser.setItems(starts.map(node=>({key:node.key,value:displayStart(node),label:node.key===data.rootKey?t('Корень проекта','Project root'):node.name,detail:node.key===data.rootKey?node.name:!hasManifest ? node.version+' · '+node.key : node.version})));
@@ -251,5 +352,5 @@
     chooser.setValue(data.nodes.has(anchor) ? displayStart(data.nodes.get(anchor)) : '');
     draw();
   }
-  window.LabMap={render,focusOn};
+  window.LabMap={render,focusOn,showAdvisories};
 })();

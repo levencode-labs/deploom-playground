@@ -1,19 +1,50 @@
 'use strict';
 (() => {
   const url='audit-data/osv-npm-v1.json';
+  const publicCatalog='https://raw.githubusercontent.com/levencode-labs/deploom-playground/osv-data/osv-npm-v1.json.gz';
   const object=x=>x!==null && typeof x==='object' && !Array.isArray(x);
   const known=new WeakSet();
-  let cached;
+  const snapshots=new Map();
   const now=()=>Math.floor(Date.now()/1000);
   const seconds=x=>Number.isSafeInteger(x) && x>0 && x<8640000000000;
 
-  async function load(signal) {
+  async function load(signal, {publicTree=false}={}) {
     signal?.throwIfAborted();
-    if(cached && cached.published<=now() && now()<cached.expires)return cached;
-    const options={method:'GET',mode:'same-origin',credentials:'same-origin',redirect:'error',referrerPolicy:'no-referrer',cache:'no-cache',signal};
-    let response=await fetch(url,options);
-    let compressed=false;
-    if(response.status===404) {
+    const location=window.location;
+    let sources=['hosted'];
+    if(publicTree && location?.origin==='https://deploom-migration-lab.beamyhorse.chatgpt.site') {
+      sources=['local-archive','public-archive'];
+    } else if(publicTree && location?.origin==='https://levencode-labs.github.io' && location.pathname.startsWith('/deploom-playground/')) {
+      sources=['public-archive','local-archive'];
+    }
+    let latest, failure;
+    for(const source of sources) {
+      let index=snapshots.get(source);
+      if(index?.fresh)return index;
+      try {
+        const downloaded=await readSnapshot(signal,source);
+        if(!index || downloaded.published>=index.published) {
+          index=downloaded;
+          snapshots.set(source,index);
+        }
+      } catch(error) {
+        if(signal?.aborted || sources.length===1)throw error;
+        failure=error;
+      }
+      if(index?.fresh)return index;
+      if(index && (!latest || index.published>latest.published))latest=index;
+    }
+    if(latest)return latest;
+    throw failure || Error('HOSTED_SNAPSHOT');
+  }
+
+  async function readSnapshot(signal, source) {
+    const publishedCatalog=source==='public-archive';
+    const options={method:'GET',mode:publishedCatalog?'cors':'same-origin',credentials:publishedCatalog?'omit':'same-origin',
+      redirect:'error',referrerPolicy:'no-referrer',cache:'no-cache',signal};
+    let compressed=source!=='hosted';
+    let response=await fetch(publishedCatalog?publicCatalog:compressed?url+'.gz':url,options);
+    if(!compressed && response.status===404) {
       response=await fetch(url+'.gz',options);
       compressed=true;
     }
@@ -49,7 +80,7 @@
     if(rows!==index.rows)throw Error('HOSTED_SNAPSHOT');
     signal?.throwIfAborted();
     Object.defineProperty(index,'fresh',{get:()=>index.published<=now() && now()<index.expires});
-    known.add(index);cached=index;return index;
+    known.add(index);return index;
   }
   // OSV compares prerelease versions by precedence, including a prerelease before a stable fix.
   const less=(a,b)=>treeSemver.satisfies(a,'<'+b,{includePrerelease:true});
@@ -131,6 +162,7 @@
         if(!object(entry) || typeof entry.id!=='string' || !/^[a-zA-Z0-9][a-zA-Z0-9.:_-]{0,159}$/.test(entry.id)) {
           unresolved.add(null);continue;
         }
+        if(entry.withdrawn || index.advisories?.[entry.id]?.withdrawn)continue;
         const result=match(entry,row.version);
         if(result===null){unresolved.add(entry.id);continue;}
         if(!result)continue;

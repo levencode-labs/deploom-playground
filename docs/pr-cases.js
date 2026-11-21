@@ -4,8 +4,6 @@
   const el = id => document.getElementById(id);
   function sync(hash) {
     try {history.replaceState(null,'','#'+hash);} catch {}
-    const language = document.querySelector('a.language');
-    if (language) { const url = new URL(language.href); url.hash=hash; language.href=url; }
   }
 
   const platforms = [...document.querySelectorAll('input[name=platform]')];

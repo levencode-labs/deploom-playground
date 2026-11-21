@@ -14,6 +14,18 @@
     return entries;
   }
 
+  function findMatches(items, term) {
+    if (!term) return items;
+    const exact = [], prefix = [], partial = [], other = [];
+    for (const entry of items) {
+      if (entry.name === term) exact.push(entry);
+      else if (entry.name.startsWith(term)) prefix.push(entry);
+      else if (entry.name.includes(term)) partial.push(entry);
+      else if (entry.search.includes(term)) other.push(entry);
+    }
+    return exact.concat(prefix, partial, other);
+  }
+
   function attach(input,{onSelect,onInput} = {}) {
     const host = document.createElement('span'), menu = document.createElement('span');
     const list = document.createElement('span'), note = document.createElement('span');
@@ -38,7 +50,8 @@
       if (!option) {input.removeAttribute('aria-activedescendant'); return;}
       option.setAttribute('aria-selected','true');
       input.setAttribute('aria-activedescendant',option.id);
-      option.scrollIntoView({block:'nearest'});
+      if (index === 0) menu.scrollTop = 0;
+      else option.scrollIntoView({block:'nearest'});
     }
     function select(index) {
       const item = shown[index];
@@ -51,7 +64,7 @@
       if (input.disabled || !items.length) {close(); return;}
       // Focusing a committed value opens the alternatives; typing filters the whole data set.
       const term = looking ? input.value.trim().toLowerCase() : '';
-      const matches = term ? items.filter(item=>item.search.includes(term)) : items;
+      const matches = findMatches(items, term);
       shown = matches.slice(0,24).map(entry=>entry.item);
       list.replaceChildren(); active = -1; input.removeAttribute('aria-activedescendant');
       for (const [index,item] of shown.entries()) {
@@ -68,6 +81,8 @@
         matches.length > shown.length ? t('Показано ','Showing ')+shown.length+t(' из ',' of ')+matches.length+t('. Уточните имя.','. Refine your search.') : '';
       note.hidden = !note.textContent;
       menu.hidden = false; input.setAttribute('aria-expanded','true');
+      menu.scrollTop = 0;
+      if (term && matches[0]?.name === term) highlight(0);
     }
     input.addEventListener('focus',()=>{looking=false;show();});
     input.addEventListener('click',()=>{if(menu.hidden)show();});
@@ -89,7 +104,11 @@
     });
     return {
       setItems(values) {
-        items = values.map(item=>({item,search:[item.value,item.label,item.detail].filter(Boolean).join(' ').toLowerCase()}));
+        items = values.map(item=>({
+          item,
+          name:(item.label || item.value).toLowerCase(),
+          search:[item.value,item.label,item.detail].filter(Boolean).join(' ').toLowerCase()
+        }));
         if (document.activeElement === input && !menu.hidden) show(); else close();
       },
       setValue(value) { input.value=value ?? ''; close(); },

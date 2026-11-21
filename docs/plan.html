@@ -13,13 +13,15 @@
   <main>
     <h1 data-en="Upgrade plan">План обновления</h1>
     <section class="panel plan-input" aria-label="Цель обновления" id="plan-form">
-      <label class="field" for="plan-mode"><span data-en="Goal">Цель обновления</span>
+      <div class="plan-action-row">
+        <label for="plan-mode" id="plan-goal-label" data-en="Freshness goal for direct dependencies">Цель по свежести прямых зависимостей</label>
         <select id="plan-mode">
-          <option value="yellow" data-en="Yellow · 80% of direct dependencies up to date">Yellow · 80% актуальных прямых зависимостей</option>
-          <option value="green" data-en="Green · all direct dependencies up to date">Green · все прямые зависимости актуальны</option>
-          <option value="manual" data-en="Update specific packages">Обновить конкретные пакеты</option>
+          <option value="yellow">Yellow · 80%</option>
+          <option value="green">Green · 100%</option>
+          <option value="manual" data-en="Specific packages">По пакетам</option>
         </select>
-      </label>
+        <button type="button" class="button" id="make-plan" disabled data-en="Calculate">Рассчитать</button>
+      </div>
       <div id="manual-goal" hidden>
         <div class="grid">
           <label class="field"><span data-en="Package to update">Пакет для обновления</span><input id="goal-package" type="text" autocomplete="off" spellcheck="false"></label>
@@ -27,7 +29,6 @@
         </div>
       </div>
       <p class="hint" id="project" role="status"></p>
-      <button type="button" class="button" id="make-plan" disabled data-en="Calculate plan">Рассчитать план</button>
       <div id="plan-options" hidden></div>
       <div id="manual-options" hidden>
         <details id="batch-goals"><summary data-en="Set several targets in JSON">Несколько целей в JSON</summary>

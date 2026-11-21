@@ -4,10 +4,10 @@
   const limit = 20;
   const maxBytes = 8 * 1024 * 1024;
   const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-  function inventory(lock) {
+  function inventory(lock, entries) {
     if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock);
     if (![1,2,3].includes(lock?.lockfileVersion) || !isObject(lock.packages) || !isObject(lock.packages[''])) throw Error('format');
-    const entries = Object.entries(lock.packages);
+    entries ??= Object.entries(lock.packages);
     if (entries.length > 30001) throw Error('size');
     const rows = new Map();
     const skipped = [];
@@ -30,10 +30,12 @@
     return {rows:[...rows.values()].sort((a,b)=>a.key.localeCompare(b.key)),skipped};
   }
 
-  function localInventory(lock) {
+  function localInventory(lock, path) {
     if (lock?.lockfileVersion===1) lock=LabLockGraph.npmLock(lock);
     const yarn = window.LabYarn?.format(lock?.packages);
-    const data = yarn ? window.LabYarn.inventory(lock) : inventory(lock);
+    // The map checks individual copies as they come into view.
+    const entries = path === undefined ? undefined : Object.hasOwn(lock.packages,path) ? [[path,lock.packages[path]]] : [];
+    const data = yarn ? window.LabYarn.inventory(lock,entries) : inventory(lock,entries);
     for (const row of data.rows) {
       row.publicPaths = new Set(row.paths.filter(p => {
         const record=lock.packages[p];

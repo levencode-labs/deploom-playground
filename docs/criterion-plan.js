@@ -5,7 +5,7 @@
     const node = document.createElement(tag); node.textContent=text; parent.append(node); return node;
   };
   const isoDay = value => value?.slice(0,10) || '—';
-  function results(parent,{man,lock,rows,documents,errors,level,sample,source}) {
+  function results(parent,{man,lock,rows,documents,errors,withheld,level,sample,source}) {
     const result = LabCriterion.project(rows,documents,level);
     const goal = level==='green' ? 'Green' : 'Yellow';
     parent.replaceChildren();
@@ -15,6 +15,8 @@
     line(parent,'p',t('Актуальны сейчас: ','Fresh now: ')+result.fresh+'/'+result.total+
       t('. Для цели нужно ','; goal requires ')+result.required+
       t('. Установленная версия и даты известны для ','. Known installed version and dates for ')+covered+'/'+result.total+'.');
+    if (withheld.size) line(parent,'p',t('Пакеты без запроса в публичный npm · ','Packages kept out of public npm lookups · ')+withheld.size+
+      t('. Их даты неизвестны.','. Their release dates are unknown.'));
     if (result.targets.length) {
       const list = line(parent,'ol','');
       for (const row of result.targets) {
@@ -54,7 +56,7 @@
       'Counts distinct names in this root’s dependencies, devDependencies and optionalDependencies. Entries without a regular locked release stay in the denominator. Yarn checks known direct peer requirements.'));
     const details=line(scope,'ul','');
     for (const row of result.facts) {
-      const reason=errors.get(row.name) || (row.status==='unknown'
+      const reason=errors.get(row.name) || (withheld.has(row.name) && t('нет разрешения на запрос дат в публичном npm','public npm lookup not authorized')) || (row.status==='unknown'
         ? row.version ? t('нет дат для установленной или эталонной версии','dates unavailable for the installed or reference release') : t('нет обычной npm-версии в lock','no regular npm version in lock')
         : t('установлена ','installed ')+isoDay(row.released)+t(', старшая стабильная ',', highest stable ')+row.latest+' ('+isoDay(row.latestReleased)+t('), граница ','), cutoff ')+isoDay(row.cutoff));
       line(details,'li',row.name+'@'+(row.version || row.range)+' · '+({fresh:t('в окне','within window'),stale:t('устарела','stale'),unknown:t('нет данных','unknown')}[row.status])+' · '+reason);
@@ -83,12 +85,12 @@
   function prepare({output,options,button,progress,man,lock,level,sample,signal}) {
     const rows = LabCriterion.inventory(man,lock);
     const eligible=rows.filter(row=>row.version);
-    const documents=new Map(sample ? Object.entries(LabWebpackReleaseSnapshot) : []), errors=new Map();
+    const documents=new Map(sample ? Object.entries(LabWebpackReleaseSnapshot) : []), errors=new Map(), withheld=new Set();
     const hosted=LabRegistry.hostedAudit===true;
     let source=sample?'':LabRegistry.base();
     function draw() {
       output.hidden=false;
-      return results(output,{man,lock,level,rows,documents,errors,sample,source});
+      return results(output,{man,lock,level,rows,documents,errors,withheld,sample,source});
     }
     if (sample || !eligible.length) {
       button.disabled=false;
@@ -99,27 +101,37 @@
     options.hidden=false;
     line(options,'p',hosted
       ? t('Даты выпусков берутся из снимка на этом сайте.','Release dates come from this site’s snapshot.')
-      : t('По кнопке выбранные имена пакетов будут отправлены в ','Calculating sends the selected package names to ')+source).className='hint';
+      : t('Источник дат выпусков — ','Release dates come from ')+source).className='hint';
+    const coverage=line(options,'p',''); coverage.className='hint'; coverage.hidden=true;
     const publicHost=!hosted && source===LabRegistry.defaultBase;
     const selection=line(options,'div','');
     const picker=LabPackagePicker.mount(selection,{
-      items:eligible.map(row=>({key:row.name,label:row.name,publicOrigin:row.publicRegistry,selected:!publicHost || row.publicRegistry})),
+      items:eligible.map(row=>({key:row.name,label:row.name,publicOrigin:row.publicRegistry,selected:true})),
       publicDestination:publicHost ? source : null,
-      onChange:ready=>{
+      allowPartial:true,
+      onChange:(ready,{selected,withheld})=>{
+        coverage.hidden=!withheld;
+        coverage.textContent=withheld ? t('При расчёте в публичный npm уйдут имена ', 'The calculation sends ')+(selected-withheld)+t(' из ', ' of ')+selected+
+          t('. Остальные можно включить в запрос ниже. До этого их даты будут неизвестны.', ' selected names to public npm. Authorize the rest below to include their release dates.') : '';
         button.disabled=!ready;
         progress.textContent='';
         output.hidden=true;
       },
     });
-    if(!picker.ready()) selection.querySelector('details').open=true;
     button.onclick=async()=>{
       const queue=picker.values().map(item=>item.key);
       const total=queue.length;
-      if(!total || button.disabled || signal.aborted)return;
+      if(button.disabled || signal.aborted)return;
+      errors.clear();documents.clear();withheld.clear();
+      const allowed=new Set(queue);
+      for (const row of eligible) {
+        if (picker.has(row.name) && !allowed.has(row.name)) withheld.add(row.name);
+      }
+      if (!total) {draw(); return;}
       let count=0, skipped=0;
       button.disabled=true;
       selection.inert=true;
-      errors.clear();documents.clear();output.replaceChildren();output.hidden=true;
+      output.replaceChildren();output.hidden=true;
       const status=()=>progress.textContent=t('Обработано пакетов · ','Packages processed · ')+count+'/'+total;
       status();
       try {

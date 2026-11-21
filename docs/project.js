@@ -99,7 +99,7 @@
         ui.value.textContent=file?file.name:t('Выбрать или перетащить','Choose or drop');
         ui.zone.dataset.filled=String(Boolean(file));ui.clear.hidden=!file;
       }
-      const example=page==='audit.html' ? Boolean(window.ReviewExample?.auditRevision) : requestedExample;
+      const example=Lab.activeProjectExample ?? (page==='audit.html' ? Boolean(window.ReviewExample?.auditRevision) : requestedExample);
       ownLink.hidden=!(active && example && tool);
       if(!tool || example || (!active && !prior))return;
       if(page==='compare.html' && active)await script('LabRegistry','registry.js');
