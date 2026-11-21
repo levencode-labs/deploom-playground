@@ -74,10 +74,78 @@ async function checkNpmFormats(browser,base) {
   } finally {await ctx.close();}
 }
 
+async function checkYarnAuditHandoff(browser,base) {
+  const context=await browser.newContext();
+  const page=await context.newPage();
+  page.setDefaultTimeout(5000);
+  const errors=[],requests=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await context.route(/^https?:/,route=>{
+    const url=new URL(route.request().url());
+    if(url.origin===base)return route.continue();
+    requests.push(url.href);
+    if(url.href==='https://api.osv.dev/v1/querybatch') {
+      const {queries}=route.request().postDataJSON();
+      assert.deepEqual(queries,[{package:{name:'is-number',ecosystem:'npm'},version:'7.0.0'}]);
+      return route.fulfill({json:{results:[{}]}});
+    }
+    if(url.href==='https://registry.npmjs.org/is-number')return route.fulfill({json:{
+      name:'is-number',versions:{'7.0.0':{}},time:{'7.0.0':'2018-07-04T15:24:01Z'}
+    }});
+    return route.abort();
+  });
+  const classic='# yarn lockfile v1\n\nis-number@^7.0.0:\n  version "7.0.0"\n  resolved "https://registry.yarnpkg.com/is-number/-/is-number-7.0.0.tgz"\n';
+  const berry='__metadata:\n  version: 8\n\n"is-number@npm:^7.0.0":\n  version: 7.0.0\n  resolution: "is-number@npm:7.0.0"\n';
+  const manifest=JSON.stringify({name:'yarn-handoff',dependencies:{'is-number':'^7.0.0'}});
+  const file=(name,text)=>({name,mimeType:'text/plain',buffer:Buffer.from(text)});
+  async function runReport(flavor,coverage) {
+    await page.locator('#shared-lock-zone[data-filled=true]').waitFor();
+    await page.waitForFunction(expected=>document.getElementById('parse-status').textContent.includes(expected),flavor);
+    await page.locator('#run-audit').click();
+    await page.locator('#result-details').waitFor({state:'visible'});
+    assert.ok((await page.locator('#security-coverage').textContent()).endsWith(coverage));
+  }
+  try {
+    for(const [flavor,lockText,coverage] of [['Yarn Classic',classic,'1 / 1'],['Yarn Berry',berry,'0 / 1']]) {
+      await page.goto(base+'/lab/index.html?lang=en');
+      await page.locator('#shared-manifest').setInputFiles(file('package.json',manifest));
+      await page.locator('#shared-manifest-zone[data-filled=true]').waitFor();
+      await page.locator('#shared-lock').setInputFiles(file('yarn.lock',lockText));
+      await page.locator('#shared-lock-zone[data-filled=true]').waitFor();
+      const start=requests.length;
+      await page.locator('main a[href*="audit.html"]').first().click();
+      await runReport(flavor,coverage);
+      // Static hosts can serve audit.html at /audit without changing the address.
+      await page.goto(base+'/lab/audit?lang=en');
+      await page.reload();
+      await runReport(flavor,coverage);
+      await page.locator('#shared-lock-clear').click();
+      await page.locator('#shared-lock-zone[data-filled=false]').waitFor();
+      await page.waitForFunction(()=>document.getElementById('run-audit').disabled);
+      await page.locator('#shared-lock').setInputFiles(file('yarn.lock',lockText));
+      await runReport(flavor,coverage);
+      if(flavor==='Yarn Berry') {
+        for(const query of ['example=gone','example=selector&rev=gone']) {
+          await page.goto(base+'/lab/audit?lang=en&'+query);
+          await runReport(flavor,coverage);
+        }
+        await page.goto(base+'/lab/audit?lang=en&example=vitest');
+        await page.locator('#vitest-context:not([hidden])').waitFor();
+        assert.equal(await page.locator('#audit-controls').isVisible(),false);
+      }
+      assert.equal(requests.length-start,flavor==='Yarn Classic'?6:0);
+      await page.locator('#shared-lock-clear').click();
+      await page.locator('#shared-lock-zone[data-filled=false]').waitFor();
+    }
+    assert.deepEqual(errors,[]);
+    console.log('PASS project audit runs with restored and newly selected Yarn files on .html and clean URLs');
+  } finally {await context.close();}
+}
+
 async function run() {
   const server=http.createServer(async(req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname.replace(/^\/lab\//,'/');
-    const file=path.resolve(docs,'.'+pathname);
+    const file=path.resolve(docs,'.'+(pathname==='/audit'?'/audit.html':pathname));
     if(!file.startsWith(docs+path.sep))return res.writeHead(404).end();
     try {
       const content=await fs.readFile(file);
@@ -122,6 +190,7 @@ async function run() {
     assert.ok(npmCalls>0 && npmCalls<=4);assert.ok(osvCalls>0 && osvCalls<=3);
     await auditContext.close();
     console.log('PASS DNS outage with 96 versions: advisory checks continue independently, both failed sources stop early');
+    await checkYarnAuditHandoff(browser,base);
     await checkNpmFormats(browser,base);
     for(const [prefix,width] of [['/',1200],['/lab/',360]]) {
       const ctx=await browser.newContext({viewport:{width,height:800},hasTouch:width<400});

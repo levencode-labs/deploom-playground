@@ -40,21 +40,34 @@ main:has(> #network-panel) > h1::before {
 }
 
 .tool-home .link-card {
-  position: relative;
   border-block-start: 1px solid var(--line);
 }
+
+.tool-home [data-thread="project"] { --thread: url("tile-threads.svg#project"); }
+.tool-home [data-thread="package"] { --thread: url("tile-threads.svg#package"); }
+.tool-home [data-thread="plan"] { --thread: url("tile-threads.svg#plan"); }
+.tool-home [data-thread="compare"] { --thread: url("tile-threads.svg#compare"); }
+.tool-home [data-thread="map"] { --thread: url("tile-threads.svg#map"); }
+.tool-home [data-thread="range"] { --thread: url("tile-threads.svg#range"); }
+
 .tool-home .link-card::before {
   content: "";
-  position: absolute;
-  inset-inline-start: 1.15rem;
-  inset-block-start: .22rem;
-  inline-size: 2.8rem;
-  block-size: .65rem;
-  background: url("thread-swatch.svg#hem") left center / 100% 100% no-repeat;
+  display: block;
+  inline-size: 8.5rem;
+  aspect-ratio: 160 / 42;
+  margin-block: -.3rem .45rem;
+  background: var(--thread) left center / contain no-repeat;
+  transform-origin: left center;
   pointer-events: none;
 }
+
 .tool-home .link-card:is(:hover, :focus-visible) {
   border-color: #5985bb;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tool-home .link-card::before { transition: transform 160ms ease-out; }
+  .tool-home .link-card:is(:hover, :focus-visible)::before { transform: scaleX(1.055); }
 }
 
 #network-map .map-edge.active:not(.bad) { stroke: #69d5dd; }

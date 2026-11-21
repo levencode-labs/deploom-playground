@@ -1,10 +1,9 @@
 'use strict';
 (() => {
-  const {t}=Lab;
+  const {t,page}=Lab;
   const scope=new URL('.',location.href).pathname;
-  const page=location.pathname.split('/').pop();
   const params=new URLSearchParams(location.search);
-  const example=Boolean(params.get('example')) || (page==='tree.html' && ['yarn','react','dom'].some(k=>params.has(k))) ||
+  const requestedExample=Boolean(params.get('example')) || (page==='tree.html' && ['yarn','react','dom'].some(k=>params.has(k))) ||
     (page==='ranges.html' && ['scheduler','react'].includes(params.get('pkg')));
   const tool=['audit.html','plan.html','tree.html','compare.html','advisories.html','ranges.html'].includes(page);
   const create=(tag,text='')=>{const node=document.createElement(tag);node.textContent=text;return node;};
@@ -100,6 +99,7 @@
         ui.value.textContent=file?file.name:t('Выбрать или перетащить','Choose or drop');
         ui.zone.dataset.filled=String(Boolean(file));ui.clear.hidden=!file;
       }
+      const example=page==='audit.html' ? Boolean(window.ReviewExample?.auditRevision) : requestedExample;
       ownLink.hidden=!(active && example && tool);
       if(!tool || example || (!active && !prior))return;
       if(page==='compare.html' && active)await script('LabRegistry','registry.js');

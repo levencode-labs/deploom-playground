@@ -250,6 +250,6 @@
       : t('Запись аудита публичного примера от ','Recorded public example audit from ')+saved.captured+' · npmjs + OSV';
     render();
   }
-  if(ReviewExample.kind==='vitest')sample('vitest',true);
-  if(ReviewExample.kind==='selector' && Object.hasOwn(SelectorLab.cases,ReviewExample.revision))sample(ReviewExample.revision,ReviewExample.revision==='base');
+  const revision=ReviewExample.auditRevision;
+  if(revision)sample(revision,revision==='vitest' || revision==='base');
 })();
