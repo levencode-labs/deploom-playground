@@ -68,9 +68,13 @@
   skip.href = '#' + main.id;
   skip.className = 'skip';
   skip.textContent = t('К содержимому','Skip to content');
-  const brand = link('DepLoom', 'index.html');
+  const brand = link('DEPLOOM', 'index.html');
   brand.className = 'brand';
-  const mark=document.createElement('img'); mark.src='deploom-mark.svg'; mark.alt='';brand.prepend(mark);
+  const mark = document.createElement('img');
+  mark.src = 'deploom-mark.svg?v=2';
+  mark.alt = '';
+  mark.width = mark.height = 40;
+  brand.prepend(mark);
   const favicon=document.createElement('link'); favicon.rel='icon'; favicon.href=mark.src;document.head.append(favicon);
   const nav = document.createElement('nav');
   nav.setAttribute('aria-label', t('Разделы лаборатории','Lab sections'));
