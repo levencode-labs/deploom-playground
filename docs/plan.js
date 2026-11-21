@@ -21,7 +21,10 @@
   const webpackLesson = params.get('example')==='webpack' ? LabWebpack.planner(lessonRevision) : null;
   const selectorLesson = ReviewExample.kind==='selector' ? ReviewExample.fixture() : null;
   const lesson = webpackLesson || selectorLesson;
-  const initialTargets = webpackLesson?.targets || (selectorLesson ? {'css-select':'4.3.0'} : {'react-dom':'18.3.1'});
+  const reactLesson=params.get('example')==='react';
+  const freshnessLesson=params.get('example')==='freshness';
+  const exampleData=lesson || (freshnessLesson ? LabWebpack.planner('merged') : reactLesson ? {manifest,lock:sample} : null);
+  const initialTargets = webpackLesson?.targets || (selectorLesson ? {'css-select':'4.3.0'} : reactLesson ? {'react-dom':'18.3.1'} : {});
   let active, revision = 0;
   const manual = () => el('plan-mode').value==='manual';
   const hosted=LabRegistry.hostedAudit===true;
@@ -36,18 +39,26 @@
   function reset() {
     revision++;
     active?.abort(); active = undefined;
-    el('network').hidden = true; el('lookup').disabled = true;
+    el('network').hidden = true; el('network').open=false; el('lookup').disabled = true;
     el('lookup').onclick=null;el('lookup-packages').inert=false;
     el('net-status').textContent = '';
-    el('plan-output').replaceChildren();
+    el('plan-output').replaceChildren(); el('plan-output').hidden=true;
+    el('plan-status').textContent='';
   }
-  let manifestFile=null, lockFile=null;
-  const demo = () => !manifestFile && !lockFile;
+  let manifestFile=null, lockFile=null, project=null, fileRevision=0, fileError='';
+  const demo = () => !!exampleData && !manifestFile && !lockFile;
+  el('goal-package').placeholder=t('Начните вводить имя','Type a package name');
+  const packageChoice=LabPackageCombo.attach(el('goal-package'),{onSelect:changeSingleGoal,onInput:changeSingleGoal});
   function caption() {
-    if (!manual()) {
-      el('project').textContent = demo()
-        ? t('Открыта UI-ветка из примера про webpack. Даты выпусков сохранены на 1 июля 2024 года.','The UI branch from the webpack lesson is open. Release dates are saved as of 1 July 2024.')
-        : [manifestFile?.name,lockFile?.name].filter(Boolean).join(' + ')+t(' · чтение в браузере.',' · read locally.');
+    if (!demo()) {
+      el('project').textContent=fileError || (!manifestFile && !lockFile
+        ? t('Выберите package.json и lock-файл в шапке.','Choose package.json and a lockfile in the header.')
+        : !manifestFile ? t('Добавьте package.json в шапке.','Add package.json in the header.')
+        : !lockFile ? t('Добавьте lock-файл в шапке.','Add a lockfile in the header.') : '');
+      return;
+    }
+    if (!manual() && (webpackLesson || freshnessLesson)) {
+      el('project').textContent=t('Пример с webpack. Даты выпусков сохранены на 1 июля 2024 года.','Webpack example. Release dates were captured on 1 July 2024.');
       return;
     }
     if (selectorLesson && demo()) {
@@ -65,31 +76,26 @@
             'Fixed revision. Check the change from the UI branch to webpack 5 and CSS plugin 2.9.0.');
       return;
     }
-    el('project').textContent = demo() ?
-      t('Сейчас открыт пример с React 18.2.0. Для своего плана добавьте package.json и lock-файл в шапке.','The React 18.2.0 example is open. Add your package.json and lockfile in the header to plan your upgrade.') :
-      t('Выбранные файлы читаются только в браузере.','Selected files are read only in this browser.');
+    el('project').textContent=freshnessLesson ? t('Прямые зависимости UI-ветки с webpack.','Direct dependencies from the webpack UI branch.') : t('Пример с React 18.2.0.','React 18.2.0 example.');
   }
   function syncGoal() {
     let entries;
     try { entries=Object.entries(JSON.parse(el('targets').value)); } catch { entries=[]; }
     const single=entries.length===1 ? entries[0] : [];
-    el('goal-package').value=single[0] || '';
+    packageChoice.setValue(single[0]);
     el('goal-version').value=single[1] || '';
   }
-  async function choosePackages() {
-    const file=manifestFile;
-    let man=lesson?.manifest || manifest;
-    if(file) {
-      try { man=file.size<=20*1024*1024 ? JSON.parse(await file.text()) : {}; } catch { man={}; }
-      if(file!==manifestFile) return;
+  function choosePackages(man) {
+    const direct=new Map();
+    for (const edge of LabPackageCombo.direct(man)) {
+      if(edge.group!=='peerDependencies' && !direct.has(edge.name)) direct.set(edge.name,{value:edge.name,detail:edge.range});
     }
-    const names=new Set([...LabLockGraph.declarations(man || {},true)].filter(e=>e.group!=='peerDependencies').map(e=>e.name));
-    el('goal-package').replaceChildren(new Option(t('Выберите пакет','Choose a package'),''), ...[...names].sort().map(name=>new Option(name,name)));
+    packageChoice.setItems([...direct.values()].sort((a,b)=>a.value.localeCompare(b.value)));
     syncGoal();
   }
   function errorText(err) {
     const messages = {
-      files:t('Выберите package.json и соответствующий yarn.lock либо npm lock-файл v3.','Select a package.json and its Yarn lockfile or npm v3 lockfile.'),
+      files:t('Выберите package.json и соответствующий yarn.lock либо npm lock-файл v1–v3.','Select a package.json and its Yarn lockfile or npm v1–v3 lockfile.'),
       evidence:t('Манифест должен совпадать по имени и версии с целью или установленной прямой зависимостью. Можно выбрать до 20 файлов.', 'Each manifest must match a target or an installed direct dependency by name and version. Select up to 20 files.'),
       'meta-size':t('Манифест целевой версии должен помещаться в 1 МиБ.','Each target manifest can be up to 1 MiB.'),
       size:t('Максимальный размер файла — 20 МиБ.','Each file can be up to 20 MiB.'),
@@ -109,23 +115,9 @@
   async function calculate() {
     reset(); const current = revision;
     try {
-      let man = lesson?.manifest || manifest, lock = lesson?.lock || sample;
-      if (!demo()) {
-        const files = [manifestFile,lockFile];
-        if (!files.every(Boolean)) {
-          add('p', manifestFile ? t('Добавьте lock-файл в шапке, чтобы узнать установленные версии.','Add a lockfile in the header to identify installed versions.') :
-            t('Добавьте package.json в шапке, чтобы выбрать цель проекта.','Add package.json in the header to select a project target.'));
-          return;
-        }
-        if (files.some(file => file.size > 20*1024*1024)) throw Error('size');
-        [man,lock] = await Promise.all([files[0].text().then(JSON.parse), files[1].text().then(LabYarn.read)]);
-      }
-      if (current !== revision) return;
-      if (!manual()) {
-        active = new AbortController();
-        LabCriterionPlan.open(el('plan-output'),{man,lock,level:el('plan-mode').value,sample:demo(),signal:active.signal});
-        return;
-      }
+      if (!manual() || !project) return;
+      const {man,lock}=project;
+      el('plan-output').hidden=false;
       const yarn = LabYarn.format(lock.packages);
       const changes = LabPlan.read(man,lock,JSON.parse(el('targets').value));
       const evidence = new Map(demo() ? (webpackLesson ? LabWebpack.records : metadata) : []);
@@ -136,7 +128,7 @@
       const fromLock = new Set();
       const byName = new Map(changes.filter(c=>c.publicRegistry).map(c=>[c.name,c]));
       for (const [path,record] of Object.entries(lock.packages)) {
-        if (!record || !path.includes('node_modules/')) continue;
+        if (lock.lockfileVersion===1 || !record || !path.includes('node_modules/')) continue;
         const name = record.name || path.split('node_modules/').at(-1);
         if (byName.get(name)?.target !== record.version || !LabLockGraph.publicTarball(record,name)) continue;
         const key = name + '@' + record.version;
@@ -176,14 +168,6 @@
         if(hosted) localDownload();
       }
 
-      if (missing.length) {
-        const supply = add('button',t('Добавить package.json нужной версии с диска','Supply the target package.json from disk'));
-        supply.type = 'button';
-        supply.onclick = () => {
-          document.getElementById('local-metadata').open = true;
-          document.getElementById('meta-files').focus();
-        };
-      }
       for(const item of hosted ? [] : notFound) {
         const link=add('a',t('Посмотреть опубликованные версии ','See published releases of ')+item.name);
         link.href=LabRegistry.url(item.name);
@@ -199,7 +183,8 @@
         }
         add('p',t('Ваша цель · ','Your target · ') + change.name + ' ' + change.record.version + ' → ' + change.target);
       }
-      LabCriterionPlan.showReactCheck(el('plan-output'),changes);
+      if(lock.lockfileVersion===1) add('p',t('В npm lock v1 нет peer-требований установленных пакетов. Для проверки нужны их манифесты.','npm lock v1 omits installed packages’ peer requirements. Their manifests provide those requirements.'));
+      if(demo()) LabCriterionPlan.showReactCheck(el('plan-output'),changes);
       if (result.unknown.length && !notFound.length) add('p',hosted
         ? t('Добавьте локальный package.json нужной библиотеки, чтобы проверить её peer-требования.','Add the library’s package.json from disk to check its peer requirements.')
         : yarn==='Yarn Classic'
@@ -228,7 +213,7 @@
       if (uploaded.size) sources.add(t('загруженные манифесты целевых версий','uploaded target manifests'));
       for (const {name,target,record,publicRegistry} of changes) {
         const key = name + '@' + target;
-        if (publicRegistry && !local.has(key) && !fromLock.has(key) && record.version !== target && metadata.has(key)) sources.add(recorded.has(key) ? t('сохранённые требования React из npm','saved React metadata from npm') : t('ответ npm для целевой версии','npm response for target version'));
+        if (publicRegistry && !local.has(key) && !fromLock.has(key) && record.version !== target && evidence.has(key)) sources.add(recorded.has(key) ? t('сохранённые требования React из npm','saved React metadata from npm') : t('ответ npm для целевой версии','npm response for target version'));
       }
       add('p',t('Источник — ','Source — ') + [...sources].join(', ') + '.').className = 'hint';
       if (selectorLesson && demo()) {
@@ -282,7 +267,7 @@
           lookup(selected.map(item=>item.change),current);
         };
       }
-    } catch (err) { if (current === revision) add('p',errorText(err)); }
+    } catch (err) { if (current === revision) {el('plan-output').hidden=false;add('p',errorText(err));} }
   }
   async function lookup(changes,current) {
     if (!changes.length || active || current !== revision) return;
@@ -325,42 +310,67 @@
       add('p',[...failures].join(' '));if(hosted)localDownload();
     }
   }
-  function refreshProject(manifestChanged) {
-    confirmed.clear();absent.clear();
-    if(manifestChanged) el('targets').value='{}';
-    choosePackages();caption();calculate();
+  function manualButton() {
+    el('make-plan').disabled=!project || !el('targets').value.trim() || el('targets').value.trim()==='{}';
   }
-  for(const id of ['meta-files','targets']) el(id).addEventListener('input',()=>{confirmed.clear();absent.clear();reset();caption();});
+  function changeSingleGoal() {
+    const name=el('goal-package').value.trim(),version=el('goal-version').value.trim();
+    el('targets').value=JSON.stringify(name && version ? {[name]:version} : {});
+    confirmed.clear();absent.clear();reset();manualButton();
+  }
+  function configure() {
+    reset();
+    const button=el('make-plan'), options=el('plan-options');
+    options.replaceChildren();options.hidden=true;
+    button.disabled=true;button.onclick=null;
+    el('manual-goal').hidden=el('manual-options').hidden=!manual();
+    caption();
+    if (!project) return;
+    if (manual()) {
+      button.onclick=calculate;
+      manualButton();
+      return;
+    }
+    active=new AbortController();
+    try {
+      LabCriterionPlan.prepare({output:el('plan-output'),options,button,progress:el('plan-status'),
+        man:project.man,lock:project.lock,level:el('plan-mode').value,sample:demo() && (freshnessLesson || !!webpackLesson),signal:active.signal});
+    } catch (err) { el('project').textContent=errorText(err); }
+  }
+  async function readProject() {
+    const ticket=++fileRevision;
+    project=null;fileError='';
+    confirmed.clear();absent.clear();
+    choosePackages(null);configure();
+    try {
+      const [man,lock]=await Promise.all([
+        manifestFile ? manifestFile.text().then(text=>JSON.parse(text.replace(/^\uFEFF/,''))) : demo() ? exampleData.manifest : null,
+        lockFile ? lockFile.text().then(LabYarn.read) : demo() ? exampleData.lock : null,
+      ]);
+      if(ticket!==fileRevision)return;
+      choosePackages(man);
+      if(man && lock) project={man,lock:LabYarn.withManifest(lock,man)};
+    } catch (err) {
+      if(ticket!==fileRevision)return;
+      fileError=errorText(err);
+    }
+    configure();
+    if (demo() && manual() && el('targets').value!=='{}') await calculate();
+  }
   window.addEventListener('lab-project',({detail})=>{
     manifestFile=detail?.manifest || null;
     lockFile=detail?.lock || null;
-    const manifestChanged=detail?.changedSlot!=='lock';
-    if (manifestChanged) el('meta-files').value='';
-    refreshProject(manifestChanged);
+    if (detail?.changedSlot!=='lock') {
+      el('meta-files').value='';
+      el('targets').value='{}';
+    }
+    readProject();
   });
-  function syncMode() {
-    el('manual-goal').hidden=!manual();
-    el('make-plan').hidden=!manual();
-    el('sample').textContent = manual() && lesson ? t('Вернуть учебную ревизию','Restore the example revision') :
-      manual() ? t('Вернуть пример React','Restore React example') : t('Открыть учебный проект','Open the example project');
-    caption();calculate();
-  }
-  el('plan-mode').onchange=syncMode;
-  el('targets').addEventListener('input',syncGoal);
-  for(const id of ['goal-package','goal-version']) el(id).addEventListener('input',()=>{
-    const name=el('goal-package').value,version=el('goal-version').value.trim();
-    el('targets').value=JSON.stringify(name && version ? {[name]:version} : {});
-    confirmed.clear();absent.clear();reset();
-  });
-  el('sample').onclick = () => {
-    confirmed.clear();absent.clear();manifestFile=null; lockFile=null; el('meta-files').value = '';
-    el('targets').value = JSON.stringify(initialTargets,null,2); el('batch-goals').open=false;choosePackages();caption();calculate();
-  };
-  el('make-plan').onclick = calculate;
-  if (lesson) {
-    el('targets').value=JSON.stringify(initialTargets,null,2);
-    el('sample').textContent=t('Вернуть учебную ревизию','Restore the example revision');
-  }
-  el('plan-mode').value=lesson || params.get('example')==='react' ? 'manual' : 'yellow';
-  choosePackages();syncMode();
+  el('plan-mode').onchange=configure;
+  el('targets').addEventListener('input',()=>{syncGoal();confirmed.clear();absent.clear();reset();manualButton();});
+  el('goal-version').addEventListener('input',changeSingleGoal);
+  el('meta-files').addEventListener('input',()=>{confirmed.clear();absent.clear();reset();manualButton();});
+  el('plan-mode').value=lesson || reactLesson ? 'manual' : 'yellow';
+  el('targets').value=JSON.stringify(initialTargets,null,2);
+  readProject();
 })();
