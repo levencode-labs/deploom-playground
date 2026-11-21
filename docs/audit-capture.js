@@ -100,3 +100,33 @@ window.LabAuditCapture = {
     }
   }
 };
+
+// One reconstructed dependency branch. The published Vitest manifest declares the edge.
+// Sources: https://registry.npmjs.org/vitest/3.2.6 and the OSV records linked below.
+const vitestExampleManifest = {name:'vitest-example',devDependencies:{vitest:'3.2.6'}};
+window.LabVitestCapture = {
+  captured:'2026-11-21',
+  manifest:vitestExampleManifest,
+  lock:{lockfileVersion:3,packages:{
+    '':vitestExampleManifest,
+    'node_modules/vitest':{version:'3.2.6',dev:true,dependencies:{tinypool:'^1.1.1'},
+      resolved:'https://registry.npmjs.org/vitest/-/vitest-3.2.6.tgz'},
+    'node_modules/tinypool':{version:'1.1.1',dev:true,
+      resolved:'https://registry.npmjs.org/tinypool/-/tinypool-1.1.1.tgz'}
+  }},
+  results:{'tinypool@1.1.1':['GHSA-5gmw-xhrv-c9v3','GHSA-85c8-ppgw-ccpr']},
+  details:{
+    'GHSA-5gmw-xhrv-c9v3':{
+      id:'GHSA-5gmw-xhrv-c9v3',source:'OSV',level:'Critical',score:9.5,
+      summary:'Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution',
+      published:'2026-10-05T22:50:01Z',modified:'2026-10-05T23:00:04.259458991Z',
+      aliases:['CVE-2026-104848'],href:'https://osv.dev/vulnerability/GHSA-5gmw-xhrv-c9v3'
+    },
+    'GHSA-85c8-ppgw-ccpr':{
+      id:'GHSA-85c8-ppgw-ccpr',source:'OSV',level:'Critical',score:9.5,
+      summary:'Tinypool: Prototype Pollution Gadget to RCE in run() options',
+      published:'2026-10-05T22:49:52Z',modified:'2026-10-05T23:00:05.324545780Z',
+      aliases:['CVE-2026-104849'],href:'https://osv.dev/vulnerability/GHSA-85c8-ppgw-ccpr'
+    }
+  }
+};
