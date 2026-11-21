@@ -76,9 +76,10 @@
           for(const k of ['dependencies','devDependencies','optionalDependencies','peerDependencies']) {
             if(data[k]!==undefined && (!plain(data[k]) || Object.values(data[k]).some(v=>typeof v!=='string')))throw Error();
           }
-        } else if(data.lockfileVersion===1) {
-          if(!plain(data.dependencies) || Object.values(data.dependencies).some(v=>!plain(v)))throw Error();
-        } else if(![2,3].includes(data.lockfileVersion) || !plain(data.packages) || !plain(data.packages['']) || Object.values(data.packages).some(v=>!plain(v)))throw Error();
+        } else {
+          await script('LabLockGraph','lock-graph.js');
+          LabLockGraph.npmLock(data);
+        }
       }
     } catch {
       throw Error(kind==='manifest'?t('Не удалось прочитать манифест npm.','Could not read the npm manifest.'):
