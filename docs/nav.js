@@ -56,19 +56,6 @@
       ['tree.html?view=groups', t('Группы','Groups')],
       ['ranges.html', t('Проверить диапазон','Check a version range')],
     ]],
-    [t('Примеры','Examples'), [
-      ['examples.html', t('Все примеры','All examples')],
-      ['tree.html?example=webpack-groups&view=packages', t('Группы пакетов в webpack','Package groups in webpack')],
-      [null, t('Установка и CI','Installation and CI')],
-      ['peers.html', t('Конфликт React и React DOM','React and React DOM conflict')],
-      ['combinations.html#build-mr', t('Собери свой MR с webpack','Build your own webpack MR')],
-      ['combinations.html', t('Слияние веток с webpack','Merging webpack branches')],
-      ['ci.html', t('Rollup на Linux после сборки на Mac','Rollup on Linux after a Mac build')],
-      [null, t('Запуск кода','Running the code')],
-      ['override.html', t('CSS-селектор после override','CSS selector after an override')],
-      [null, t('Работа с интерфейсом','Using the interface')],
-      ['runtime.html', t('Подсказка после перехода на React 19','A missing hint after upgrading to React 19')],
-    ]],
   ];
   const main = document.querySelector('main');
   main.id ||= 'main-content';
@@ -131,6 +118,9 @@
     });
     document.addEventListener('click', event => { if (!group.contains(event.target)) group.open = false; });
   }
+  const handbook = link(t('Учебник', 'Handbook'), 'handbook.html');
+  if (page === 'handbook.html') handbook.setAttribute('aria-current', 'page');
+  nav.append(handbook);
   const language = document.createElement('select');
   language.className = 'language';
   language.setAttribute('aria-label',t('Язык','Language'));
@@ -154,9 +144,11 @@
   bar.append(skip, brand, nav, language);
   window.Lab = { page, lang, t, urlFor, setExampleState };
   document.querySelector('[data-nav]').append(bar);
-  const projectScript = document.createElement('script');
-  projectScript.src = 'project.js';
-  document.head.append(projectScript);
+  if (page !== 'handbook.html') {
+    const projectScript = document.createElement('script');
+    projectScript.src = 'project.js';
+    document.head.append(projectScript);
+  }
   if (lang === 'en') for (const element of main.querySelectorAll('[data-en]')) element.textContent = element.dataset.en;
   for (const anchor of main.querySelectorAll('a[href]')) {
     if (/^[\w-]+\.html(?:[?#]|$)/.test(anchor.getAttribute('href'))) anchor.href = urlFor(anchor.getAttribute('href'));
