@@ -40,3 +40,13 @@ test('surface an independent known peer conflict when no fresh target can be com
   const r=ctx.LabPlan.assess(lock,[],new Map(),new Map(),true);
   assert.equal(r.issues.length,1);assert.equal(r.issues[0].version,'2.0.0');
 });
+test('a 366-day anniversary is fresh, one millisecond before the calendar cutoff is stale, absent dates are unknown',()=>{
+  const latest='2024-03-01T12:00:00Z', boundary='2023-03-01T12:00:00Z';
+  assert.equal((Date.parse(latest)-Date.parse(boundary))/86400000,366);
+  const releases={versions:{'1.0.0':{},'1.0.1':{},'2.0.0':{},'2.0.1':{}},
+    time:{'1.0.0':'2023-03-01T11:59:59.999Z','1.0.1':boundary,'2.0.1':latest}};
+  assert.deepEqual(['1.0.0','1.0.1','2.0.0'].map(version=>freshness(releases,version).status),['stale','fresh','unknown']);
+  const inputs=['1.0.0','1.0.1','2.0.0'].map((version,i)=>({name:'pkg-'+i,version,range:'*'}));
+  const plan=project(inputs,new Map(inputs.map(input=>[input.name,releases])),'green');
+  assert.deepEqual(Array.from(plan.facts,item=>item.status),['stale','fresh','unknown']);
+});
