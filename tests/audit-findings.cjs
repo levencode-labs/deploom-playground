@@ -85,7 +85,7 @@ async function exercise(browser,lang,prefix,width) {
     await input.fill('babel-99');
     await page.getByRole('option',{name:/@fixture\/babel-99/}).waitFor();
     await input.fill('transitive-2063');
-    assert.equal(await page.getByRole('option').count(),0);
+    assert.equal(await page.getByRole('listbox').getByRole('option').count(),0);
     await input.fill('react-dom');
     await page.getByRole('option',{name:/react-dom.*19.0.0/}).waitFor();
     await input.press('ArrowDown');

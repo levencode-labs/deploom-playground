@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="lab.css">
   <link rel="stylesheet" href="range-scale.css">
   <link rel="stylesheet" href="map.css">
+  <link rel="stylesheet" href="cohorts.css">
   <style>
     .tree-controls { display:flex; align-items:flex-end; flex-wrap:wrap; gap:.55rem; margin:.8rem 0 }
     .project-input textarea { width:100%; min-width:0; box-sizing:border-box; padding:.8rem; border:1px solid #a3afc1; border-radius:.45rem; background:#fff; color:#152c44; font: .92rem/1.45 "IBM Plex Mono", Consolas, monospace; resize:vertical }
@@ -41,12 +42,22 @@
         <p class="hint" data-en="Pasted JSON takes priority on this page. Clear the field to use the files from the header.">Вставленный JSON имеет приоритет на этой странице. Очистите поле, чтобы вернуться к файлам из шапки.</p>
         <textarea aria-label="package.json / package-lock.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
       <small id="tree-source" class="hint" role="status"></small>
+      <small id="webpack-group-source" hidden><a href="https://github.com/webpack/webpack/tree/60daca54105f89eee45e118fd0bbc820730724ee" data-en="Source files · webpack 5.91.0">Исходные файлы · webpack 5.91.0</a></small>
       <p id="tree-error" role="alert"></p>
   </section>
   <section class="panel map-panel" id="network-panel" hidden>
     <div class="map-toolbar"><h2 data-en="Dependency map">Карта зависимостей</h2>
-      <button id="map-fullscreen" type="button" aria-pressed="false" data-en="Full screen">На весь экран</button>
+      <div class="map-navigation"><button id="map-back" type="button" hidden data-en="Back">Назад</button>
+      <button id="map-forward" type="button" hidden data-en="Forward">Вперёд</button>
+      <button id="map-fullscreen" type="button" aria-pressed="false" data-en="Full screen">На весь экран</button></div>
     </div>
+    <div id="map-views" class="map-views" role="tablist" aria-label="Вид карты">
+      <button type="button" role="tab" id="view-tree" aria-controls="tree-view" aria-selected="true" data-en="Tree">Дерево</button>
+      <button type="button" role="tab" id="view-packages" aria-controls="cohort-view" aria-selected="false" tabindex="-1" data-en="Packages by group">Пакеты по группам</button>
+      <button type="button" role="tab" id="view-groups" aria-controls="cohort-view" aria-selected="false" tabindex="-1" data-en="Groups">Группы</button>
+    </div>
+    <small id="groups-require-manifest" class="hint" hidden data-en="Add package.json to see groups of direct dependencies.">Добавьте package.json, чтобы увидеть группы прямых зависимостей.</small>
+    <div id="tree-view" role="tabpanel" aria-labelledby="view-tree">
     <div class="map-controls">
       <label class="field map-copy-field"><span data-en="Starting package">Начальный узел</span>
         <input type="text" id="map-start" spellcheck="false" autocomplete="off"></label>
@@ -55,10 +66,12 @@
       <label class="field"><span data-en="Layout">Расположение</span><select id="map-layout"><option value="horizontal" data-en="Left to right">Слева направо</option><option value="vertical" data-en="Top to bottom">Сверху вниз</option></select></label>
       <div class="map-zoom"><button id="zoom-out" type="button">−</button><output id="network-zoom">100%</output><button id="zoom-in" type="button">+</button><button type="button" id="map-fit" data-en="Fit to view">Вписать</button></div>
     </div>
-    <p class="hint map-guide" id="map-guide" data-en="Arrows point from a consumer to its dependency. Dashed edges are peers. Select a node to see its connections. Drag to pan or use the arrow keys.">Стрелка идёт от потребителя к зависимости. Пунктир обозначает peer-требование. Выберите узел, чтобы увидеть связи. Перемещайтесь перетаскиванием или стрелками.</p>
+    <p class="hint map-guide" id="map-guide" data-en="Arrows point to dependencies. Dashed edges are peers. Critical, High and Moderate show the highest known severity for that installed copy. Select a node to see its advisories and connections below the map.">Стрелки ведут к зависимостям. Пунктир обозначает peer-требование. Critical, High и Moderate показывают максимальную известную серьёзность для установленной копии. Выберите узел, чтобы увидеть его уязвимости и связи под картой.</p>
     <div class="map-scroll" id="map-viewport" tabindex="0" aria-describedby="map-guide"><svg id="network-map" role="group"></svg></div>
     <div class="map-counts"><small id="map-limit" role="status"></small><button id="map-more" type="button" hidden data-en="Show more nodes">Показать ещё узлы</button></div>
     <div id="network-info" aria-live="polite"></div>
+    </div>
+    <div id="cohort-view" role="tabpanel" hidden aria-labelledby="view-packages"></div>
   </section>
   <details class="panel tree-output" id="tree-details" hidden><summary data-en="Inspect paths and version requirements">Разобрать пути и требования к версиям</summary>
       <details class="tree-input-lock" id="tree-netbox">
@@ -88,11 +101,15 @@
 <script src="vendor/yarn-classic.js"></script>
 <script src="vendor/js-yaml.min.js"></script>
 <script src="yarn-lock.js"></script>
+<script src="severity.js"></script><script src="audit-model.js"></script>
+<script src="hosted-audit.js"></script><script src="tree-advisories.js"></script>
 <script src="drop-files.js" defer></script>
 <script src="lock-samples.js"></script>
 <script src="package-combo.js"></script>
 <script src="dep-map-model.js"></script>
 <script src="dep-map.js"></script>
+<script src="cohort-model.js"></script>
+<script src="cohort-view.js"></script>
 <script src="selector-data.js"></script><script src="review-example.js"></script>
 <script src="registry.js"></script>
 <script src="tree-overrides.js"></script>

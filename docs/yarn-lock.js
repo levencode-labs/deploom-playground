@@ -63,9 +63,9 @@
       return LabLockGraph.usableName(name) && decodeURIComponent(url.pathname)==='/'+name+'/-/'+name.split('/').at(-1)+'-'+record.version+'.tgz' ? name : null;
     } catch { return null; }
   }
-  function inventory(lock) {
+  function inventory(lock,entries=Object.entries(lock.packages)) {
     const rows=new Map(),skipped=[];
-    for(const [path,record] of Object.entries(lock.packages)) {
+    for(const [path,record] of entries) {
       if (!path) continue;
       const name=identity(lock.packages,path);
       if (!name) { skipped.push({path,reason:'source'}); continue; }

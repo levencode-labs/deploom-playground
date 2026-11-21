@@ -136,3 +136,61 @@ test('a truncated compressed snapshot does not provide a trusted index',async()=
   await assert.rejects(ctx.LabHostedAudit.load());
   assert.throws(()=>ctx.LabHostedAudit.check({},[],new Map()),/HOSTED_SNAPSHOT/);
 });
+
+test('the tree loads the configured fixed source without sending project information',async()=>{
+  const archive='https://raw.githubusercontent.com/levencode-labs/deploom-playground/osv-data/osv-npm-v1.json.gz';
+  const plain='audit-data/osv-npm-v1.json', packed=plain+'.gz';
+  const data=snapshot({pkg:[advisory('A',[{introduced:'0'}])]});
+  const code=fs.readFileSync(path.join(__dirname,'../docs/hosted-audit.js'),'utf8');
+  const sites=[
+    ['https://levencode-labs.github.io/deploom-playground/tree',archive],
+    ['https://deploom-migration-lab.beamyhorse.chatgpt.site/tree',packed],
+    ['https://levencode-labs.github.io/other/tree',plain],
+    ['https://deploom-migration-lab.beamyhorse.chatgpt.site.example/tree',plain],
+    ['http://localhost:8080/tree',plain],
+  ];
+  for(const [page,source] of sites) {
+    const requests=[];
+    const ctx=vm.createContext({location:new URL(page+'?private=project'),Response,TextDecoder,DecompressionStream,fetch:async(url,opts)=>{
+      requests.push({url,opts});
+      return new Response(url.endsWith('.gz') ? require('node:zlib').gzipSync(JSON.stringify(data)) : JSON.stringify(data));
+    }});
+    ctx.window=ctx;vm.runInContext(code,ctx);
+    const tree=await ctx.LabHostedAudit.load(undefined,{publicTree:true});
+    assert.equal(tree.fresh,true);assert.equal(requests.length,1);
+    assert.equal(requests[0].url,source);
+    const {opts}=requests[0];
+    assert.equal(opts.credentials,source===archive?'omit':'same-origin');
+    assert.equal(opts.mode,source===archive?'cors':'same-origin');
+    assert.equal(opts.referrerPolicy,'no-referrer');assert.equal(opts.redirect,'error');assert.equal(opts.body,undefined);
+    await ctx.LabHostedAudit.load();
+    assert.equal(requests.at(-1).url,plain);
+  }
+});
+
+test('the official tree uses a fresh alternate or retains stale dated findings if the alternate is unavailable',async()=>{
+  const data=snapshot({pkg:[advisory('A',[{introduced:'0'}])]});
+  const stale={...data,published:timestamp-500,expires:timestamp-100};
+  const code=fs.readFileSync(path.join(__dirname,'../docs/hosted-audit.js'),'utf8');
+  for(const first of [stale,null]) for(const second of [data,null]) {
+    const calls=[];
+    const ctx=vm.createContext({location:new URL('https://deploom-migration-lab.beamyhorse.chatgpt.site/tree'),
+      Response,TextDecoder,DecompressionStream,fetch:async(url,options)=>{
+        calls.push({url,options});
+        const payload=url.startsWith('https://')?second:first;
+        if(!payload)throw TypeError('offline');
+        return new Response(JSON.stringify(payload));
+      }});
+    ctx.window=ctx;vm.runInContext(code,ctx);
+    const loading=ctx.LabHostedAudit.load(undefined,{publicTree:true});
+    if(!first && !second)await assert.rejects(loading);
+    else {
+      const loaded=await loading;
+      assert.equal(loaded.fresh,Boolean(second));
+      assert.equal(loaded.published,(second||first).published);
+    }
+    assert.equal(calls.length,2);assert.equal(calls[0].url,'audit-data/osv-npm-v1.json.gz');
+    assert.equal(calls[1].url,'https://raw.githubusercontent.com/levencode-labs/deploom-playground/osv-data/osv-npm-v1.json.gz');
+    assert.equal(calls[1].options.credentials,'omit');assert.equal(calls[1].options.referrerPolicy,'no-referrer');
+  }
+});

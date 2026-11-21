@@ -5,7 +5,7 @@
 
   // Rows have a unique key (package or exact release). Keep the selection across
   // pages, independent of the subset that currently has a checkbox in the DOM.
-  function mount(container, {items, publicDestination, exactReleases = false, onChange}) {
+  function mount(container, {items, publicDestination, exactReleases = false, allowPartial = false, onChange}) {
     const {t} = Lab;
     container.replaceChildren();
     container.classList.add('package-picker');
@@ -69,7 +69,11 @@
     status.className = 'picker-sr';
     status.setAttribute('role', 'status');
     let unconfirmed = 0;
-    const ready = () => selected.size > 0 && (!unconfirmed || consent.checked);
+    const permitted = item => !publicDestination || item.publicOrigin || consent.checked;
+    const ready = () => selected.size > 0 && (allowPartial || !unconfirmed || consent.checked);
+    function notify() {
+      onChange(ready(), {selected:selected.size, withheld:consent.checked ? 0 : unconfirmed});
+    }
 
     function updateCounts() {
       unconfirmed = publicDestination
@@ -124,7 +128,7 @@
             // The removed focused row is gone. Return keyboard users to the list.
             (list.querySelector('input') || mode).focus();
           } else updateCounts();
-          onChange(ready());
+          notify();
         };
       }
       empty.hidden = matches.length > 0;
@@ -153,19 +157,19 @@
         if (master.checked) selected.add(item.key); else selected.delete(item.key);
       }
       filter(false);
-      onChange(ready());
+      notify();
     };
-    clear.onclick = () => { selected.clear(); consent.checked = false; filter(); onChange(ready()); };
+    clear.onclick = () => { selected.clear(); consent.checked = false; filter(); notify(); };
     previous.onclick = () => { page--; renderPage(); };
     next.onclick = () => { page++; renderPage(); };
-    consent.onchange = () => { updateCounts(); onChange(ready()); };
+    consent.onchange = () => { updateCounts(); notify(); };
     renderPage();
-    onChange(ready());
+    notify();
     return {
       ready,
       has: key => selected.has(key),
       // A caller must not send an unconfirmed selection even if invoked directly.
-      values: () => ready() ? items.filter(item => selected.has(item.key)) : [],
+      values: () => ready() ? items.filter(item => selected.has(item.key) && permitted(item)) : [],
     };
   }
   window.LabPackagePicker = {mount};

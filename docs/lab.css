@@ -7,6 +7,7 @@ main{max-width:76rem;margin:0 auto;padding:clamp(1.2rem,3.5vw,3rem) clamp(1rem,4
 @media(max-width:48rem){.bar{gap:.5rem}.bar nav{order:3;flex-basis:100%;margin-left:-.45rem}.language{margin-left:auto}.lab-work,.hero{grid-template-columns:1fr}.hero img{max-height:8rem;object-position:center 72%}.field{display:flex;margin-right:0}.result-row{grid-template-columns:1fr}.panel{margin:.55rem 0}}
 
 .package-combo{position:relative;display:block;width:100%;min-width:0;font-weight:400}
+.bar select.language{min-height:2.35rem;max-width:5rem;background-color:#102944;color:#f3fbfc;color-scheme:dark;cursor:pointer;font-family:inherit}
 .package-combo input[role=combobox]{width:100%;max-width:100%;box-sizing:border-box}
 .package-combo-menu{position:absolute;top:calc(100% + .25rem);inset-inline:0;z-index:12;display:block;max-height:min(19rem,45vh);overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:.5rem;background:var(--paper);box-shadow:0 .4rem 1.4rem #102b451c;text-align:start;color:var(--ink)}
 .package-combo [role=option]{display:flex;justify-content:space-between;gap:.65rem;align-items:baseline;padding:.45rem .7rem;cursor:pointer;font:inherit;overflow-wrap:anywhere}

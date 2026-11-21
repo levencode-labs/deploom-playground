@@ -12,7 +12,9 @@
 .evidence-line[aria-pressed=true]{outline:3px solid #d18b33}.actions{gap:1.25rem}.actions a{font-weight:650}
 @media(max-width:48rem){.masthead img{display:none}.nav-links{position:static;max-width:100%;width:100%;box-shadow:none}.bar nav:has(details[open]){align-items:baseline}.nav-group[open]{flex:1 1 100%}.peer-work .lab-work{gap:.3rem}.peer-out{padding:.75rem}.bar nav{gap:.1rem}.nav-group summary{padding:.3rem .43rem}}
 
-.plan-input #plan-mode {max-width:100%;white-space:normal}
+.plan-action-row {display:grid;grid-template-columns:minmax(0,22rem) auto;align-items:end;gap:.35rem .65rem;width:min(100%,32rem)}
+.plan-action-row label {grid-column:1/-1;font-weight:650}
+.plan-input #plan-mode {width:100%;min-width:0;height:2.75rem;padding:0 .45rem;color:var(--ink);background:var(--paper);border:1px solid #91a8b1;border-radius:.4rem}
 .plan-input #make-plan {min-height:2.75rem;padding:.55rem 1rem}
 .plan-input #plan-options,.plan-input #manual-options {margin-top:1rem}
 .plan-input #manual-options details+details {margin-top:.45rem}

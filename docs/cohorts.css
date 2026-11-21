@@ -1,0 +1,79 @@
+#cohort-view { min-width:0; color:var(--ink); }
+.cohort-caption { margin:.75rem 0; }
+.cohort-tools,.cohort-zoom { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; }
+.cohort-tools { align-items:flex-end; margin:.65rem 0 .5rem; gap:.55rem .8rem; }
+.cohort-tools select { width:auto; max-width:100%; min-height:2.5rem; border:1px solid #91a8bd; border-radius:.45rem; padding:.42rem .7rem; background:white; color:#183451; font:inherit; }
+.cohort-tools label { display:grid; gap:.25rem; font-size:.9rem; font-weight:650; }
+.cohort-tools input { min-height:2.5rem; width:min(22rem,100%); max-width:100%; border:1px solid #91a8bd; border-radius:.45rem; padding:.42rem .65rem; background:white; color:#183451; font:inherit; }
+.cohort-zoom { margin-inline-start:auto; align-self:flex-end; flex-wrap:nowrap; }
+.cohort-zoom output { min-width:3em; text-align:center; font-variant-numeric:tabular-nums; }
+.cohort-scroll { max-width:100%; max-height:min(65vh,40rem); overflow:auto; overscroll-behavior:contain; background-color:#10213a; background-image:radial-gradient(#354b67 .9px,transparent 1.1px); background-size:16px 16px; border:1px solid #254267; border-radius:.75rem; scrollbar-color:#607897 #142840; }
+#cohort-map { display:block; max-width:none; margin-inline:auto; }
+#cohort-map text { font:600 12px system-ui,sans-serif; fill:#eff6ff; pointer-events:none; }
+#cohort-map text.cohort-meta { font:11px ui-monospace,Consolas,monospace; fill:#b0c9e4; }
+#cohort-map [role=button] { cursor:pointer; outline:none; }
+#cohort-map .cohort-package rect { fill:#19304d; stroke:#507094; stroke-width:1.4; }
+#cohort-map .cohort-group rect { fill:#20344c; stroke:var(--group-color,#80bfc9); stroke-width:1.45; }
+#cohort-map .cohort-thread { fill:none; stroke:var(--group-color,#80bfc9); stroke-width:2.5; stroke-linecap:round; }
+#cohort-map .is-related:not([aria-pressed=true]) rect { stroke:var(--group-color,#b8deec); stroke-width:2; }
+#cohort-map .cohort-group.is-unlinked rect { fill:#26374e; stroke:#73859d; stroke-dasharray:4 3; }
+#cohort-map :is(.cohort-group,.cohort-package):is(:hover,:focus-visible,[aria-pressed=true]) rect { stroke:#b9f7f0; stroke-width:2.8; }
+.cohort-wire { fill:none; stroke:#7692b4; stroke-width:1.4; }
+.cohort-bridge .cohort-wire { stroke:#8bd9dc; stroke-width:2; stroke-dasharray:6 3; }
+.cohort-bridge:is(:hover,:focus-visible,[aria-pressed=true]) .cohort-wire { stroke:#f1fbff; stroke-width:3.5; stroke-dasharray:none; }
+.cohort-bridge.is-related .cohort-wire,.cohort-line.is-related .cohort-wire { stroke:#ccf5ef; stroke-width:2.7; }
+.cohort-hit { fill:none; stroke:transparent; stroke-width:17; }
+.cohort-counts { margin:.5rem 0; }
+#cohort-info:not(:empty) { margin-top:.85rem; padding:.85rem 1rem; border:1px solid var(--line); border-radius:.65rem; overflow-wrap:anywhere; }
+#cohort-info h3 { font-size:1.05rem; margin:0 0 .35rem; }
+#cohort-info p { margin:.3rem 0 .6rem; }
+.cohort-metrics { display:flex; flex-wrap:wrap; gap:.6rem 1.4rem; margin:.6rem 0 .75rem; }
+.cohort-metrics dt { font-size:.84rem; color:#445b73; }
+.cohort-metrics dd { margin:0; font-weight:700; font-variant-numeric:tabular-nums; }
+.cohort-members { display:flex; flex-wrap:wrap; gap:.35rem; }
+#cohort-info .cohort-members button { padding:.2rem .5rem; font-size:.9rem; }
+.cohort-evidence { padding-inline-start:1.2rem; margin:.7rem 0 .4rem; }
+.cohort-evidence li+li { margin-top:.24rem; }
+.cohort-advisories { margin:.65rem 0; padding:.6rem .75rem; background:#f5f8fc; border-inline-start:3px solid #b9cce0; border-radius:.25rem; }
+.cohort-advisories ul { margin:.3rem 0; padding:0; list-style:none; }
+.cohort-advisories small { display:block; color:#465d76; }
+@media (max-width:36rem) {
+  .cohort-tools { align-items:flex-end; }
+  .cohort-tools label { flex:1 1 10rem; min-width:0; }
+  .cohort-tools input { width:100%; }
+  .cohort-scroll { max-height:58vh; }
+}
+@media (forced-colors:active) {
+  #cohort-map rect { fill:Canvas; stroke:CanvasText; }
+  #cohort-map text,#cohort-map text.cohort-meta { fill:CanvasText; }
+  #cohort-map .cohort-wire { stroke:CanvasText; }
+}
+
+@media (prefers-reduced-motion:no-preference) {
+  @keyframes map-view-in {
+    from { opacity:.6; transform:translateY(5px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+  @keyframes map-details-in {
+    from { opacity:.5; transform:translateX(-5px); }
+    to { opacity:1; transform:translateX(0); }
+  }
+  @keyframes map-thread-trace {
+    from { stroke-dashoffset:30; }
+    to { stroke-dashoffset:0; }
+  }
+  #tree-view:not([hidden]), #cohort-view:not([hidden]) .cohort-scroll {
+    animation:map-view-in 240ms ease-out;
+  }
+  #cohort-info>h3, #network-info>strong { display:block; animation:map-details-in 210ms ease-out; }
+  #cohort-map rect, #network-map .map-node rect, #cohort-map .cohort-wire {
+    transition:stroke 160ms ease-out,fill 160ms ease-out,stroke-width 160ms ease-out;
+  }
+  .cohort-bridge[aria-pressed=true] .cohort-wire, .cohort-bridge.is-related .cohort-wire,
+  #network-map .map-edge.active {
+    animation:map-thread-trace 450ms ease-out;
+  }
+  .cohort-bridge[aria-pressed=true] .cohort-wire { stroke-dasharray:7 3; }
+  #network-map .map-edge.active:not(.peer) { animation:map-edge-pulse 420ms ease-out; }
+  @keyframes map-edge-pulse { 35% { stroke-width:4; } }
+}

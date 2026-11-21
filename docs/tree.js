@@ -318,9 +318,85 @@
     updateLookupButton();
   }
 
+  const modes = ['tree','packages','groups'];
+  const requestedView = new URLSearchParams(location.search).get('view');
+  let preferredView = modes.includes(requestedView) ? requestedView : 'tree';
+  let mapSource, groupsModel, displayedMode, treeReady=false;
+  const tabs = $('map-views');
+  tabs.setAttribute('aria-label',t('Вид карты','Map view'));
+
+  function refreshView() {
+    if (!mapSource) return;
+    const available = Boolean(mapSource.manifest);
+    const mode = available ? preferredView : 'tree';
+    for (const name of modes) {
+      const button = $('view-'+name);
+      button.disabled = name !== 'tree' && !available;
+      button.tabIndex = name === mode ? 0 : -1;
+      button.setAttribute('aria-selected',String(name === mode));
+    }
+    $('groups-require-manifest').hidden = available;
+    $('network-panel').dataset.view = mode;
+    $('tree-view').hidden = mode !== 'tree';
+    $('cohort-view').hidden = mode === 'tree';
+    if (mode === 'tree' && !treeReady) {
+      LabMap.render(mapSource.network,commandFor,available,mapSource.advisories,mapSource.reset);
+      treeReady=true;
+    }
+    if (mode !== 'tree' && mode !== displayedMode) {
+      groupsModel ??= LabCohorts.build(mapSource.network,mapSource.manifest);
+      $('cohort-view').setAttribute('aria-labelledby','view-'+mode);
+      LabCohortView.render(groupsModel,mapSource.network,mapSource.advisories,mode);
+    }
+    displayedMode=mode;
+  }
+  function chooseView(mode) {
+    preferredView=mode;
+    const url=new URL(location.href);
+    if (mode==='tree') url.searchParams.delete('view');
+    else url.searchParams.set('view',mode);
+    history.replaceState(null,'',url);
+    refreshView();
+    for (const link of document.querySelectorAll('.nav-links a')) {
+      const target=new URL(link.href);
+      if (!target.pathname.endsWith('/tree.html') || target.searchParams.has('example')) continue;
+      if ((target.searchParams.get('view') || 'tree') === mode) link.setAttribute('aria-current','page');
+      else link.removeAttribute('aria-current');
+    }
+  }
+  for (const link of document.querySelectorAll('.nav-links a')) {
+    const target=new URL(link.href);
+    if (!target.pathname.endsWith('/tree.html') || target.searchParams.has('example')) continue;
+    link.addEventListener('click',event=>{
+      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      chooseView(target.searchParams.get('view') || 'tree');
+      link.closest('details').open=false;
+      if (mapSource) $('view-'+displayedMode).focus();
+      else $('shared-manifest')?.focus();
+    });
+  }
+  for (const mode of modes) $('view-'+mode).onclick=()=>chooseView(mode);
+  tabs.addEventListener('keydown',event=>{
+    const enabled = modes.map(name=>$('view-'+name)).filter(button=>!button.disabled);
+    const i=enabled.indexOf(event.target);
+    if (i<0) return;
+    const last=enabled.length-1;
+    const index={Home:0,End:last,ArrowLeft:(i+last)%enabled.length,ArrowRight:(i+1)%enabled.length}[event.key];
+    if (index===undefined) return;
+    event.preventDefault();
+    enabled[index].focus(); enabled[index].click();
+  });
+  $('cohort-view').addEventListener('cohort-open-tree',event=>{
+    if (!mapSource?.network.nodes.has(event.detail?.key)) return;
+    chooseView('tree'); LabMap.focusOn(event.detail.key); $('view-tree').focus();
+  });
+
   function clearOutput(message = '') {
     graph = currentManifest = null;
     $('tree-details').hidden = $('tree-netbox').hidden = true;
+    mapSource=groupsModel=displayedMode=null; treeReady=false;
+    LabCohortView.render(null);
     LabMap.render(null);
     $('tree-error').textContent = message;
     for (const id of ['tree-mode', 'tree-count', 'tree-graph', 'tree-limit']) $(id).replaceChildren();
@@ -330,6 +406,7 @@
 
   function render(resetChoices) {
     $('tree-source').textContent='';
+    $('webpack-group-source').hidden=!(sample && query.get('example')==='webpack-groups' && !manifestInput.value.trim());
     graph = currentManifest = null;
     try {
       const {manifest:provided,lock,root} = sources();
@@ -348,7 +425,12 @@
       graph = buildGraph(manifest, assess, overrides);
       const network = DepMapModel.create({manifest, packages, rootKey:mapRootKey, copies:availableCopies, assess, declarations});
       if (overrides) overrides.annotate(network);
-      LabMap.render(network, commandFor, Boolean(provided));
+      const advisories=LabTreeAdvisories.forLock(packages);
+      mapSource={network,manifest:provided,advisories,reset:resetChoices};
+      groupsModel=displayedMode=null;
+      treeReady=false;
+      $('network-panel').hidden=false;
+      refreshView();
       $('tree-error').textContent = '';
       $('tree-mode').textContent = packages ?
         t('Версии из lock-файла. Каждая связь сравнивает требование с версией в ближайшей доступной папке. Проверки приложения и движка выполняются отдельно.', 'Lockfile versions. Each edge compares a requirement with the version in the nearest valid location. Runtime and engine checks are separate.')
@@ -448,9 +530,25 @@
     sample = true; sharedLockName='yarn.lock';sharedLock=lines.join('\n')+'\n';$('tree-filter').checked=false;
     changed();clearTimeout(timer);render(true);
   }
+  async function loadWebpackGroups() {
+    const revision=++projectRevision;
+    $('tree-source').textContent=t('Загружаем файлы webpack 5.91.0…','Loading the webpack 5.91.0 project files…');
+    try {
+      const responses=await Promise.all(['package.json','yarn.lock'].map(name=>fetch('examples/webpack-5.91.0/'+name)));
+      if (!responses.every(response=>response.ok)) throw Error();
+      const [manifest,lock]=await Promise.all(responses.map(response=>response.text()));
+      if (revision!==projectRevision) return;
+      sharedManifest=manifest; sharedLock=lock; sharedLockName='yarn.lock'; sample=true;
+      changed(); clearTimeout(timer); render(true);
+    } catch {
+      if (revision===projectRevision) clearOutput(t('Не удалось загрузить файлы примера webpack.','The webpack example files could not be loaded.'));
+    }
+  }
   const query = new URLSearchParams(location.search);
   const publicExample=ReviewExample.fixture();
-  if (publicExample) {
+  if (query.get('example')==='webpack-groups') {
+    void loadWebpackGroups();
+  } else if (publicExample) {
     const {lock,manifest}=publicExample;
     const chosen=query.get('path');
     sharedManifest=JSON.stringify(manifest,null,2);sharedLock=JSON.stringify(lock);sharedLockName='package-lock.json';sample=true;
@@ -467,7 +565,7 @@
         (override ? ' · override '+override : '') : copy.label;
       $('lesson-proof').textContent=chosen+'\n'+commandFor(chosen);
       $('lesson-copy').hidden=false;$('network-panel').hidden=true;
-      $('lesson-map').onclick=()=>{$('network-panel').hidden=false;$('map-direction').value='in';LabMap.focusOn(chosen);$('network-panel').scrollIntoView({block:'start'});};
+      $('lesson-map').onclick=()=>{$('network-panel').hidden=false;chooseView('tree');$('map-direction').value='in';LabMap.focusOn(chosen);$('network-panel').scrollIntoView({block:'start'});};
     }
   } else if (query.get('own') === '1' || !['react','dom','yarn'].some(key=>query.has(key))) {
     manifestInput.value = '';

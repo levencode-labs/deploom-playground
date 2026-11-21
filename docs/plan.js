@@ -24,6 +24,8 @@
   const reactLesson=params.get('example')==='react';
   const freshnessLesson=params.get('example')==='freshness';
   const exampleData=lesson || (freshnessLesson ? LabWebpack.planner('merged') : reactLesson ? {manifest,lock:sample} : null);
+  // Only a recognized fixture takes precedence over the files in the header.
+  Lab.activeProjectExample=Boolean(exampleData);
   const initialTargets = webpackLesson?.targets || (selectorLesson ? {'css-select':'4.3.0'} : reactLesson ? {'react-dom':'18.3.1'} : {});
   let active, revision = 0;
   const manual = () => el('plan-mode').value==='manual';
@@ -324,6 +326,7 @@
     options.replaceChildren();options.hidden=true;
     button.disabled=true;button.onclick=null;
     el('manual-goal').hidden=el('manual-options').hidden=!manual();
+    el('plan-goal-label').textContent=manual() ? t('Цель обновления','Upgrade goal') : t('Цель по свежести прямых зависимостей','Freshness goal for direct dependencies');
     caption();
     if (!project) return;
     if (manual()) {
