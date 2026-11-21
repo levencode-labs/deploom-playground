@@ -2,7 +2,7 @@
 
 [Открыть лабораторию](https://levencode-labs.github.io/deploom-playground/?lang=ru) · [Open in English](https://levencode-labs.github.io/deploom-playground/?lang=en)
 
-Merge two working branches on the home page and see which webpack peer requirement breaks. Compare the merge with DepLoom Core’s recorded pre-merge plan. Interactive examples cover peer requirements, a disappearing React 19 hover hint, two webpack branches that conflict after merging, a stale lockfile in CI, and a scoped override that fixes one installed copy.
+Open **Examples → All examples** to merge two working branches and see which webpack peer requirement breaks. Compare the merge with DepLoom Core’s recorded pre-merge plan. Interactive examples cover peer requirements, a disappearing React 19 hover hint, two webpack branches that conflict after merging, a stale lockfile in CI, and a scoped override that fixes one installed copy.
 
 - **Tools** compares npm v3 lockfiles by installation path and Yarn Classic/Berry locks by package request, uses the selected project files for an advisory and release-date report, and plans explicit updates or Yellow/Green freshness targets against known peer requirements.
 - **Visualizations** traces package copies to a parent and prepares `npm explain` or `yarn why` for a selected copy. Its version-range tool also checks a package.json requirement against a candidate locally. Load published releases to explore the range on the registry’s version scale.
