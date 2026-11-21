@@ -63,43 +63,24 @@ async function open(browser, hosted, tool = 'plan') {
   }
   await page.locator('#shared-manifest').setInputFiles(upload('package.json',manifest));
   await page.locator('#shared-lock').setInputFiles(upload('package-lock.json',fixture));
-  await page.locator('.package-picker summary').waitFor();
+  if(tool==='audit')await page.waitForFunction(()=>!document.getElementById('run-audit').disabled);
+  else await page.locator('.package-picker summary').waitFor();
   return {context,page,calls,snapshots,osvPairs};
 }
 
 async function auditSelection(browser) {
   const {context,page,calls,osvPairs,snapshots}=await open(browser,false,'audit');
-  const picker=page.locator('#scope-options'), go=page.locator('#run-audit');
-  const summary=picker.locator('summary'), consent=picker.getByRole('checkbox',{name:/Allow the selected names and versions/});
-  assert.match(await summary.textContent(),/1 \/ 111\b/);
-  assert.match(await page.locator('#send-summary').textContent(),/https:\/\/registry\.npmjs\.org\/[\s\S]+https:\/\/api\.osv\.dev\//);
-  await summary.click();
-  await picker.getByRole('button',{name:'Clear selection'}).click();
-  const search=picker.getByRole('searchbox',{name:'Find a package'});
-  await search.fill('local-workspace');
-  assert.equal(await picker.locator('.picker-list li').count(),0);
-  await search.fill('ui-09');
-  await picker.getByRole('checkbox',{name:'Select all matches (11)'}).check();
-  assert.match(await summary.textContent(),/11 \/ 111\b/);
-  assert.equal(await go.isDisabled(),true);
-  assert.match(await picker.locator('.picker-consent').textContent(),/registry\.npmjs\.org\/[\s\S]+api\.osv\.dev\//);
-  await consent.check();
-  await picker.getByRole('button',{name:'Next'}).click();
-  await picker.getByRole('checkbox',{name:/ui-099@2\.0\.0/}).uncheck();
-  assert.equal(await go.isDisabled(),true);
-  await consent.check();
+  assert.equal(await page.locator('#scope-options,#audit-filter').count(),0);
   assert.deepEqual([calls,osvPairs,snapshots],[[],[],[]]);
-  await go.click();
+  await page.locator('#run-audit').click();
   await page.waitForFunction(()=>document.getElementById('audit-status').textContent.includes('Audit incomplete.'));
-  const expected=names.slice(90,100);
-  assert.deepEqual(calls.sort(),expected);
-  assert.deepEqual(osvPairs.sort(),expected.map(n=>n+'@1.0.0'));
-  await search.fill('tool-'); // Browsing the selection must preserve the completed report.
-  assert.match(await page.locator('#audit-status').textContent(),/Audit incomplete/);
+  assert.deepEqual(calls,[names[0]]);
+  assert.deepEqual(osvPairs,[names[0]+'@1.0.0']);
+  assert.match(await page.locator('#security-coverage').innerText(),/1 \/ 112/);
   await context.close();
 
   const snapshot=await open(browser,true,'audit');
-  assert.match(await snapshot.page.locator('#scope-options summary').textContent(),/111 \/ 111\b/);
+  assert.equal(await snapshot.page.locator('#scope-options').count(),0);
   assert.equal(await snapshot.page.locator('.picker-consent').isHidden(),true);
   assert.deepEqual(snapshot.snapshots,[]);
   await snapshot.page.locator('#run-audit').click();
@@ -109,19 +90,54 @@ async function auditSelection(browser) {
   await snapshot.context.close();
 }
 
+// Switching between tools must not mix their bundled examples with the user's files.
+async function compareForms(page) {
+  const recorded = require('../docs/selector-data.js').cases;
+  await page.goto(base+'/compare.html?lang=en');
+  const before=page.locator('#before'), after=page.locator('#after'), button=page.locator('#compare-run');
+  const report=page.locator('#report');
+  await page.waitForFunction(()=>document.getElementById('after-source').textContent==='package-lock.json');
+  assert.equal(await button.isDisabled(),true);
+  assert.equal(await report.isVisible(),false);
+  assert.doesNotMatch(await page.locator('main').innerText(),/css-select|override/i);
+  await before.setInputFiles(upload('before.json',recorded.base.lock));
+  await after.setInputFiles(upload('after.json',recorded.override.lock));
+  await page.waitForFunction(()=>!document.getElementById('compare-run').disabled);
+  assert.equal(await report.isVisible(),false);
+  await button.click();
+  assert.match(await report.innerText(),/nth-check/);
+  await after.setInputFiles({name:'broken.lock',mimeType:'text/plain',buffer:Buffer.from('invalid lock')});
+  await page.locator('#after-source').getByText(/could not read/).waitFor();
+  assert.equal(await button.isDisabled(),true);
+  assert.equal(await report.isVisible(),false);
+  await after.setInputFiles({name:'yarn.lock',mimeType:'text/plain',
+    buffer:Buffer.from('# yarn lockfile v1\n\nfoo@^1.0.0:\n  version "1.1.0"\n')});
+  await page.getByText('Choose two revisions of the same lockfile format.').waitFor();
+  assert.equal(await button.isDisabled(),true);
+  await page.goto(base+'/compare.html?example=selector&rev=override&lang=en');
+  await report.waitFor();
+  assert.match(await report.innerText(),/nth-check/);
+  await page.goto(base+'/plan.html?example=react&lang=en');
+  await page.locator('#plan-output').waitFor();
+  assert.match(await page.locator('#plan-output').innerText(),/react-dom/);
+}
+
 async function run() {
   const browser = await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
   try {
     const {context,page,calls} = await open(browser,false);
-    const picker = page.locator('#plan-output .package-picker');
+    const picker = page.locator('#plan-options .package-picker');
     const summary = picker.locator('summary');
+    assert.equal(await page.locator('#plan-output').isVisible(),false);
+    assert.equal(await page.getByRole('button',{name:'Open the example project'}).count(),0);
+    assert.ok(await page.locator('#make-plan').evaluate(button=>Boolean(button.compareDocumentPosition(document.querySelector('#plan-options')) & Node.DOCUMENT_POSITION_FOLLOWING)));
     assert.match(await summary.textContent(), /1 \/ 110\b/);
     await summary.click();
     const search = picker.getByRole('searchbox',{name:'Find a package'});
     const origin = picker.getByRole('combobox',{name:'Show'});
     const clear = picker.getByRole('button',{name:'Clear selection'});
     const consent = picker.getByRole('checkbox',{name:/Allow the selected names/});
-    const go = page.getByRole('button',{name:'Fetch release dates and calculate plan'});
+    const go = page.locator('#make-plan');
     const master = picker.getByRole('checkbox',{name:/Select all/});
     assert.equal(await picker.locator('.picker-list input').count(),10);
     assert.equal(await master.evaluate(el=>el.indeterminate),true);
@@ -147,14 +163,23 @@ async function run() {
     assert.deepEqual(calls,[]);
     await consent.check();
     await go.click();
-    await page.waitForFunction(()=>[...document.querySelectorAll('#plan-output [role=status]')].some(el=>el.textContent.includes('10/10')));
+    await page.waitForFunction(()=>[...document.querySelectorAll('#plan-status')].some(el=>el.textContent.includes('10/10')));
     assert.deepEqual([...calls].sort(),names.slice(100));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));
 
     await page.locator('#plan-mode').selectOption('manual');
+    const target=page.locator('#goal-package');
+    await target.fill('tool-109');
+    await page.getByRole('option',{name:/tool-109/}).waitFor();
+    await target.press('ArrowDown');await target.press('Enter');
+    assert.equal(await target.inputValue(),'tool-109');
+    await target.fill('not-in-package-json');
+    assert.equal(await page.locator('.package-combo [role=option]').count(),0);
+    await target.press('Escape');
     await page.locator('#batch-goals summary').click();
     await page.locator('#targets').fill(JSON.stringify({[names[0]]:'2.0.0',[names[100]]:'2.0.0'}));
-    await page.getByRole('button',{name:'Calculate locally'}).click();
+    await page.locator('#make-plan').click();
+    await page.locator('#network > summary').click();
     const manual = page.locator('#lookup-packages');
     assert.match(await manual.locator('summary').textContent(),/1 \/ 2\b/);
     await manual.locator('summary').click();
@@ -164,13 +189,14 @@ async function run() {
     await page.locator('#lookup').click();
     await page.locator('#network').waitFor({state:'hidden'});
     assert.deepEqual(calls.slice(10).sort(),[names[0]+'@2.0.0',names[100]+'@2.0.0'].sort());
+    await compareForms(page);
     await context.close();
 
     const snapshot = await open(browser,true);
     assert.match(await snapshot.page.locator('.package-picker summary').textContent(),/110 \/ 110\b/);
     assert.equal(await snapshot.page.getByRole('checkbox',{name:/Allow the selected names/}).count(),0);
-    await snapshot.page.getByRole('button',{name:'Calculate from the Nexus snapshot'}).click();
-    await snapshot.page.waitForFunction(()=>[...document.querySelectorAll('#plan-output [role=status]')].some(el=>el.textContent.includes('110/110')));
+    await snapshot.page.locator('#make-plan').click();
+    await snapshot.page.waitForFunction(()=>[...document.querySelectorAll('#plan-status')].some(el=>el.textContent.includes('110/110')));
     assert.equal(snapshot.snapshots.length,1);
     assert.deepEqual(snapshot.calls,[]);
     await snapshot.context.close();
