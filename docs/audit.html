@@ -40,7 +40,7 @@
         <details id="evidence-details"><summary data-en="How the totals are calculated">Как считаем</summary>
           <p id="package-severities"></p>
           <p data-en="Each advisory ID counts once across versions and installed copies. npm audit also considers packages affected through a vulnerable dependency.">Каждая запись источника учитывается один раз для всех версий и копий. npm audit дополнительно учитывает пакеты, затронутые через уязвимую зависимость.</p>
-          <p data-en="Lag compares the release dates of the installed and highest stable versions. The percentage covers direct dependencies with both dates known.">Отставание — разница дат публикации установленной и старшей стабильной версии. Доля рассчитана по прямым зависимостям, для которых известны обе даты.</p>
+          <p data-en="Count back 12 calendar months from the highest stable release. An installed release on the cutoff still counts as fresh. The percentage covers direct dependencies with both dates known.">От даты публикации старшей стабильной версии отсчитываем назад 12 календарных месяцев. Релиз, выпущенный точно на границе, ещё считается актуальным. Доля рассчитана по прямым зависимостям, для которых известны обе даты.</p>
         </details>
         <details id="age-details" hidden><summary id="age-heading"></summary><ul id="age-rows"></ul></details>
         <details id="unknown-details" hidden><summary data-en="Why coverage is incomplete">Что не удалось проверить</summary><ul id="unknown-rows"></ul></details>
