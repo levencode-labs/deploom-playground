@@ -26,12 +26,22 @@ Run the regression suite with `node --test tests/*.test.js`. The [version range 
 
 ### Building the hosted OSV snapshot
 
+The dependency map on GitHub Pages downloads a fixed OSV catalog. The public Sites mirror reads its bundled copy first and can use the published catalog if its copy expires or becomes unavailable. The browser matches installed versions locally as nodes come into view. The [refresh workflow](.github/workflows/osv-snapshot.yml) checks the upstream npm export daily and publishes a fresh catalog to the `osv-data` branch when the current export is at least three days old. Its **Run workflow** button can retry a failed refresh. An expired or unavailable catalog leaves coverage unknown. A private or local deployment can use the same-origin asset below.
+
 Hosted deployments that enable snapshot mode serve their snapshot from the same origin as the lab. During deployment use Python 3 to generate a compressed asset from the official complete npm OSV export:
 
 ```sh
 python tools/build_hosted_osv.py docs/audit-data/osv-npm-v1.json.gz
 ```
 
-The builder derives the snapshot date from the export's HTTP Last-Modified header. Refresh the file within its seven-day lifetime. To rebuild offline, supply `--archive /path/to/npm/all.zip --published 2026-11-21T03:33:18Z` with the saved archive's actual upstream date. Install the generated asset together with the hosted edition. Existing deployments can keep using `osv-npm-v1.json` by generating that filename instead. The client tries the plain file first and falls back to the .gz file on HTTP 404. When switching to .gz, publish the directory without an older plain file. Public GitHub Pages uses the live OSV adapter.
+The builder derives the snapshot date from the export's HTTP Last-Modified header. Refresh the file within its seven-day lifetime. To rebuild offline, supply `--archive /path/to/npm/all.zip --published 2026-11-21T03:33:18Z` with the saved archive's actual upstream date. Install the generated asset together with the hosted edition. Existing deployments can keep using `osv-npm-v1.json` by generating that filename instead. The client tries the plain file first and falls back to the .gz file on HTTP 404. When switching to .gz, publish the directory without an older plain file. The project and package audit forms on GitHub Pages use the live OSV adapter.
 
 Each OSV ID has one local metadata record for its title, publication and modification timestamps, and aliases. The package index retains the affected versions and ranges. Both come from the same export. Reading or expanding findings sends no package names or advisory IDs to an external service. Older v1 snapshots still support version matching; regenerate them to surface the optional metadata. Unavailable publication dates remain unknown.
+
+The dependency map has Tree, Packages by group and Groups views. The grouped views show direct package.json declarations. Choose Ecosystems for familiar tooling families such as ESLint, TypeScript and Storybook, or use the multilevel Louvain algorithm to find densely connected packages from observed lockfile edges. Select a group to inspect its members and the evidence behind its connections. The webpack groups example uses the original [package.json and Yarn Classic lockfile from webpack 5.91.0](https://github.com/webpack/webpack/tree/60daca54105f89eee45e118fd0bbc820730724ee) under the included MIT license.
+
+### Keeping GitHub Pages and Sites in sync
+
+The six overview tiles weave on hover or keyboard focus and unwind on exit. Run `node tests/tile-weave.cjs` with Playwright and Chromium to check the motion and reduced-motion behavior.
+
+To prepare a public release, run `python tools/package_public_site.py <built-public-directory>` against the complete static site. Publish that directory on Sites, including the generated `site-files.sha256` and the content-addressed archive under `releases/`. In a `release/sites-*` branch, set `.github/sites-release.sha256` to the SHA-256 of the published manifest. The mirror workflow verifies every file and commits the release to that branch. Merge its PR to publish GitHub Pages from `main/docs`.
