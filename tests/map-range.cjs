@@ -5,6 +5,43 @@ const assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const docs=path.resolve(__dirname,'../docs'), origin='http://127.0.0.1:41411';
 
+async function checkRankedMapSearch(page) {
+  const names=Array.from({length:32},(_,i)=>'@fixture/react-addon-'+i);
+  const copies=[
+    ...names.map(name=>[name,'1.0.0']),
+    ['@sentry/react','8.55.1'], ['@sentry/react-router','8.55.1'],
+    ['react-dom','18.2.0'], ['react','17.0.2'], ['react','18.2.0']
+  ];
+  const lock='# yarn lockfile v1\n\n'+copies.map(([name,version])=>
+    '"'+name+'@'+version+'":\n  version "'+version+'"\n'
+  ).join('\n');
+  await page.goto(origin+'/tree.html?lang=en');
+  await page.locator('#shared-manifest-clear').click();
+  await page.locator('#shared-lock').setInputFiles({name:'yarn.lock',mimeType:'text/plain',buffer:Buffer.from(lock)});
+  await page.getByText('Lockfile copies: '+copies.length+'.',{exact:false}).waitFor();
+
+  const field=page.locator('#map-start');
+  const options=page.getByRole('listbox').getByRole('option');
+  const selected=page.locator('#network-info > strong');
+  await field.fill('ReAcT');
+  assert.equal(await options.count(),24);
+  const labels=await options.locator('span').allTextContents();
+  assert.deepEqual(labels.slice(0,2),['react','react'],'All exact-name copies precede partial matches despite the display cap');
+  assert.ok(labels.includes('react-dom'),'A package name beginning with the query precedes scoped substring matches');
+  const versions=await options.locator('small').allTextContents();
+  const [first,second]=versions.slice(0,2).map(detail=>detail.split(' · ')[0]);
+  assert.deepEqual([first,second].sort(),['17.0.2','18.2.0']);
+  await field.press('Enter');
+  assert.equal(await selected.textContent(),'react · '+first);
+  await field.fill('react');
+  await options.nth(1).click();
+  assert.equal(await selected.textContent(),'react · '+second);
+  await field.fill('@sentry/react');
+  assert.equal(await options.first().locator('span').textContent(),'@sentry/react');
+  await field.press('Enter');
+  assert.equal(await selected.textContent(),'@sentry/react · 8.55.1');
+}
+
 async function exercise(browser,width) {
   const ctx=await browser.newContext({viewport:{width,height:850}});
   try {
@@ -12,6 +49,7 @@ async function exercise(browser,width) {
     await ctx.route('**/*',route=>{
       const url=new URL(route.request().url());
       if(url.origin!==origin){external.push(url.origin);return route.abort();}
+      if(url.pathname.startsWith('/audit-data/')) return route.fulfill({status:503,body:''});
       const file=path.resolve(docs,url.pathname.slice(1));
       assert.ok(file.startsWith(docs+path.sep));
       return route.fulfill({path:file});
@@ -79,8 +117,9 @@ async function exercise(browser,width) {
     await page.locator('[name=range]').fill('workspace:*');
     assert.equal(await page.locator('.interval-band').count(),0);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await checkRankedMapSearch(page);
     assert.deepEqual(external,[]); assert.deepEqual(errors,[]);
-    console.log('PASS map rotation, direct package combobox and offline semver intervals at '+width+'px');
+    console.log('PASS map rotation, ranked package selection, direct dependencies and offline semver intervals at '+width+'px');
   } finally {await ctx.close();}
 }
 (async()=>{
