@@ -34,7 +34,8 @@ test('the saved lodash and nth-check advisories match before the public fix, inc
   assert.deepEqual(inputs.map(r=>r.state),['found','empty','found','empty']);
   assert.ok(inputs.every(r=>r.lookedUp));
   assert.equal(results.get('GHSA-35jh-r3h4-6jhm').level,'High');
-  assert.equal(results.get('GHSA-rp65-9cf3-cjxr').href,'');
+  assert.equal(results.get('GHSA-rp65-9cf3-cjxr').href,'https://osv.dev/vulnerability/GHSA-rp65-9cf3-cjxr');
+  assert.equal(results.get('GHSA-rp65-9cf3-cjxr').published,'');
   await db.run([row('@private/internal-library','1.0.0',false)]);
   const [request]=db.requests;
   assert.equal(db.requests.length,1);
@@ -75,4 +76,63 @@ test('a stale index can retain historical findings but does not mark rows checke
   }
   const bad=model(snapshot(packages));const signal=AbortSignal.abort();
   await assert.rejects(bad.api.load(signal),{name:'AbortError'});assert.equal(bad.requests.length,0);
+});
+
+test('hosted findings use local advisory metadata for multiple packages without another request',async()=>{
+  const record=advisory('GHSA-test',[{introduced:'0'}]);
+  const dates={published:'2025-01-01T10:00:00Z',modified:'2025-06-01T10:00:00Z'};
+  const db=model(snapshot({one:[record],two:[record]}, {advisories:{
+    'GHSA-test':{summary:'Two affected packages',aliases:['CVE-2025-10000'],...dates,href:'https://example.test/track'},
+  }}));
+  const inputs=[row('one','1.0.0'),row('two','2.0.0')];
+  const records=await db.run(inputs);
+  assert.equal(db.requests.length,1);
+  assert.equal(records.size,1);
+  const finding=records.get(record.id);
+  assert.equal(finding.summary,'Two affected packages');
+  assert.equal(finding.published,dates.published);
+  assert.equal(finding.modified,dates.modified);
+  assert.equal(finding.source,'OSV');
+  assert.deepEqual(Array.from(finding.aliases),['CVE-2025-10000']);
+  assert.equal(finding.href,'https://osv.dev/vulnerability/GHSA-test');
+  assert.ok(inputs.every(r=>r.ids[0]===record.id));
+});
+
+test('legacy inline advisory fields stay usable; a missing publication date is not inferred',async()=>{
+  const record={...advisory('A',[{introduced:'0'}]),summary:'Saved title',modified:'2026-01-01T12:00:00Z'};
+  const db=model(snapshot({pkg:[record]}));
+  const result=(await db.run([row('pkg','1.0.0')])).get('A');
+  assert.equal(result.summary,'Saved title');
+  assert.equal(result.modified,record.modified);
+  assert.equal(result.published,'');
+});
+
+test('the packed hosted export is a fixed same-origin fallback for a missing plain export',async()=>{
+  const raw=snapshot({pkg:[advisory('A',[{introduced:'0'}])]}, {advisories:{A:{summary:'Title'}}});
+  const calls=[];
+  for(const encoded of [true,false]) {
+    const ctx=vm.createContext({Lab:{t:(_,en)=>en},Response,DecompressionStream,TextDecoder,fetch:async(url,options)=>{
+      calls.push({url,options});
+      if(!url.endsWith('.gz'))return new Response(null,{status:404});
+      return new Response(encoded?require('node:zlib').gzipSync(Buffer.from(JSON.stringify(raw))):JSON.stringify(raw));
+    }});
+    ctx.window=ctx;
+    for(const s of ['vendor/semver.js','severity.js','hosted-audit.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs',s),'utf8'),ctx);
+    const index=await ctx.LabHostedAudit.load(), results=new Map();
+    ctx.LabHostedAudit.check(index,[row('pkg','1.0.0')],results);
+    assert.equal(results.get('A').summary,'Title');
+  }
+  const paths=['audit-data/osv-npm-v1.json','audit-data/osv-npm-v1.json.gz'];
+  assert.deepEqual(calls.map(({url})=>url),paths.concat(paths));
+  assert.ok(calls.every(({options})=>options.mode==='same-origin' && options.redirect==='error' && options.body===undefined));
+});
+
+test('a truncated compressed snapshot does not provide a trusted index',async()=>{
+  const payload=Buffer.from(require('node:zlib').gzipSync(JSON.stringify(snapshot({pkg:[advisory('A',[{introduced:'0'}])]})))).subarray(0,16);
+  const ctx=vm.createContext({Response,DecompressionStream,TextDecoder,fetch:async url=>
+    url.endsWith('.gz')?new Response(payload):new Response(null,{status:404})});
+  ctx.window=ctx;
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/hosted-audit.js'),'utf8'),ctx);
+  await assert.rejects(ctx.LabHostedAudit.load());
+  assert.throws(()=>ctx.LabHostedAudit.check({},[],new Map()),/HOSTED_SNAPSHOT/);
 });
