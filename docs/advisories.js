@@ -184,7 +184,7 @@
       const manifest=manText&&JSON.parse(manText.replace(/^\uFEFF/,''));
       const entries=LabPackageCombo.direct(manifest);
       projectNames=new Set(entries.map(edge=>edge.name));
-      const lock=lockText&&LabYarn.read(lockText);
+      const lock=lockText&&LabYarn.read(lockText,manifest);
       const rows=lock?LabAudit.localInventory(lock).rows:[];
       for(const row of rows)projectNames.add(row.name);
       publicVersions=new Set(rows.filter(row=>row.publicOrigin).map(row=>row.key));
