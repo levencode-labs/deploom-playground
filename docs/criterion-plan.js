@@ -5,7 +5,7 @@
     const node = document.createElement(tag); node.textContent=text; parent.append(node); return node;
   };
   const isoDay = value => value?.slice(0,10) || '—';
-  function results(parent,{man,lock,rows,documents,errors,withheld,level,sample,source}) {
+  function results(parent,{man,lock,rows,documents,errors,withheld,level,sample,example,source}) {
     const result = LabCriterion.project(rows,documents,level);
     const goal = level==='green' ? 'Green' : 'Yellow';
     parent.replaceChildren();
@@ -71,6 +71,9 @@
     const audit=line(parent,'a',t('Открыть аудит безопасности','Open the security audit')); audit.href=Lab.urlFor('audit.html');
     line(parent,'p',sample ? t('Источник — четыре прямых зависимости из lock-файла UI-ветки и публичные записи npm до 1 июля 2024 года (00:00 UTC). Сохранены установленные, ближайшие подходящие и старшие стабильные выпуски.','Source — four direct entries from the UI branch lockfile and public npm metadata up to 1 July 2024 (00:00 UTC). The snapshot keeps installed, nearest eligible and highest stable releases.') :
       (documents.size ? t('Источник — ваш lock-файл и ','Source — your lockfile and ')+source+'.' : t('Источник — выбранные локальные файлы. Даты выпусков ещё не получены.','Source — the selected local files. Release dates are still unavailable.'))).className='hint';
+    LabPlanHandoff.attach(parent, {targets:Object.fromEntries(result.targets.map(row=>[row.name,row.target])),
+      goal:t('Цель по свежести прямых зависимостей', 'Direct dependency freshness goal')+' · '+goal,
+      conflicts:peers.issues.length, unchecked:peers.unknown.length, example});
     return result;
   }
 
@@ -82,7 +85,7 @@
       'If a status in your app has a tooltip, hover it and focus it with Tab. Its explanation should appear both ways. In our migration the wrapper dropped the button ref while the icon still rendered. Run this check in your own app.'));
     line(section,'a',t('Попробовать проверку и скопировать её для MR','Try the check and copy it for your review')).href=Lab.urlFor('runtime.html?assertion=hint');
   }
-  function prepare({output,options,button,progress,man,lock,level,sample,signal}) {
+  function prepare({output,options,button,progress,man,lock,level,sample,example,signal}) {
     const rows = LabCriterion.inventory(man,lock);
     const eligible=rows.filter(row=>row.version);
     const documents=new Map(sample ? Object.entries(LabWebpackReleaseSnapshot) : []), errors=new Map(), withheld=new Set();
@@ -90,7 +93,7 @@
     let source=sample?'':LabRegistry.base();
     function draw() {
       output.hidden=false;
-      return results(output,{man,lock,level,rows,documents,errors,withheld,sample,source});
+      return results(output,{man,lock,level,rows,documents,errors,withheld,sample,example,source});
     }
     if (sample || !eligible.length) {
       button.disabled=false;

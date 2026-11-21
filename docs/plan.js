@@ -269,6 +269,11 @@
           lookup(selected.map(item=>item.change),current);
         };
       }
+      LabPlanHandoff.attach(el('plan-output'), {
+        targets:Object.fromEntries(changes.map(row=>[row.name,row.target])),
+        goal:t('Целевые версии', 'Target versions'), conflicts:result.issues.length,
+        unchecked:result.unknown.length, missing:missing.length, example:demo()
+      });
     } catch (err) { if (current === revision) {el('plan-output').hidden=false;add('p',errorText(err));} }
   }
   async function lookup(changes,current) {
@@ -337,7 +342,7 @@
     active=new AbortController();
     try {
       LabCriterionPlan.prepare({output:el('plan-output'),options,button,progress:el('plan-status'),
-        man:project.man,lock:project.lock,level:el('plan-mode').value,sample:demo() && (freshnessLesson || !!webpackLesson),signal:active.signal});
+        man:project.man,lock:project.lock,level:el('plan-mode').value,sample:demo() && (freshnessLesson || !!webpackLesson),example:demo(),signal:active.signal});
     } catch (err) { el('project').textContent=errorText(err); }
   }
   async function readProject() {

@@ -53,3 +53,4 @@ header[data-nav] {
   .bar nav::after {display:none}
   .bar :focus-visible {outline-color:Highlight}
 }
+.agent-prompt{display:block;width:100%;margin:.6rem 0;font:inherit}
