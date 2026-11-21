@@ -11,11 +11,11 @@
 <body>
   <header data-nav></header>
   <main>
-<h1 data-en="Why did npm return ERESOLVE?">Почему npm вернул ERESOLVE?</h1>
+<h1 data-en="A teammate updated React DOM. Why did the install stop?">Коллега обновил React DOM. Почему сборка остановилась на установке?</h1>
 <section class="panel peer-work" data-experiment="peer">
 
 <div class="lab-work"><form id="input">
-<p data-en="The app selects a React version. React DOM declares which versions it supports.">Приложение выбирает версию React. React DOM указывает диапазон, с которым умеет работать.</p>
+<p data-en="A teammate updates react-dom to 18.3.1. CI stops while installing packages, before the app even starts. Change the React version and watch the line that decides whether installation can proceed.">Коллега поднял react-dom до 18.3.1. В CI установка остановилась ещё до запуска приложения. Поменяйте версию React и посмотрите, какая строка решает, продолжится ли установка.</p>
 <fieldset class="choice"><legend><span data-en="React in the app">React в приложении</span></legend><label><input type="radio" name="react" value="18.2.0" checked>18.2.0</label><label><input type="radio" name="react" value="18.3.1">18.3.1</label></fieldset>
 <fieldset class="choice"><legend><span data-en="React DOM in the app">React DOM в приложении</span></legend><label><input type="radio" name="dom" value="18.2.0">18.2.0</label><label><input type="radio" name="dom" value="18.3.1" checked>18.3.1</label></fieldset>
 <div class="peer-line"><code id="issuer"></code><span id="edge"></span><code id="chosen"></code></div>
@@ -24,9 +24,14 @@
 <p data-en="Source — recorded strict-peer npm install for this pair. Select the line to highlight the requirement and selected version." class="hint">Источник — запись строгой установки npm для этой пары. Нажмите на строку, чтобы выделить требование и выбранную версию.</p>
 </div></div><div class="actions"><a class="primary" id="inspect-tree" href="tree.html"><span data-en="Inspect in the tree">Разобрать в дереве</span></a> <a href="tree.html?own=1"><span data-en="Open your own project">Открыть свой проект</span></a></div>
 <p data-en="In your project, find peer … from … in the npm log and compare it with the version from npm explain react." class="hint">В своём проекте найдите в логе строку peer … from … и сравните её с версией из npm explain react.</p></section>
-    <p data-en="In a real PR this often starts with a failed dependency install, before a single test runs. Ask DepLoom for an upgrade plan with React held at its current version, then allow React to move. Compare the dependency that appears in the second plan.">В настоящем MR это часто выглядит так: вы обновили одну строку, а CI упал ещё до первого теста. Попросите DepLoom построить план с зафиксированным React, затем разрешите обновить его. Сравните, почему во втором плане появилась ещё одна строка.</p>
+    <p data-en="Ask DepLoom for an upgrade plan with React held at its current version, then allow React to move. Compare the dependency that appears in the second plan.">Попросите DepLoom построить план с зафиксированным React, затем разрешите обновить его. Сравните, почему во втором плане появилась ещё одна строка.</p>
     <a href="plan.html" data-en="Try both plans">Сравнить два плана</a>
-  </main>
+    <section class="panel" id="ranges">
+    <h2 data-en="Why did an update skip 0.3.0?">Почему при обновлении не установилась 0.3.0?</h2>
+    <p data-en="Your package.json requests ^0.2.3. A colleague published 0.3.0, but your lockfile stayed on 0.2.4. Select each release to see where the allowed range ends.">В package.json стоит ^0.2.3. Коллега выпустил 0.3.0, а в lock-файле осталась 0.2.4. Выберите обе версии на шкале и посмотрите, где заканчивается разрешённый диапазон.</p>
+    <div data-range-practice></div>
+  </section>
+</main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>
   <script src="range-scale.js"></script>

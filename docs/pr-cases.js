@@ -11,7 +11,7 @@
   if (el('ci-result')) {
     const steps = {
       base: ['^1.2.0','1.2.3',t('Диапазон допускает зафиксированную версию 1.2.3. npm ci установил её из lock-файла.','The range includes the locked 1.2.3. npm ci installed that exact version.')],
-      mismatch: ['^2.0.0','1.2.3',t('Манифест требует версию 2.x, а в lock-файле осталась 1.2.3. npm ci остановился и сохранил lock-файл без изменений.','The manifest requires 2.x, but the lockfile still records 1.2.3. npm ci stopped and left the lockfile unchanged.')],
+      mismatch: ['^2.0.0','1.2.3',t('В package.json указана версия 2.x, а в lock-файле осталась 1.2.3. npm ci остановился и сохранил lock-файл без изменений.','The manifest requires 2.x, but the lockfile still records 1.2.3. npm ci stopped and left the lockfile unchanged.')],
       fixed: ['^2.0.0','2.0.0',t('После npm install --package-lock-only в lock-файле появилась 2.0.0. Повторный npm ci установил её.','npm install --package-lock-only recorded 2.0.0 in the lockfile. Running npm ci again installed it.')],
     };
     function render() {
@@ -67,14 +67,18 @@
         }
         list.replaceChildren(...buttons);
       }
+      const after=stage==='after';
+      el('compare-old').hidden=!after;
+      el('copies-title').textContent=after?t('Осталась одна копия 1.2.3','One copy of 1.2.3 remains'):t('Два пакета установили 1.2.3','Two packages installed 1.2.3');
+      el('copies-hint').textContent=after?t('Нажмите на 1.2.3. Путь покажет, какой пакет ещё предстоит обновить.','Click 1.2.3 to trace the package that still needs attention.'):t('У каждой строки свой родитель. Попробуйте обновить копию, которая приехала с кнопками.','Each copy has its own parent. Try updating the one installed by the UI components.');
       const picked=parents.includes(state.get('parent'));
       el('who-brought-it').hidden=!picked;
-      el('override-next').textContent=stage==='before'?t('Обновить копию под ui-kit →','Update the copy under ui-kit →'):t('Отменить override','Undo the override');
+      el('override-next').textContent=stage==='before'?t('Обновить копию под ui-kit →','Update the copy under ui-kit →'):t('Вернуться к двум старым копиям','Restore both old copies');
       el('override-next').onclick=()=>{sync(stage==='before'?'scope=after':'scope=before');render();};
       const physical = samplePath(parent), version = sample.packages[physical].version;
       el('parent-title').textContent = parent+' → shared-utils@'+version;
       el('parent-reason').textContent = stage==='before' ? t('Родитель запрашивает ровно 1.2.3. В этой ревизии замен нет.','The parent requests exactly 1.2.3. This revision declares no overrides.') :
-        parent==='ui-kit' ? t('В манифесте ui-kit указана 1.2.3. Правило в корне проекта меняет именно эту копию на 1.2.4.','ui-kit declares 1.2.3. The root override selects 1.2.4 for this copy.') :
+        parent==='ui-kit' ? t('В package.json библиотеки кнопок указана 1.2.3. Правило в корне проекта меняет именно эту копию на 1.2.4.','ui-kit declares 1.2.3. The root override selects 1.2.4 for this copy.') :
           t('У build-tool собственная копия. Правило ограничено веткой ui-kit, поэтому под build-tool остаётся 1.2.3.','build-tool has its own copy. The rule is scoped to ui-kit, so build-tool keeps 1.2.3.');
       el('copy-path').textContent = 'npm explain '+physical;
       sync('scope='+stage+(picked?'&parent='+parent:''));

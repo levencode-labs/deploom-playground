@@ -1,0 +1,85 @@
+{
+  "coreRevision": "9d1b01dbba8e3f0518fec8506f5b2942b7a7c3c2",
+  "entryPoint": "workspace_peer_model.plan_workspace_upgrade",
+  "goal": {
+    "webpack": "5.91.0"
+  },
+  "baseline": {
+    "css-loader": "3.6.0",
+    "mini-css-extract-plugin": "0.9.0",
+    "webpack": "4.47.0",
+    "webpack-cli": "3.3.12"
+  },
+  "allowed": {
+    "mini-css-extract-plugin": [
+      "0.9.0",
+      "2.9.0"
+    ],
+    "webpack": [
+      "4.47.0",
+      "5.91.0"
+    ],
+    "webpack-cli": [
+      "3.3.12",
+      "4.10.0"
+    ]
+  },
+  "heldPlugin": {
+    "status": "UNSAT_IN_MODELED_DOMAIN",
+    "authority": "PLANNING_ONLY",
+    "verification": "NOT_VERIFIED",
+    "modelDigest": "c0f957f552876b4843600d427e3f95d8817e69669c58991bfcc1a374c263fb1d",
+    "assignmentDigest": null,
+    "domain": {
+      "schemaVersion": 1,
+      "selection": "EXPLICIT_FINITE",
+      "evidenceCoverage": "COMPLETE",
+      "candidateSetDigest": "1bd250bdc4ee57cddadcc3a97c0f0cfea2567b37a46b3437bc0f5690f3d2f1ef",
+      "candidateCount": 5,
+      "unprovenCandidateCount": 0,
+      "unprovenCandidates": []
+    },
+    "assignment": null
+  },
+  "mutablePlugin": {
+    "status": "SAT_IN_MODELED_DOMAIN",
+    "authority": "PLANNING_ONLY",
+    "verification": "NOT_VERIFIED",
+    "modelDigest": "ca2cd173165747d2b38595e185261beb0fe4032766370059c8401d1a3775f87f",
+    "assignmentDigest": "896ed693455ae2467c045bdd003a683c3cf512148f0da00fc28f8f307b55857f",
+    "domain": {
+      "schemaVersion": 1,
+      "selection": "EXPLICIT_FINITE",
+      "evidenceCoverage": "COMPLETE",
+      "candidateSetDigest": "6b2c4811f4cadcc03e858e44e3c0d64d63efa630cade1abfd0e3c3b0b353be9a",
+      "candidateCount": 6,
+      "unprovenCandidateCount": 0,
+      "unprovenCandidates": []
+    },
+    "assignment": {
+      "[\".\",\"devDependencies\",\"css-loader\"]": "3.6.0",
+      "[\".\",\"devDependencies\",\"mini-css-extract-plugin\"]": "2.9.0",
+      "[\".\",\"devDependencies\",\"webpack\"]": "5.91.0",
+      "[\".\",\"devDependencies\",\"webpack-cli\"]": "4.10.0"
+    }
+  },
+  "npmLockCheck": {
+    "node": "24.18.0",
+    "npm": "11.16.0",
+    "argv": [
+      "npm",
+      "install",
+      "--package-lock-only",
+      "--strict-peer-deps",
+      "--ignore-scripts",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "versions": {
+      "css-loader": "3.6.0",
+      "mini-css-extract-plugin": "2.9.0",
+      "webpack": "5.91.0",
+      "webpack-cli": "4.10.0"
+    }
+  }
+}

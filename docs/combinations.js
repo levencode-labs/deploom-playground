@@ -16,6 +16,40 @@
   }
   if(typeof module==='object' && module.exports){module.exports={versions,base,build,ui,conflicts};return;}
   const {t}=Lab, el=id=>document.getElementById(id);
+  // Recorded with DepLoom Core 9d1b01d, plan_workspace_upgrade, on the UI branch lock.
+  // Goal: webpack 5.91.0. Candidates are the two lesson releases per mutable package.
+  function showCorePlan(visible) {
+    const panel = el('core-plan');
+    panel.hidden = !visible;
+    if (!visible || panel.childElementCount) return;
+    const line = (tag, text) => {
+      const node = document.createElement(tag);
+      node.textContent = text;
+      panel.append(node);
+      return node;
+    };
+    line('h3', t('Как выглядел бы план до Merge?', 'What would the plan look like before merging?'));
+    line('p', t('Вернёмся в UI-ветку. Стили уже вынесены. Цель — перейти на webpack 5.91.0. Версию css-loader пока оставляем прежней.',
+                'Go back to the UI branch. The stylesheet is already separate. The goal is webpack 5.91.0. Keep css-loader at its current version.'));
+    line('p', t('Если оставить CSS-плагин на 0.9.0, решения нет. Он требует webpack ^4.4.0. Разрешим DepLoom выбрать версию плагина.',
+                'Holding the CSS plugin at 0.9.0 leaves no solution. It requires webpack ^4.4.0. Now let DepLoom choose the plugin version.'));
+    line('strong', t('Один MR для трёх пакетов', 'One MR for three packages'));
+    const changes = line('ul', '');
+    for (const [name, before, after, why] of [
+      ['webpack', base.webpack, build.webpack, t('цель обновления', 'upgrade target')],
+      ['mini-css-extract-plugin', ui['mini-css-extract-plugin'], fixed['mini-css-extract-plugin'], t('новая версия принимает webpack ^5.0.0', 'the new version accepts webpack ^5.0.0')],
+      ['webpack-cli', base['webpack-cli'], build['webpack-cli'], t('старый CLI допускает только webpack 4.x.x', 'the old CLI accepts only webpack 4.x.x')],
+    ]) {
+      const li = document.createElement('li'), code = document.createElement('code');
+      code.textContent = name + ' ' + before + ' → ' + after;
+      li.append(code, ' — ' + why); changes.append(li);
+    }
+    line('small', t('Запись двух расчётов DepLoom Core (Z3) по lock-файлу UI-ветки. В расчёте доступны версии из этого примера. css-loader 3.6.0 уже поддерживает webpack 5.',
+                    'Two recorded DepLoom Core (Z3) runs on the UI branch lockfile, using the releases in this example. css-loader 3.6.0 already supports webpack 5.')).className = 'hint';
+    panel.append(' ');
+    const source = document.createElement('a'); source.href = 'webpack-plan.json';
+    source.textContent = t('Исходный результат расчёта', 'Recorded planner output'); panel.append(source);
+  }
   if (el('quick-merge')) {
     const params = new URLSearchParams(location.search);
     const validReact = value => ['18.2.0','18.3.1'].includes(value);
@@ -29,7 +63,7 @@
     const report = el('merge-report');
     const labels = {
       ready: 'Merge',
-      merged: t('Проверить плагин ' + fixed[plugin], 'Try plugin ' + fixed[plugin]),
+      merged: t('Проверить установку по плану', 'Check the planned versions'),
       fixed: t('Вернуться к двум MR', 'Reset to the two MRs'),
     };
     let state = ['merged','fixed'].includes(params.get('merge')) ? params.get('merge') : 'ready';
@@ -41,18 +75,19 @@
       report.hidden = state === 'ready';
       const step = {ready:0,merged:3,fixed:4}[state];
       el('merge-detail').href = Lab.urlFor('combinations.html?step=' + step);
+      showCorePlan(state !== 'ready');
       if (report.hidden) return;
       const snapshot = state === 'merged' ? merged : fixed;
       const blocked = conflicts(snapshot).length > 0;
       report.dataset.status = blocked ? 'fail' : 'pass';
       el('merge-heading').textContent = blocked
         ? t('Git объединил изменения. npm остановился.', 'Git merged the changes. npm stopped.')
-        : t('Общий lock-файл собрался', 'npm resolved the merged lockfile');
+        : t('npm собрал lock-файл для плана DepLoom', 'npm resolved the lockfile for DepLoom’s plan');
       el('merge-evidence').textContent = blocked ? mergeError :
         plugin + '@' + fixed[plugin] + ' → webpack ' + versions[plugin][fixed[plugin]] + ' · ✓ ' + fixed.webpack + '\nnpm · exit 0';
       el('merge-lesson').textContent = blocked
-        ? t('В сборке теперь webpack 5, а плагин из UI-ветки требует webpack 4. Если попросить DepLoom составить план на общей ветке, это требование покажет, почему плагин тоже надо включить в обновление.',
-            'The merged build uses webpack 5, but the UI plugin needs webpack 4. Ask DepLoom to plan against the combined manifest: this requirement explains why the plugin must be part of the upgrade.')
+        ? t('В сборке теперь webpack 5, а плагин из UI-ветки требует webpack 4. Ниже — план DepLoom на тот момент, когда обе ветки ещё можно было изменить.',
+            'The merged build uses webpack 5, but the UI plugin needs webpack 4. Below is DepLoom’s plan from the point when both branches could still change.')
         : t('Плагин 2.9.0 принимает webpack 5. Следующая проверка в проекте — собрать страницу и убедиться, что стили попали в CSS-файл.',
             'Plugin 2.9.0 accepts webpack 5. Next, build the page and check that the stylesheet is emitted.');
     }
@@ -60,7 +95,7 @@
       state = {ready:'merged',merged:'fixed',fixed:'ready'}[state];
       drawPreview();
       Lab.setExampleState({merge:state});
-      if (!report.hidden && report.getBoundingClientRect().bottom > innerHeight) report.scrollIntoView({block:'nearest'});
+      if (!report.hidden && report.getBoundingClientRect().bottom > innerHeight) report.scrollIntoView({block:'start'});
     });
     drawPreview();
     return;
@@ -93,6 +128,7 @@
       t('Запись запуска npm · lock-файл построен · exit 0','Recorded npm run · lockfile resolved · exit 0');
     el('scene').dataset.status=bad.length?'fail':'pass';el('scene').classList.remove('step-enter');void el('scene').offsetWidth;el('scene').classList.add('step-enter');
     el('previous').disabled=!stage;el('next').textContent=next;el('takeaway').hidden=stage<3;
+    showCorePlan(stage>=3);
     if(share)Lab.setExampleState({step:stage});
   }
   for(const [name,records] of Object.entries(versions))for(const [v,range] of Object.entries(records)){

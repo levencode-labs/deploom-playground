@@ -5,7 +5,17 @@
   const t = (ru, en) => lang === 'en' ? en : ru;
   const $ = id => document.getElementById(id);
   const manifestInput = $('tree-manifest');
-  const lockInput = $('tree-lock');
+  function openRangeExample() {
+    if (location.hash !== '#ranges') return false;
+    location.replace(Lab.urlFor('peers.html#ranges'));
+    return true;
+  }
+  if (openRangeExample()) return;
+  addEventListener('hashchange',openRangeExample);
+  let lockText = '', sampleOpen = false;
+  const fileInput = $('tree-file');
+  const entrySelect = $('lock-entry');
+  let entryPackages, parsedText, parsedLock;
   const limit = { chars: 8_000_000, edges: 240, depth: 12 };
   const { groupKeys, usableName, declarations, lockedPackage } = LabLockGraph;
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -51,16 +61,49 @@
   }
 
   function readLock() {
-    if (!lockInput.value.trim()) return null;
-    if (lockInput.value.length > limit.chars) throw Error(t('Лимит поля — 8 млн символов.', 'Input limit: 8 million characters.'));
+    if (!lockText.trim()) return null;
+    if (lockText === parsedText) return parsedLock;
+    if (lockText.length > limit.chars) throw Error(t('Лимит поля — 8 млн символов.', 'Input limit: 8 million characters.'));
     let value;
-    try { value = LabYarn.read(lockInput.value); }
+    try { value = LabYarn.read(lockText); }
     catch { throw Error(t('Не удалось прочитать lock-файл. Проверьте формат и маркеры конфликта Git.', 'Cannot read this lockfile. Check its format and Git conflict markers.')); }
-    if (LabYarn.format(value?.packages)) return value.packages;
-    if (!object(value) || value.lockfileVersion !== 3 || !object(value.packages) || !object(value.packages[''])) {
+    if (value?.lockfileVersion === 1 && object(value.dependencies)) {
+      const packages = {'':{name:value.name, dependencies:{}}};
+      const visit = (entries, owner, depth) => {
+        if (depth > 80) throw Error(t('Слишком глубокая вложенность lock-файла.', 'Lockfile nesting is too deep.'));
+        for (const [name, record] of Object.entries(entries)) {
+          if (!usableName(name) || !object(record)) continue;
+          const path = (owner ? owner+'/' : '')+'node_modules/'+name;
+          packages[path] = {...record, dependencies:record.requires || {}};
+          if (!owner) packages[''].dependencies[name] = record.version || '*';
+          if (object(record.dependencies)) visit(record.dependencies,path,depth+1);
+        }
+      };
+      visit(value.dependencies,'',0);
+      packages[''].mapSource = t('Записи верхнего уровня lock v1', 'Top-level lock v1 entries');
+      value = {lockfileVersion:2, packages};
+    }
+    if (!LabYarn.format(value?.packages) && (!object(value) || ![2,3].includes(value.lockfileVersion) || !object(value.packages) || !object(value.packages['']))) {
       throw Error(t('Нужен package-lock.json версии 3 с таблицей packages и корневой записью.', 'Use a v3 package-lock.json with a packages table and a root entry.'));
     }
-    return value.packages;
+    parsedText = lockText; parsedLock = value.packages;
+    return parsedLock;
+  }
+
+  function graphRoot(packages) {
+    const yarn = LabYarn.format(packages);
+    const needsEntry = !manifestInput.value.trim() && !!yarn;
+    $('lock-entry-field').hidden = !needsEntry;
+    if (!needsEntry) return manifestInput.value.trim() || !packages ? readManifest() : packages[''];
+    if (entryPackages !== packages) {
+      const entries = Object.keys(packages).filter(Boolean).sort();
+      entrySelect.replaceChildren(...entries.map(key=>new Option(key,key)));
+      const workspace = entries.find(key => packages[key].resolution?.endsWith('@workspace:.'));
+      entrySelect.value = workspace || entries.find(key=>Object.keys(packages[key].dependencies || {}).length) || entries[0] || '';
+      entryPackages = packages;
+    }
+    const entry = entrySelect.value;
+    return {...packages[entry], name:entry, mapSource:packages[entry]?.version || 'yarn.lock'};
   }
 
   let lockPackages;
@@ -304,8 +347,8 @@
   function render(resetChoices) {
     graph = currentManifest = null;
     try {
-      const manifest = readManifest();
       const packages = readLock();
+      const manifest = graphRoot(packages);
       currentManifest = manifest;
       if (resetChoices) {
         lockPackages = packages;
@@ -316,16 +359,19 @@
       $('tree-error').textContent = '';
       $('tree-mode').textContent = packages ?
         t('Версии из lock-файла. Каждая связь сравнивает требование с версией в ближайшей доступной папке. Проверки приложения и движка выполняются отдельно.', 'Lockfile versions. Each edge compares a requirement with the version in the nearest valid location. Runtime and engine checks are separate.')
-        : t('План по манифесту. Для React 18.2.0 и 18.3.1 встроены требования React DOM. Сторонние пакеты можно дополнить данными npm. Расположение и фактические версии даёт lock-файл.', 'Manifest preview. React DOM peer requirements are built in for 18.2.0 and 18.3.1. You can load npm metadata for other packages. A lockfile supplies actual versions and locations.');
+        : t('Карта показывает, какие версии запросил проект в package.json. Добавьте lock-файл, чтобы увидеть, какие версии были выбраны.', 'The map shows the versions requested in package.json. Add a lockfile to see which versions were selected.');
       const yarn = LabYarn.format(packages);
-      if (yarn) $('tree-mode').textContent = yarn + t(' · Связи из манифеста и yarn.lock. Путь установки и фактический поставщик peer-пакета проверяются в проекте через yarn why.', ' · Edges from the manifest and yarn.lock. Verify install layout and actual peer providers in the project with yarn why.');
+      if (yarn && !manifestInput.value.trim()) $('tree-mode').textContent=t('Карта начинается с выбранной записи yarn.lock. Добавьте package.json, чтобы построить путь от приложения.', 'This map starts at the selected yarn.lock entry. Add package.json to trace paths from the application.');
+      else if (yarn) $('tree-mode').textContent = yarn + t(' · Связи из манифеста и yarn.lock. Путь установки и фактический поставщик peer-пакета проверяются в проекте через yarn why.', ' · Edges from the manifest and yarn.lock. Verify install layout and actual peer providers in the project with yarn why.');
       $('tree-netbox').hidden = Boolean(packages);
       if (resetChoices) {
         showChoices(manifest);
         findCopies();
       }
+      $('tree-details').hidden = false;
       drawTree();
     } catch (error) {
+      $('tree-details').hidden = true;
       LabMap.render(null);
       $('tree-error').textContent = error instanceof SyntaxError ? t('Проверьте синтаксис JSON в заполненных полях.', 'Check JSON syntax in both input fields.') : error.message;
       for (const id of ['tree-mode', 'tree-count', 'tree-graph', 'tree-limit']) $(id).replaceChildren();
@@ -345,14 +391,14 @@
 
   function seed(reactVersion, domVersion = '18.3.1') {
     manifestInput.value = JSON.stringify({ name: 'react-demo', dependencies: { react: reactVersion, 'react-dom': domVersion } }, null, 2);
-    lockInput.value = ''; $('tree-file').value = ''; $('tree-filter').checked = false;
+    sampleOpen = true; lockText = ''; fileInput.value = ''; $('tree-manifest-file').value=''; $('tree-filter').checked = false;
     changed(); clearTimeout(timer); render(true);
   }
 
   async function getMetadata() {
     const available = eligible(currentManifest);
     const selected = [...$('tree-registry-list').querySelectorAll('input:checked')].map(x => available.get(x.value)).filter(Boolean);
-    if (!selected.length || lockInput.value.trim()) return;
+    if (!selected.length || lockText.trim()) return;
     request?.abort();
     const controller = new AbortController(); request = controller;
     const deadline = setTimeout(() => controller.abort(), 15000);
@@ -382,8 +428,23 @@
     render(false);
   }
 
-  manifestInput.addEventListener('input', changed);
-  lockInput.addEventListener('input', changed);
+  manifestInput.addEventListener('input', () => {
+    if (sampleOpen) {lockText='';fileInput.value='';sampleOpen=false;}
+    changed();
+  });
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (sampleOpen) { manifestInput.value=''; sampleOpen=false; }
+    changed(); clearTimeout(timer);
+    lockText='';
+    try {
+      if (file?.size > limit.chars) throw Error(t('Лимит файла — 8 МБ.', 'File limit: 8 MB.'));
+      const text = file ? await file.text() : '';
+      if (fileInput.files[0] !== file) return;
+      lockText=text;render(true);
+    } catch (error) { if (fileInput.files[0] === file) {LabMap.render(null);$('tree-details').hidden=true;$('tree-error').textContent=error.message;} }
+  });
+  entrySelect.addEventListener('change',()=>render(true));
   $('tree-broken').addEventListener('click', () => seed('18.2.0'));
   $('tree-fixed').addEventListener('click', () => seed('18.3.1'));
   $('tree-filter').addEventListener('change', drawTree);
@@ -398,8 +459,7 @@
   $('tree-two-copies').addEventListener('click', () => {
     const sample = LabSamples.before;
     manifestInput.value = JSON.stringify(sample.packages[''], null, 2);
-    lockInput.value = JSON.stringify(sample, null, 2);
-    $('tree-lockbox').open = true;
+    sampleOpen = true; lockText = JSON.stringify(sample); $('tree-manifest-file').value='';
     $('tree-file').value = '';
     $('tree-filter').checked = false;
     $('tree-query').value = 'shared-utils';
@@ -414,18 +474,18 @@
       lines.push(berry?'  resolution: "'+name+'@npm:'+version+'"':'  resolved "https://registry.yarnpkg.com/'+name+'/-/'+name+'-'+version+'.tgz"');
       if(name==='color-convert')lines.push('  dependencies:',berry?'    color-name: "npm:~1.1.4"':'    color-name "~1.1.4"');
     }
-    lockInput.value=lines.join('\n')+'\n';$('tree-file').value='';$('tree-filter').checked=false;
+    sampleOpen = true; $('tree-manifest-file').value=''; lockText=lines.join('\n')+'\n';$('tree-file').value='';$('tree-filter').checked=false;
     $('tree-query').value='color-name';changed();clearTimeout(timer);render(true);
   }
   for(const name of ['classic','berry'])$('yarn-'+name).onclick=()=>yarnSample(name==='berry');
   const query = new URLSearchParams(location.search);
-  if (query.get('own') === '1') {
-    manifestInput.value = ''; lockInput.value = '';
+  if (query.get('own') === '1' || !['react','dom','yarn'].some(key=>query.has(key))) {
+    manifestInput.value = ''; lockText = '';
     $('tree-netbox').hidden = true;
     manifestInput.placeholder = '{"dependencies": {"react": "^18.2.0"}}';
     $('tree-mode').textContent = t('Вставьте манифест, чтобы построить дерево.', 'Paste a manifest to build the tree.');
     findCopies();
-    manifestInput.focus({ preventScroll: true });
+    $('tree-details').hidden = true;
   } else if (['classic','berry'].includes(query.get('yarn'))) {
     yarnSample(query.get('yarn')==='berry');
   } else {

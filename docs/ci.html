@@ -9,18 +9,18 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="I changed one package. Why did CI stop before the tests?">Поменял одну зависимость. Почему CI остановился ещё до тестов?</h1>
-    <p data-en="A PR updates one dependency range. Will the build still install the same dependency tree? Move between the three revisions to see the exact lines npm compared.">В PR обновили диапазон одной зависимости. Сможет ли сборка установить зафиксированное дерево? Переключите ревизию и посмотрите, какие строки сравнил npm.</p>
+    <h1 data-en="I changed one package. Why did CI stop before the tests?">Обновил строку в package.json. Почему сборка упала ещё до тестов?</h1>
+    <p data-en="A teammate asks for version 2 in package.json and commits just that file. The build server runs npm ci, which installs the exact versions recorded in package-lock.json. Change the first file and see what happens while the second still says 1.2.3.">Коллега указал в package.json, что приложению нужна библиотека второй версии, и отправил этот файл на ревью. На сервере сборки команда npm ci ставит точные версии из package-lock.json. Поменяйте первую строку и посмотрите, что произойдёт, пока во втором файле стоит 1.2.3.</p>
     <div class="lesson-nav"><button id="ci-next" type="button"></button></div>
     <details><summary data-en="Jump to a revision">Перейти к конкретной ревизии</summary><fieldset class="choice">
       <legend data-en="PR revision">Ревизия PR</legend>
       <label><input type="radio" name="stage" value="base" checked><span data-en="Before the PR">До PR</span></label>
-      <label><input type="radio" name="stage" value="mismatch"><span data-en="Only the manifest changed">Изменён только манифест</span></label>
+      <label><input type="radio" name="stage" value="mismatch"><span data-en="Only the manifest changed">Изменён только package.json</span></label>
       <label><input type="radio" name="stage" value="fixed"><span data-en="Both files updated">Обновлены оба файла</span></label>
     </fieldset></details>
     <div class="lab-work">
       <section class="panel">
-        <h2 data-en="Files in this revision">Файлы ревизии</h2>
+        <h2 data-en="The two lines npm compares">Две строки, которые сравнивает npm</h2>
         <h3>package.json</h3><pre><code id="manifest-line"></code></pre>
         <h3>package-lock.json</h3>
         <p class="hint"><code>packages["node_modules/demo-lib"]</code></p>

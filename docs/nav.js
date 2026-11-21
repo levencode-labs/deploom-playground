@@ -28,14 +28,14 @@
     ]],
     [t('Визуализации','Visualizations'), [
       ['tree.html', t('Дерево зависимостей','Dependency tree')],
-      ['tree.html#ranges', t('Диапазоны версий','Version ranges')],
     ]],
     [t('Примеры','Examples'), [
       ['peers.html', t('Почему npm не даёт обновить только React DOM?','Why won’t npm let me update just React DOM?')],
+      ['peers.html#ranges', t('Почему не установилась версия 0.3.0?', 'Why did the update skip 0.3.0?')],
       ['runtime.html', t('Куда после обновления пропала подсказка?','Where did the hint go after upgrading?')],
       ['combinations.html', t('Почему совместимые ветки ломаются при слиянии?','Why do working branches break when merged?')],
-      ['ci.html', t('Почему после правки манифеста упал npm ci?','Why did npm ci fail after a manifest edit?')],
-      ['override.html', t('Откуда осталась старая версия?','Where did the old copy come from?')],
+      ['ci.html', t('Почему сборка упала после правки package.json?','Why did npm ci fail after a manifest edit?')],
+      ['override.html', t('Почему в проекте осталась вторая копия библиотеки?','Where did the old copy come from?')],
     ]],
   ];
   const main = document.querySelector('main');

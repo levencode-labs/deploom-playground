@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const {t}=window.Lab, {inventory,check,limit,maxBytes}=window.LabAudit;
+  const {t}=window.Lab, {localInventory,check,limit,maxBytes}=window.LabAudit;
   const $=id=>document.getElementById(id);
   const make=(tag,text)=>{const node=document.createElement(tag);node.textContent=text;return node;};
   const reasons={
@@ -21,7 +21,7 @@
   const selected=new Set();
   const example={
     name:'lab-example',lockfileVersion:3,packages:{
-      '':{name:'lab-example',version:'1.0.0'},
+      '':{name:'lab-example',version:'1.0.0',dependencies:{lodash:'^4.17.0'}},
       'node_modules/lodash':{version:'4.17.20',resolved:'https://registry.npmjs.org/lodash/-/lodash-4.17.20.tgz'},
       'packages/server/node_modules/lodash':{version:'4.17.20',resolved:'https://registry.npmjs.org/lodash/-/lodash-4.17.20.tgz'},
       'packages/worker/node_modules/lodash':{version:'4.17.21',resolved:'https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz'},
@@ -30,21 +30,16 @@
   };
 
   function controls() {
-    $('pick-count').textContent=t('Выбрано ','Selected ')+selected.size+' / '+limit;
-    $('run-audit').disabled=!!active || !selected.size || !$('consent').checked;
+    $('pick-count').textContent=selected.size ? t('Выбрано ','Selected ')+selected.size+' / '+limit : '';
+    $('run-audit').disabled=!!active || !selected.size;
     $('latest').disabled=$('run-audit').disabled;
-    $('clear').disabled=!!active || !selected.size;
-    $('pick').disabled=!!active || selected.size>=limit;
-    $('consent').disabled=!!active || !selected.size;
     for(const input of $('audit-rows').querySelectorAll('input')) input.disabled=!!active || (!input.checked && selected.size>=limit);
   }
   function coverage() {
-    const counts={ready:0,found:0,empty:0,unknown:0};
-    for(const row of data.rows) counts[row.state]++;
-    $('coverage').textContent=t('Полный ответ OSV получен для ','Complete OSV response for ')+(counts.found+counts.empty)+' / '+data.rows.length+
-      t(' подходящих пар. С находками — ',' eligible pairs. With advisories — ')+counts.found+
-      t(', без записей — ',', with no records — ')+counts.empty+t(', неизвестно — ',', unknown — ')+counts.unknown+
-      t(', ещё не проверено — ',', not checked — ')+counts.ready+t('. Исключено путей — ','. Excluded paths — ')+data.skipped.length+'.';
+    const counts={found:0,empty:0,unknown:0};
+    for(const row of data.rows) if(row.state!=='ready') counts[row.state]++;
+    $('coverage').hidden=!Object.values(counts).some(Boolean);
+    $('coverage').textContent=t('OSV · с находками ','OSV · with advisories ')+counts.found+t(', без известных находок ',', no known advisories ')+counts.empty+t(', проверить не удалось ',', lookup incomplete ')+counts.unknown;
   }
   function matching() {
     const text=$('audit-filter').value.trim().toLowerCase();
@@ -58,9 +53,11 @@
       input.checked=selected.has(row.key);
       input.addEventListener('change',()=>{
         if(input.checked) selected.add(row.key); else selected.delete(row.key);
-        $('consent').checked=false;controls();
+        controls();
       });
-      label.append(input,' '+row.key);item.append(label,' · '+statusLabels[row.state]);
+      if (row.localOnly) item.append(row.key,t(' · локальная запись',' · local entry'));
+      else {label.append(input,' '+row.key);item.append(label); }
+      if (row.state!=='ready') item.append(' · '+statusLabels[row.state]);
       if (row.latest !== undefined) {
         const latest = row.latest;
         const comparison = latest === null ? t('ответ недоступен','response unavailable') :
@@ -102,8 +99,22 @@
   async function load(source) {
     const revision=++generation;
     active?.abort();active=undefined;data=undefined;selected.clear();
-    $('inventory').hidden=true;$('parse-status').textContent='';$('audit-status').textContent='';
+    $('direct-report').hidden=true;$('inventory').hidden=true;$('parse-status').textContent='';$('audit-status').textContent='';
     try {
+      const manifestFile=$('audit-manifest').files[0];
+      let manifest;
+      if(manifestFile) {
+        if(manifestFile.size>maxBytes) throw Error('size');
+        try {
+          manifest=JSON.parse(await manifestFile.text());
+          if(!manifest || typeof manifest!=='object' || Array.isArray(manifest) || manifest.lockfileVersion) throw Error();
+        } catch {throw Error('manifest');}
+      }
+      if(revision!==generation) return;
+      if(!source) {
+        $('parse-status').textContent=manifest ? t('package.json прочитан. Добавьте lock-файл, чтобы увидеть точные версии.','package.json is ready. Add the lockfile to see exact versions.') : '';
+        return;
+      }
       let lock=source;
       if(source instanceof File) {
         if(source.size>maxBytes) throw Error('size');
@@ -115,34 +126,42 @@
       }
       if(revision!==generation) return;
       const yarn=LabYarn.format(lock?.packages);
-      data=yarn ? LabYarn.inventory(lock) : inventory(lock);
-      if(yarn) $('parse-status').textContent=yarn+t(' · Прочитаны запросы из yarn.lock.',' · Read package requests from yarn.lock.');
-      rowCount=50;skipCount=50;$('audit-filter').value='';$('consent').checked=false;
+      if(Object.keys(lock?.packages || {}).length>30001) throw Error('size');
+      data=localInventory(lock);
+      const entries=Object.keys(lock.packages).length-1;
+      $('parse-status').textContent=(yarn || 'npm')+' · '+t('записей в lock-файле ','lockfile entries ')+entries+t(', разных пар «пакет + версия» ',', distinct package/version pairs ')+new Set(data.rows.map(row=>row.key)).size+'.';
+      manifest ??= yarn ? null : lock.packages[''];
+      if(manifest) {
+        const list=[], mismatches=[];
+        for(const edge of LabLockGraph.declarations(manifest,true)) {
+          if(edge.group==='peerDependencies') continue;
+          const hit=LabLockGraph.lockedPackage(lock.packages,'',edge);
+          const version=hit?.record.version, range=treeSemver.validRange(edge.range);
+          const text=edge.name+' · '+edge.range+' → '+(version || t('нет записи','no entry'));
+          const mismatch=!version || (range!==null && !treeSemver.satisfies(version,range));
+          (mismatch?mismatches:list).push(make('li',text));
+        }
+        const total=list.length+mismatches.length;
+        $('direct-count').textContent=t('Из package.json · ','From package.json · ')+total+(mismatches.length?t(' · проверить ',' · review ')+mismatches.length:'');
+        $('direct-rows').replaceChildren(...mismatches,...list);$('direct-report').hidden=!total;
+      }
+      rowCount=50;skipCount=50;$('audit-filter').value='';
       $('inventory').hidden=false;renderSkips();coverage();renderRows();
     } catch(e) {
       if(revision!==generation) return;
       $('parse-status').textContent=e.message==='size' ? t('Лимит — 8 МиБ и 30 000 путей.','Limit: 8 MiB and 30,000 package paths.') :
+        e.message==='manifest' ? t('В первое поле нужен package.json проекта. Lock-файл останется во втором.','The first field expects the project package.json. Your lockfile stays in the second.') :
         t('Нужен yarn.lock (Classic или Berry) либо корневой npm lock-файл v3.','Use a Yarn Classic or Berry lock, or a root npm v3 lockfile.');
     }
   }
-  $('sample').addEventListener('click',()=>{ $('audit-file').value='';$('audit-text').value='';load(example); });
-  $('read-text').addEventListener('click',()=>{ $('audit-file').value='';load($('audit-text').value); });
-  $('audit-file').addEventListener('change',()=>{ const file=$('audit-file').files[0];if(file){$('audit-text').value='';load(file);} });
+  $('sample').addEventListener('click',()=>{ $('audit-file').value='';$('audit-manifest').value='';load(example); });
+  for(const id of ['audit-file','audit-manifest']) $(id).addEventListener('change',()=>load($('audit-file').files[0]));
   $('audit-filter').addEventListener('input',()=>{rowCount=50;renderRows();});
   $('more-rows').addEventListener('click',()=>{rowCount+=50;renderRows();});
   $('more-skips').addEventListener('click',()=>{skipCount+=50;renderSkips();});
-  $('consent').addEventListener('change',controls);
-  $('pick').addEventListener('click',()=>{
-    for(const row of matching()) {
-      if(selected.size>=limit) break;
-      if(row.state==='ready') selected.add(row.key);
-    }
-    $('consent').checked=false;renderRows();
-  });
-  $('clear').addEventListener('click',()=>{selected.clear();$('consent').checked=false;renderRows();});
   $('latest').addEventListener('click', async()=>{
-    if(active || !selected.size || !$('consent').checked) return;
-    const rows=data.rows.filter(row=>selected.has(row.key));
+    if(active || !selected.size) return;
+    const rows=data.rows.filter(row=>!row.localOnly && selected.has(row.key));
     const controller=new AbortController();active=controller;
     const timer=setTimeout(()=>controller.abort(),30000);
     $('audit-status').textContent=t('Проверяю тег latest в npm…','Looking up the latest tag in npm…');
@@ -172,8 +191,8 @@
     }
   });
   $('run-audit').addEventListener('click', async()=>{
-    if(active || !selected.size || !$('consent').checked) return;
-    const rows=data.rows.filter(row=>selected.has(row.key));
+    if(active || !selected.size) return;
+    const rows=data.rows.filter(row=>!row.localOnly && selected.has(row.key));
     const controller=new AbortController();active=controller;
     const timer=setTimeout(()=>controller.abort(),60000);
     $('audit-status').textContent=t('Сверяю версии с npm и запрашиваю OSV…','Checking versions in npm and querying OSV…');
@@ -182,7 +201,7 @@
     finally {
       clearTimeout(timer);
       if(active===controller) {
-        active=undefined;selected.clear();$('consent').checked=false;
+        active=undefined;selected.clear();
         $('audit-status').textContent=rows.some(row=>row.state==='unknown') ?
           t('Часть выбранных результатов неизвестна. Причина указана у каждой версии.','Some selected results are unknown. See the reason for each version.') :
           t('Выбранные версии проверены.','Selected versions checked.');

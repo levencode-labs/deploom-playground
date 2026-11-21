@@ -21,7 +21,7 @@
   function render(graph,manifest,conflictsOnly){
     svg.replaceChildren();el('network-info').replaceChildren();el('network-panel').hidden=!graph;
     if(!graph)return;
-    const root={key:'',name:manifest.name||t('Проект','Project'),version:'package.json',depth:0};
+    const root={key:'',name:manifest.name||t('Проект','Project'),version:manifest.mapSource || 'package.json',depth:0};
     const nodes=new Map([['',root]]),edges=[],levels=[];
     let truncated=false;
     function walk(branch,parent,depth){
@@ -30,7 +30,7 @@
         const key=entry.key || parent+' → '+entry.name+'@'+entry.range;
         if(!nodes.has(key)){
           if(nodes.size>=42){truncated=true;continue;}
-          nodes.set(key,{key,name:entry.name,version:entry.version||'?',depth});
+          nodes.set(key,{key,name:entry.name,version:entry.version||entry.range,depth});
         }
         edges.push({from:parent,to:key,entry});
         if(entry.children.length)walk(entry.children,key,depth+1);

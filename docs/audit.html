@@ -7,7 +7,6 @@
   <title>Аудит lock-файла · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
   <style>
-    #audit-text {display:block;width:100%;box-sizing:border-box;min-height:5.5rem;font:inherit}
     .audit-actions {display:flex;align-items:center;flex-wrap:wrap;gap:.55rem;margin:.75rem 0}
     .audit-items {padding:0;list-style:none}
     .audit-items>li {border-top:1px solid var(--line);padding:.6rem 0;overflow-wrap:anywhere}
@@ -18,42 +17,37 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="Audit the versions in a lockfile">Аудит версий в lock-файле</h1>
-    <p data-en="List the exact installed copies locally, then choose which public package versions to check for published advisories.">Сначала соберите локальный список установленных копий. Затем выберите, для каких публичных версий искать известные уязвимости.</p>
+    <h1 data-en="Which library versions does this project use?">Какие версии библиотек использует проект?</h1>
+    <p data-en="Open a lockfile to see the versions recorded for the build. Add package.json to compare them with the versions your project asked for.">Откройте lock-файл, чтобы увидеть точные версии библиотек в сборке. Добавьте package.json, чтобы сравнить их с тем, что запросил проект.</p>
     <section class="panel">
-      <h2 data-en="Read a lockfile">Прочитать lock-файл</h2>
-      <label class="field"><span data-en="Open yarn.lock or package-lock.json v3">Открыть yarn.lock или package-lock.json v3</span><input id="audit-file" type="file" accept=".json,.lock"></label>
-      <details><summary data-en="Paste lockfile text">Вставить текст lock-файла</summary>
-        <label for="audit-text">yarn.lock / package-lock.json</label><textarea id="audit-text" spellcheck="false"></textarea>
-        <button type="button" id="read-text" class="button" data-en="Read pasted lockfile">Разобрать текст</button>
-      </details>
+      <div class="grid">
+        <label class="field">package.json<input id="audit-manifest" type="file" accept=".json"></label>
+        <label class="field">package-lock.json v3 / yarn.lock<input id="audit-file" type="file" accept=".json,.lock"></label>
+      </div>
       <div class="audit-actions"><button type="button" class="button" id="sample" data-en="Load example lockfile">Загрузить учебный lock-файл</button></div>
-      <p class="hint" data-en="Parsing happens in your browser. Up to 8 MiB and 30,000 package paths. Loading a file or example makes no network requests.">Разбор идёт в браузере. Лимит — 8 МиБ и 30 000 путей к пакетам. При загрузке файла или примера сетевых запросов нет.</p>
       <p id="parse-status" role="status"></p>
     </section>
     <section class="panel" id="inventory" hidden>
       <h2 data-en="Installed package versions">Установленные версии</h2>
-      <p id="coverage" role="status"></p>
-      <details id="skips" hidden><summary data-en="Paths excluded from external checks">Пути, исключённые из внешней проверки</summary><ul id="skip-list"></ul><button type="button" id="more-skips" hidden data-en="Show more paths">Показать ещё пути</button></details>
+      <details id="direct-report" hidden><summary id="direct-count"></summary><ul id="direct-rows"></ul></details>
+      <p id="coverage" role="status" hidden></p>
+      <details id="skips" hidden><summary data-en="Entries without an exact version">Записи без точной версии</summary><ul id="skip-list"></ul><button type="button" id="more-skips" hidden data-en="Show more paths">Показать ещё пути</button></details>
       <label class="field"><span data-en="Filter by package name">Фильтр по названию пакета</span><input type="search" id="audit-filter" autocomplete="off"></label>
+      <p class="hint" data-en="Select public packages to compare by name and version, including packages installed through a company registry. Only your selection is sent.">Выберите публичные пакеты. Их можно сверить по имени и версии с npmjs, даже если в lock-файле указан корпоративный реестр. Отправляются только выбранные строки.</p>
       <div class="audit-actions">
-        <button type="button" id="pick" data-en="Select up to 20 new versions matching the filter">Выбрать до 20 новых пар по фильтру</button>
-        <button type="button" id="clear" data-en="Clear selection">Снять выбор</button>
+        <button class="button" type="button" id="latest" disabled data-en="Compare with npm latest">Сравнить с npm latest</button>
+        <button type="button" id="run-audit" disabled data-en="Check advisories in OSV">Проверить уязвимости в OSV</button>
+        <span id="pick-count"></span>
       </div>
+      <p id="audit-status" role="status"></p>
       <ul class="audit-items" id="audit-rows"></ul>
       <button type="button" id="more-rows" hidden data-en="Show more versions">Показать ещё версии</button>
-      <p class="hint" data-en="For Yarn Berry, an npm: locator identifies a registry package. Confirm that the selected names are public even if your project uses a private registry. Before querying OSV, the browser confirms each selected release in the public npm registry. It sends only the selected names and versions, never the lockfile or paths.">В Yarn Berry запись npm: указывает тип пакета, а адрес реестра может быть корпоративным. Подтверждайте только действительно публичные имена. Перед запросом к OSV браузер сверит выбранные версии с публичным реестром npm. Этим сервисам передаются только выбранные названия и версии. Файл и пути остаются в браузере.</p>
-      <label><input type="checkbox" id="consent"> <span data-en="I confirm the selected names are public.">Подтверждаю, что выбранные названия публичные.</span></label>
-      <div class="audit-actions"><button class="button" type="button" id="run-audit" disabled data-en="Check selected versions">Проверить выбранные версии</button><button type="button" id="latest" disabled data-en="Compare with npm latest">Сравнить с npm latest</button><span id="pick-count"></span></div>
-      <p class="hint" data-en="Compare with npm latest sends the selected public names to registry.npmjs.org. The latest tag can point to a different major. Review breaking changes before using it as a target.">Кнопка «Сравнить с npm latest» запрашивает выбранные публичные имена в registry.npmjs.org. Тег latest может указывать на другую мажорную ветку. Проверьте изменения API, прежде чем выбирать цель.</p>
-      <p id="audit-status" role="status" aria-live="polite"></p>
     </section>
-    <section class="panel">
-      <h2 data-en="How to read a finding">Как прочитать результат</h2>
+    <details class="panel"><summary data-en="Example of an OSV finding">Пример ответа OSV</summary>
       <p data-en="A saved example checked on November 21, 2026. The OSV record below includes lodash 4.17.20; the first fix for this particular issue was 4.17.21. Two paths in the lockfile that contain the same version produce one package-version query.">Сохранённый пример проверен 21 ноября 2026 года. В карточке OSV ниже указана lodash 4.17.20. Эта конкретная проблема исправлена в 4.17.21. Если одна версия установлена по двум путям, для неё достаточно одного запроса.</p>
       <p data-en="An empty response means the source returned no known advisories for that version. Excluded paths and incomplete requests remain outside confirmed coverage.">Пустой ответ означает, что источник не вернул известных записей для этой версии. Исключённые пути и незавершённые запросы остаются за пределами подтверждённой проверки.</p>
       <a href="https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm">GHSA-35jh-r3h4-6jhm</a> · <a href="https://google.github.io/osv.dev/post-v1-querybatch/">OSV QueryBatch API</a>
-    </section>
+    </details>
   </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>

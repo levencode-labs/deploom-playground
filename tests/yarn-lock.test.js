@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const ctx=vm.createContext({URL});ctx.window=ctx;
-for(const name of ['vendor/yarn-classic','vendor/js-yaml.min','vendor/semver','lock-graph','yarn-lock','plan-model','lock-diff']) {
+for(const name of ['vendor/yarn-classic','vendor/js-yaml.min','vendor/semver','lock-graph','yarn-lock','plan-model','lock-diff','audit-model']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs',name+'.js'),'utf8'),ctx);
 }
 const classic='# yarn lockfile v1\n\n"@org/ui@^1":\n  version "1.1.0"\n  resolved "https://registry.yarnpkg.com/@org/ui/-/ui-1.1.0.tgz#abc"\n  dependencies:\n    foo "^1"\n\nfoo@^1, foo@~1.2.0:\n  version "1.2.3"\n  resolved "https://registry.yarnpkg.com/foo/-/foo-1.2.3.tgz#abc"\n';
@@ -18,6 +18,23 @@ for(const [flavor,text] of [['Yarn Classic',classic],['Yarn Berry',berry]])test(
   const change=ctx.LabPlan.read(man,lock,{'@org/ui':'2.0.0'});
   const local=new Map([['@org/ui@2.0.0',{peerDependencies:{foo:'^2.0.0'}}]]);
   const result=ctx.LabPlan.assessYarn(man,lock,change,new Map(),local);assert.equal(result.issues[0].version,'1.2.3');
+});
+test('a registry mirror keeps exact Yarn versions visible without a network request',()=>{
+  const lock=ctx.LabYarn.read(classic.replaceAll('registry.yarnpkg.com','mirror.example'));
+  const {rows,skipped}=ctx.LabAudit.localInventory(lock);
+  assert.equal(skipped.length,0);
+  assert.deepEqual(Array.from(rows,row=>row.key),['@org/ui@1.1.0','foo@1.2.3']);
+  assert.equal(rows[1].paths.length,2);
+  assert.ok(rows.every(row=>!row.localOnly));
+});
+test('Classic checks reverse peers from explicitly supplied installed manifests on a mirror',()=>{
+  const lock=ctx.LabYarn.read(classic.replaceAll('registry.yarnpkg.com','mirror.example'));
+  const man={dependencies:{'@org/ui':'^1',foo:'^1'}};
+  const changes=ctx.LabPlan.read(man,lock,{foo:'2.0.0'});
+  const local=new Map([['foo@2.0.0',{}],['@org/ui@1.1.0',{peerDependencies:{foo:'^1'}}]]);
+  const res=ctx.LabPlan.assessYarn(man,lock,changes,new Map(),local);
+  assert.equal(res.issues[0].version,'2.0.0');
+  assert.equal(res.unknown.length,0);
 });
 test('missing or conflicting lock data is not accepted as a valid Yarn lock',()=>{
  for(const value of ['not a lock','__metadata:\n  version: 8\n"pkg@npm:^1":\n  version: 1.3.0\n',berry+'\n<<<<<<< HEAD\n'])assert.throws(()=>ctx.LabYarn.read(value));

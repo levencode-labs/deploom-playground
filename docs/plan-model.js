@@ -27,14 +27,19 @@
     for (const edge of LabLockGraph.declarations(manifest,true)) {
       const hit=LabYarn.resolve(lock.packages,edge);
       if(hit) roots.set(edge.name,hit);
+      else if(edge.group!=='peerDependencies' && !edge.optional) unknown.push(edge.name+'@'+edge.range);
     }
     const targets=new Map(changes.map(change=>[change.name,change]));
     for (const [name,hit] of roots) {
       const change=targets.get(name);
       const updating=change && change.target!==hit.record.version;
       const key=updating && name+'@'+change.target;
-      const record=updating ? local.get(key) || (change.publicRegistry && metadata.get(key)) : hit.record;
-      if (!record || (!updating && LabYarn.format(lock.packages)==='Yarn Classic' && !record.peerDependencies)) {
+      const classic=LabYarn.format(lock.packages)==='Yarn Classic';
+      const exact=name+'@'+hit.record.version;
+      const record=updating ? local.get(key) || (change.publicRegistry && metadata.get(key)) :
+        local.get(exact) || (classic && LabYarn.identity(lock.packages,hit.key)===name && metadata.get(exact)) ||
+        ((!classic || hit.record.peerDependencies) && hit.record);
+      if (!record) {
         unknown.push(hit.key); continue;
       }
       for(const edge of LabLockGraph.declarations(record,false)) {

@@ -29,8 +29,32 @@
     return {rows:[...rows.values()].sort((a,b)=>a.key.localeCompare(b.key)),skipped};
   }
 
+  function localInventory(lock) {
+    const yarn = window.LabYarn?.format(lock?.packages);
+    const data = yarn ? window.LabYarn.inventory(lock) : inventory(lock);
+    const rows = new Map(data.rows.map(row => [row.key,row]));
+    const skipped = [];
+    for (const item of data.skipped) {
+      const record = lock.packages[item.path];
+      const descriptor = yarn && window.LabYarn.parts(item.path);
+      const name = descriptor ? descriptor.name : record?.name || item.path.split('node_modules/').pop();
+      if (!record || !name || !window.LabLockGraph.usableName(name) || !treeSemver.valid(record.version)) {
+        skipped.push(item); continue;
+      }
+      const registryVersion = !record.private && !record.link && !record.inBundle && (yarn
+        ? treeSemver.validRange(descriptor.range.replace(/^npm:/,'')) !== null
+        : /(?:^|\/)node_modules\//.test(item.path)) &&
+        (!record.resolved || /^https?:\/\//i.test(record.resolved)) && (!record.resolution || record.resolution === name+'@npm:'+record.version);
+      const key = name+'@'+record.version;
+      const id = (registryVersion ? '' : 'local:') + key;
+      if (!rows.has(id)) rows.set(id,{id,key,name,version:record.version,paths:[],localOnly:!registryVersion,state:'ready',ids:[]});
+      rows.get(id).paths.push(item.path);
+    }
+    return {rows:[...rows.values()].sort((a,b)=>a.key.localeCompare(b.key)),skipped};
+  }
+
   async function jsonFrom(url, options, signal) {
-    const response = await fetch(url, {...options,credentials:'omit',referrerPolicy:'no-referrer',signal});
+    const response = await fetch(url, {...options,credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal});
     if (!response.ok) throw Error(response.status === 404 ? 'missing' : 'network');
     return response.json();
   }
@@ -85,5 +109,5 @@
       } catch { break; }
     }
   }
-  window.LabAudit={inventory,check,limit,maxBytes};
+  window.LabAudit={inventory,localInventory,check,limit,maxBytes};
 })();
