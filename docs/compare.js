@@ -10,7 +10,7 @@
   const state = {before:null, after:null};
   const reads = {before:0, after:0};
   const sourceErrors = {before:'',after:''};
-  let example = true, lesson=null, focusPath='', rootEdits=[];
+  let example = false, lesson=null, focusPath='', rootEdits=[];
   const params=new URLSearchParams(location.search);
   let changes = [];
   let graphs;
@@ -44,6 +44,8 @@
     if (yarn) {
       const owners = graph.get(row.path) || [];
       container.append(el('p',owners.length ? t('Запрашивают: ','Requested by: ')+owners.slice(0,15).join(', ') : t('Родитель не указан в этом lock-файле. Проверьте манифест проекта или workspace.', 'No requesting entry in this lockfile. Check the project or workspace manifest.')));
+    } else if (snapshot.lock.lockfileVersion===1) {
+      container.append(el('p',t('В lock v1 виден путь установки. Для цепочки от корня нужен package.json этой ревизии.','The v1 lock records the install path. A chain from the root requires this revision’s package.json.')));
     } else if (!chain) {
       container.append(el('p',graph.clipped
         ? t('Достигнут предел обхода. Цепочка до этой копии не подтверждена.','The traversal limit was reached. No chain to this copy was confirmed.')
@@ -128,26 +130,29 @@
     }
     showSelection(row);
   }
-  function refresh() {
-    const report = byId('report');
-    report.hidden = true;
-    const message = byId('message');
+  function updateInputs() {
+    byId('report').hidden = true;
     for (const side of sides) {
-      const item = state[side];
-      byId(side+'-source').textContent = sourceErrors[side] || item?.name || '';
+      const source = byId(side+'-source');
+      source.textContent = sourceErrors[side] || state[side]?.name || '';
+      source.hidden = !sourceErrors[side] && !!byId(side).files[0];
     }
-    if (!state.before || !state.after) {
-      message.textContent = t('Выберите оба файла для сравнения.','Choose both files to compare them.');
-      return;
-    }
+    const both = !!(state.before && state.after);
+    const mismatch = both && LabYarn.format(state.before.lock.packages) !== LabYarn.format(state.after.lock.packages);
+    byId('message').textContent = mismatch
+      ? t('Выберите две ревизии одного формата lock-файла.', 'Choose two revisions of the same lockfile format.')
+      : '';
+    byId('compare-run').disabled = !both || mismatch;
+  }
+  function compare() {
+    if (byId('compare-run').disabled) return;
+    const report = byId('report');
+    const message = byId('message');
+    report.hidden = true;
     message.textContent = '';
     try {
       const before = state.before.lock;
       const after = state.after.lock;
-      if (LabYarn.format(before.packages) !== LabYarn.format(after.packages)) {
-        message.textContent=t('Выберите две ревизии одного формата lock-файла.', 'Choose two revisions of the same lockfile format.');
-        return;
-      }
       changes = comparePackageLocks(before,after);
       rootEdits=comparePackageLocks.rootRequirements(before,after);
       graphs = {};
@@ -162,7 +167,7 @@
         graphs[side]=parents;
       }
     } catch {
-      message.textContent = t('Нужны два корректных корневых package-lock.json версии 3 с разделом packages.', 'Supply two valid root npm v3 lockfiles with a packages section.');
+      message.textContent = t('Не удалось сравнить записи lock-файлов. Для npm нужны корневые package-lock.json версии 1, 2 или 3.', 'Could not compare the lockfile entries. npm requires root package-lock.json files in format 1, 2 or 3.');
       return;
     }
     byId('root-verdict').hidden=byId('root-lines').hidden=!rootEdits.length;
@@ -181,6 +186,9 @@
     byId('evidence').textContent = example
       ? t('Источник — пара учебных lock-файлов.','Source — the two example lockfiles.')
       : t('Источник — ваши локальные файлы. ','Source — your local files. ')+state.before.name+' / '+state.after.name;
+    if ((state.before.lock.lockfileVersion===1)!==(state.after.lock.lockfileVersion===1)) {
+      byId('evidence').append(' '+t('Между v1 и v2/v3 сравниваются пути и версии установленных копий.','Comparisons between v1 and v2/v3 cover installed paths and versions.'));
+    }
     byId('query').value = '';
     byId('kind').value = '';
     byId('details').setAttribute('aria-label',t('Детали записи','Entry details'));
@@ -189,38 +197,34 @@
     report.hidden = false;
     renderList();
   }
-  function useExample(fromLink=false) {
-    example = true;lesson=null;focusPath='';
-    let pair={before:SelectorLab.cases.base.lock,after:SelectorLab.cases.override.lock}, names=['css-select · nth-check 1.0.2','css-select · override 2.1.1'];
-    if (fromLink===true) {
-      const {kind,revision,fixture}=ReviewExample, sample=fixture();
-      if(sample) {
-        const base=kind==='selector'?'base':'before';
-        const after=revision===base?(kind==='selector'?'override':'after'):revision;
-        lesson={kind,before:base,after};
-        pair={before:fixture(kind,base).lock,after:fixture(kind,after).lock};
-        names=[base,after];
-        focusPath=params.get('path') || (kind==='selector'?sample.nthPath:'');
-      } else if(kind==='rollup') {
-        pair=RollupLab;names=['Rollup · 18','Rollup · 1'];
-        const platform=params.get('focus');
-        focusPath='node_modules/@rollup/rollup-'+(platform==='darwin-arm64'?platform:platform==='linux-musl'?'linux-x64-musl':'linux-x64-gnu');
-      } else if(kind==='root-range') {
-        names=['package.json · ^1.0.0','package.json · ~1.2.0'];
-        const sample=range=>({lockfileVersion:3,packages:{'':{dependencies:{lib:range}},'node_modules/lib':{version:'1.2.3'}}});
-        pair={before:sample('^1.0.0'),after:sample('~1.2.0')};
-      } else {
-        lesson={kind:'selector',before:'base',after:'override'};
-        focusPath=SelectorLab.cases.override.nthPath;
-      }
-    }
+  function useExample() {
+    const {kind,revision,fixture}=ReviewExample, sample=fixture();
+    let pair,names;
+    if (sample) {
+      const base=kind==='selector'?'base':'before';
+      const after=revision===base?(kind==='selector'?'override':'after'):revision;
+      lesson={kind,before:base,after};
+      pair={before:fixture(kind,base).lock,after:fixture(kind,after).lock};
+      names=[base,after];
+      focusPath=params.get('path') || (kind==='selector'?sample.nthPath:'');
+    } else if(kind==='rollup') {
+      pair=RollupLab;names=['Rollup · 18','Rollup · 1'];
+      const platform=params.get('focus');
+      focusPath='node_modules/@rollup/rollup-'+(platform==='darwin-arm64'?platform:platform==='linux-musl'?'linux-x64-musl':'linux-x64-gnu');
+    } else if(kind==='root-range') {
+      names=['package.json · ^1.0.0','package.json · ~1.2.0'];
+      const snapshot=range=>({lockfileVersion:3,packages:{'':{dependencies:{lib:range}},'node_modules/lib':{version:'1.2.3'}}});
+      pair={before:snapshot('^1.0.0'),after:snapshot('~1.2.0')};
+    } else return;
+    example=true;
     for (const side of sides) {
       sourceErrors[side] = '';
       reads[side]++;
       byId(side).value = '';
-      state[side] = {lock:pair[side], name: names ? names[sides.indexOf(side)] : side==='before' ? t('Пример до обновления','Example before update') : t('Пример после обновления','Example after update')};
+      state[side] = {lock:pair[side], name:names[sides.indexOf(side)]};
     }
-    refresh();
+    updateInputs();
+    compare();
   }
   async function read(side) {
     if (example) {
@@ -231,21 +235,20 @@
     sourceErrors[side] = '';
     const file = byId(side).files[0];
     state[side] = null;
-    refresh();
+    updateInputs();
     if (!file) return;
     try {
       if (file.size > fileLimit) throw new Error('SIZE');
       const lock = LabYarn.read(await file.text());
       if (reads[side] !== generation) return;
-      if (!lock || (!LabYarn.format(lock.packages) && lock.lockfileVersion !== 3) || !lock.packages || !Object.hasOwn(lock.packages,'')) throw new Error('FORMAT');
       state[side] = {lock,name:file.name};
-      refresh();
+      updateInputs();
     } catch (error) {
       if (reads[side] !== generation) return;
       sourceErrors[side] = file.name +' — '+ (error.message === 'SIZE'
         ? t('файл превышает 20 МиБ','file exceeds 20 MiB')
-        : t('не удалось прочитать yarn.lock или npm lock-файл v3','could not read a Yarn lock or npm v3 lockfile'));
-      refresh();
+        : t('не удалось прочитать yarn.lock или npm lock-файл v1–v3','could not read a Yarn lock or npm v1–v3 lockfile'));
+      updateInputs();
     }
   }
   window.addEventListener('lab-project', ({detail}) => {
@@ -260,11 +263,9 @@
     read('after');
   });
   for (const side of sides) byId(side).addEventListener('change',()=>read(side));
-  byId('example').addEventListener('click',()=>{
-    location.href=ReviewExample.link('compare.html','selector','override',SelectorLab.cases.override.nthPath);
-  });
+  byId('compare-run').addEventListener('click',compare);
   byId('prev').addEventListener('click',()=>{page--; renderList();});
   byId('next').addEventListener('click',()=>{page++; renderList();});
   for (const [id,event] of [['query','input'],['kind','change']]) byId(id).addEventListener(event,()=>{page=0; renderList();});
-  useExample(true);
+  useExample();
 })();
