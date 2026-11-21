@@ -19,6 +19,7 @@ async function run() {
     await ctx.route('**/*',route=>{
       const url=new URL(route.request().url());
       if (url.origin!==origin) {external.push(url.href);return route.abort();}
+      if (url.pathname.startsWith('/audit-data/')) return route.fulfill({status:503,body:''});
       const file=path.resolve(docs,'.'+url.pathname);
       assert.ok(file.startsWith(docs+path.sep));
       return route.fulfill({path:file});
