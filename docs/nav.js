@@ -1,7 +1,9 @@
 'use strict';
 (() => {
   const currentURL = new URL(location.href);
-  const page = currentURL.pathname.split('/').pop() || 'index.html';
+  // Static hosts can serve the same page at /audit and /audit.html.
+  const slug = currentURL.pathname.split('/').pop() || 'index';
+  const page = slug.endsWith('.html') ? slug : slug + '.html';
   if (page === 'override.html' && currentURL.hash.startsWith('#scope=')) {
     const old = new URLSearchParams(currentURL.hash.slice(1));
     currentURL.searchParams.set('rev', old.get('scope') === 'before' ? 'base' : 'override');
@@ -139,7 +141,7 @@
   refreshLanguageLink();
   language.addEventListener('click', refreshLanguageLink);
   bar.append(skip, brand, nav, language);
-  window.Lab = { lang, t, urlFor, setExampleState };
+  window.Lab = { page, lang, t, urlFor, setExampleState };
   document.querySelector('[data-nav]').append(bar);
   const projectScript = document.createElement('script');
   projectScript.src = 'project.js';
