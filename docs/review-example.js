@@ -19,5 +19,6 @@
     if (path && Object.hasOwn(item.lock.packages,path)) query.set('path',path);
     return Lab.urlFor(page+'?'+query);
   }
-  window.ReviewExample = {kind,revision,fixture,link};
+  const auditRevision = kind === 'vitest' ? 'vitest' : kind === 'selector' && fixture() ? revision : null;
+  window.ReviewExample = {kind,revision,fixture,link,auditRevision};
 })();
