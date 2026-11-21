@@ -6,9 +6,8 @@
   const presets={scheduler:['0.23.0','0.23.2','0.25.0'],react:['18.2.0','18.3.1','19.0.0']};
   const ops={caret:'^',tilde:'~',exact:''};
   const params=new URLSearchParams(location.search);
-  let releases=[], origin='manual', publicExample=null, active, request=0, declarations=[], fromFile=false;
-  let lastFile=null, lastText=null, reading=0, edits=0;
-  const manifestHint=el('manifest-status').textContent;
+  let releases=[], origin='manual', publicExample=null, active, request=0;
+  let reading=0, selectedEdge=null;
   const hosted=LabRegistry.hostedAudit===true;
   if(hosted) el('load-versions').textContent=t('Проверить по снимку Nexus','Check the Nexus snapshot');
 
@@ -42,23 +41,22 @@
       ? t('Браузер загрузит с этого сайта общую копию метаданных Nexus. Поиск имени и версий выполнится на устройстве.','The browser downloads a shared Nexus metadata snapshot from this site. Package names and versions are matched on this device.')
       : validName ? t('По кнопке имя ','Clicking sends the name ')+pkg+t(' будет отправлено в ',' to ')+address :
       t('Для списка выпусков введите имя пакета npm, например @scope/name.','For published releases, enter an npm name such as @scope/name.');
-    const source=el('range-source'), scale=el('range-scale'), reason=el('range-reason');
-    source.hidden=!valid || !version;scale.replaceChildren();reason.textContent='';
+    const scale=el('range-scale'), reason=el('range-reason');
+    scale.replaceChildren();reason.textContent='';
     if(origin==='snapshot') el('range-local').hidden=Boolean(version && releases.includes(version));
-    if(!valid || !version) {
-      source.textContent='';
-      reason.textContent=!need ? t('Введите требование из package.json.','Enter the requirement from package.json.') :
-        !valid ? t('Эту запись нельзя проверить как диапазон npm semver. Для git, file: или workspace: нужен источник зависимости.','This is not an npm semver range. Git, file: and workspace: dependencies use a different source.') :
-        !entered ? t('Введите точную версию из lock-файла или загрузите выпуски пакета.','Enter an exact version from a lockfile or load the package releases.') :
-        t('Для кандидата нужна точная версия, например 1.2.3 или 2.0.0-beta.1.','Use an exact release such as 1.2.3 or 2.0.0-beta.1 as the candidate.');
+    if(!valid) {
+      if(need) reason.textContent=t('Эту запись нельзя проверить как диапазон npm semver. Для git, file: или workspace: нужен источник зависимости.','This is not an npm semver range. Git, file: and workspace: dependencies use a different source.');
       return;
     }
-    source.textContent='semver.satisfies('+JSON.stringify(entered)+', '+JSON.stringify(need)+')';
-    const visible=LabRangeScale.nearby(releases,need,version);
+    const visible=version ? LabRangeScale.nearby(releases,need,version) : [];
     LabRangeScale.render(scale,{range:need,selected:version,candidates:visible,onSelect:v=>{
-      edits++;candidate.value=v;draw();sharePublicState();
+      candidate.value=v;draw();sharePublicState();
       Array.from(scale.querySelectorAll('button')).find(button=>button.textContent===v)?.focus();
     }});
+    if(!version) {
+      reason.textContent=entered ? t('Введите точную версию, например 1.2.3 или 2.0.0-beta.1.','Enter an exact version, such as 1.2.3 or 2.0.0-beta.1.') : t('Введите версию, чтобы отметить её на шкале.','Enter a version to locate it on the scale.');
+      return;
+    }
     reason.textContent=origin==='snapshot'
       ? t('Версий на шкале из снимка Nexus: ','Nexus snapshot releases on the scale: ')+visible.length+'/'+releases.length+'. '+
         (releases.includes(version) ? t('Проверяемая версия есть в снимке.','The selected version is in the snapshot.') : t('В снимке нет проверяемой версии.','The snapshot has no entry for the selected version.'))
@@ -66,22 +64,25 @@
         (releases.includes(version) ? t('Выбранная версия опубликована.','The selected release is published.') : t('В ответе реестра выбранной версии нет.','The selected version is absent from the registry response.'))
       : origin==='preset' ? t('На шкале три сохранённых выпуска ','The scale shows three saved releases of ')+pkg+'. '+
         (releases.includes(version) ? '' : t('Введённая версия проверена вручную. Её нет в этом снимке.','The entered version is a manual check outside this snapshot.'))
-      : t('Проверено локально по правилам npm semver. Сведения о публикации версии можно загрузить отдельно.','Checked locally with npm semver. Load published releases to check availability.');
+      : '';
   }
   function preset(pkg,op='caret',v=presets[pkg][1]) {
-    edits++;fromFile=false;stopLookup();publicExample=pkg;origin='preset';releases=presets[pkg];
-    name.value=pkg;range.value=ops[op]+releases[0];candidate.value=v;
-    el('range-dep').value='';draw();
+    selectedEdge=null;stopLookup();publicExample=pkg;origin='preset';releases=presets[pkg];
+    combo.setValue(pkg);range.value=ops[op]+releases[0];candidate.value=v;
+    draw();
   }
-  function localPackage(pkg,spec) {
-    stopLookup();publicExample=null;origin='manual';releases=[];
-    name.value=pkg;
-    if(spec!==undefined) {range.value=spec;candidate.value=treeSemver.valid(spec) ? spec : '';}
+  function resetSource() {stopLookup();publicExample=null;origin='manual';releases=[];}
+  function selectDependency(edge) {
+    selectedEdge=edge;resetSource();range.value=edge.range;
+    candidate.value=edge.installed || treeSemver.valid(edge.range) || '';
     draw();sharePublicState();
   }
+  const combo=LabPackageCombo.attach(name,{
+    onSelect:selectDependency,
+    onInput:()=>{selectedEdge=null;resetSource();draw();sharePublicState();}
+  });
   form.addEventListener('submit',e=>e.preventDefault());
-  name.addEventListener('input',()=>{edits++;fromFile=false;el('range-dep').value='';localPackage(name.value);});
-  for(const field of [range,candidate]) field.addEventListener('input',()=>{edits++;draw();sharePublicState();});
+  for(const field of [range,candidate]) field.addEventListener('input',()=>{selectedEdge=null;draw();sharePublicState();});
   for(const button of document.querySelectorAll('[data-preset]')) button.onclick=()=>{preset(button.dataset.preset);sharePublicState();};
   el('load-versions').onclick=async()=>{
     stopLookup();
@@ -114,51 +115,34 @@
       if(serial===request){active=null;draw();}
     }
   };
-  const menu=el('range-dep');
-  function selectDependency() {
-    const edge=declarations[Number(menu.value)];
-    if(menu.value && edge){edits++;fromFile=true;localPackage(edge.name,edge.spec);}
-  }
-  menu.addEventListener('change',selectDependency);
-  function clearManifest() {
-    declarations=[];menu.replaceChildren();el('range-dep-field').hidden=true;
-    el('manifest-status').textContent=manifestHint;
-    if(fromFile){fromFile=false;localPackage('','');}
-  }
-  async function useManifest(file) {
-    if(file===lastFile)return;
-    const serial=++reading, priorEdits=edits;
-    lastFile=file;
-    if(!file){lastText=null;clearManifest();return;}
+  async function useProject(files) {
+    const serial=++reading;
     try {
-      if(file.size>8_000_000) throw Error(t('Лимит для package.json — 8 МБ.','The package.json limit is 8 MB.'));
-      const text=await file.text();
-      if(serial!==reading || text===lastText)return;
-      // IndexedDB and other tabs can deliver a new File for the same manifest.
-      lastText=text;
-      const doc=JSON.parse(text.replace(/^\uFEFF/,''));
-      declarations=[];
-      for(const group of ['dependencies','devDependencies','optionalDependencies','peerDependencies']) {
-        if(!doc?.[group] || typeof doc[group]!=='object' || Array.isArray(doc[group])) continue;
-        for(const [name,spec] of Object.entries(doc[group]).sort(([a],[b])=>a.localeCompare(b))) {
-          if(typeof spec==='string') declarations.push({name,spec,group});
-        }
-      }
-      if(!declarations.length)throw Error(t('В package.json нет записей зависимостей.','The package.json contains no dependency declarations.'));
-      menu.replaceChildren(new Option(t('Выберите зависимость','Choose a dependency'),''),
-        ...declarations.map(({name,spec,group},i)=>new Option(name+' · '+spec+' ('+group+')',String(i))));
-      el('range-dep-field').hidden=false;
-      el('manifest-status').textContent='';
-      if(edits===priorEdits){menu.value='0';selectDependency();}
-    } catch(e) {
+      const [manifestText,lockText]=await Promise.all([files?.manifest?.text(),files?.lock?.text()]);
       if(serial!==reading)return;
-      lastText=null;clearManifest();
-      el('manifest-status').textContent=e instanceof SyntaxError ? t('Файл не удалось прочитать как JSON.','Could not read the file as JSON.') : e.message;
+      const manifest=manifestText ? JSON.parse(manifestText.replace(/^\uFEFF/,'')) : {};
+      const lock=manifestText && lockText ? LabYarn.read(lockText,manifest) : null;
+      const items=LabPackageCombo.direct(manifest).map(edge=>{
+        const record=lock?.packages ? LabLockGraph.lockedPackage(lock.packages,'',edge)?.record : lock?.dependencies?.[edge.name];
+        const installed=treeSemver.valid(record?.version);
+        return {...edge,installed,value:edge.name,label:edge.name,detail:edge.range+' · '+edge.group};
+      });
+      combo.setItems(items);
+      el('manifest-status').textContent=items.length ? t('Подсказки в поле пакета взяты из package.json.','Package suggestions come from package.json.') : '';
+      if(selectedEdge) {
+        const next=items.find(item=>item.name===selectedEdge.name && item.group===selectedEdge.group);
+        if(next) selectDependency(next);
+        else {selectedEdge=null;resetSource();combo.setValue('');range.value=candidate.value='';draw();}
+      }
+    } catch {
+      if(serial!==reading)return;
+      combo.setItems([]);el('manifest-status').textContent=t('Не удалось прочитать файлы проекта. Можно ввести значения вручную.','Could not read the project files. Enter the values manually.');
     }
   }
-  window.addEventListener('lab-project',event=>useManifest(event.detail?.manifest || null));
+  window.addEventListener('lab-project',event=>useProject(event.detail));
   const pkg=Object.hasOwn(presets,params.get('pkg')) ? params.get('pkg') : 'scheduler';
   const op=Object.hasOwn(ops,params.get('op')) ? params.get('op') : 'caret';
   const v=presets[pkg].includes(params.get('v')) ? params.get('v') : presets[pkg][1];
-  preset(pkg,op,v);
+  if (Object.hasOwn(presets,params.get('pkg'))) {el('range-examples').hidden=false;preset(pkg,op,v);}
+  else draw();
 })();
