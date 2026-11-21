@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сочетания версий · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+  <style>
+    .combo-layout {display:grid;grid-template-columns:minmax(16rem,.8fr) minmax(28rem,1.3fr);gap:1rem;align-items:start}
+    .combo-intro {max-width:69ch}
+    .combo-layout .panel {min-width:0}
+    .combo-controls {display:grid;gap:.75rem}
+    .combo-controls fieldset {min-width:0;margin:0;padding:0;border:0}
+    .combo-controls legend,.combo-target {display:block;margin:0 0 .5rem;font-weight:650}
+    .combo-controls select {color:inherit;background:var(--paper,#fff);border:1px solid #84929c;border-radius:.4rem;padding:.48rem .7rem;font:inherit;max-width:100%}
+    .combo-toggle {display:flex;align-items:baseline;gap:.6rem;margin:.55rem 0;cursor:pointer}
+    .combo-toggle input {flex:none;accent-color:#08766d;width:1.05rem;height:1.05rem}
+    .combo-controls input:focus-visible,.combo-controls select:focus-visible,.combo-cell:focus-visible {outline:3px solid #8a57ba;outline-offset:3px}
+    .combo-result {border-left:.26rem solid #766297;padding:.15rem 0 .15rem .9rem;margin-top:1.25rem}
+    .combo-result[data-valid="true"] {border-color:#187c71}
+    .combo-result strong,.combo-state {display:block;font-size:1.15rem}
+    .combo-result p,.combo-selection p {margin:.3rem 0}
+    .combo-grids {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem;margin:1rem 0}
+    .combo-grids table {width:100%;border-collapse:separate;border-spacing:.23rem;table-layout:fixed;color:inherit;font:inherit}
+    .combo-grids caption {text-align:left;font-weight:700;padding:.35rem 0 .5rem}
+    .combo-grids th {background:transparent;font-size:.88rem;font-weight:600;line-height:1.2;text-align:center;overflow-wrap:anywhere;vertical-align:middle;border:0;padding:.3rem .05rem}
+    .combo-grids th[scope=row] {text-align:left}
+    .combo-grids td {padding:0;border:0}
+    .combo-cell {width:100%;min-height:2.85rem;line-height:1.2;font:700 1.15rem/1.2 "Segoe UI Symbol",sans-serif;background:#efedf4;color:#514568;border:1px solid #b9aec8;border-radius:.4rem;cursor:pointer}
+    .combo-cell[data-valid="true"] {background:#d9ede8;color:#065d50;border-color:#80ac9c}
+    .combo-cell[aria-pressed=true] {outline:2px solid #233d57;outline-offset:1px}
+    .combo-selection {border-top:1px solid #bdc8cc;margin-top:1rem;padding-top:1rem}
+    .combo-selection ul,.combo-rules {padding-left:1.25rem;margin:.5rem 0}
+    .combo-rules li+li {margin-top:.35rem}
+    @media(max-width:850px){.combo-layout{grid-template-columns:1fr}}
+    @media(max-width:540px){.combo-grids{grid-template-columns:1fr}.combo-grids th{font-size:.92rem}.combo-grids table{border-spacing:.35rem}}
+  </style>
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+    <h1 data-en="How many packages have to change?">Сколько пакетов придётся обновить?</h1>
+    <p class="combo-intro" data-en="A project uses a plugin, a bundler and an adapter. All three start at v1. Try upgrading the plugin to v2 while keeping the neighbouring adapter at v1. Which rule gets in the way?">В проекте есть плагин, сборщик и адаптер. У всех версия 1. Попробуйте обновить плагин до версии 2, сохранив версию адаптера в соседнем модуле. Какое условие помешает?</p>
+
+    <div class="combo-layout">
+      <section class="panel">
+        <h2 data-en="What may change?">Что можно менять?</h2>
+        <form class="combo-controls" id="scope">
+          <div>
+            <label for="target" class="combo-target" data-en="Upgrade to v2">Обновить до версии 2</label>
+            <select id="target" name="target">
+              <option value="plugin" data-en="Plugin">Плагин</option>
+              <option value="adapter" data-en="Adapter">Адаптер</option>
+            </select>
+          </div>
+          <fieldset>
+            <legend data-en="Also allow changes to">Также разрешить менять</legend>
+            <label class="combo-toggle"><input type="checkbox" id="bundler" checked><span data-en="Bundler">Сборщик</span></label>
+            <label class="combo-toggle"><input type="checkbox" id="companion"><span id="companion-label">Адаптер</span></label>
+          </fieldset>
+        </form>
+        <div id="summary" class="combo-result" role="status" aria-atomic="true"></div>
+      </section>
+
+      <section class="panel">
+        <h2 data-en="Eight possible combinations">Восемь сочетаний</h2>
+        <p class="hint" data-en="✓ fits all the rules. × breaks at least one. Select a cell to inspect it.">✓ выполняет все условия. × нарушает хотя бы одно. Нажмите на ячейку, чтобы узнать причину.</p>
+        <div id="grids" class="combo-grids"></div>
+        <div id="selection" class="combo-selection" role="status" aria-atomic="true"></div>
+      </section>
+    </div>
+    <section class="panel" style="margin-top:1rem">
+      <h2 data-en="Where do these constraints come from?">Откуда берутся ограничения?</h2>
+      <ul class="combo-rules">
+        <li data-en="Plugin v2 needs bundler v2. Plugin v1 supports either bundler version.">Плагину версии 2 нужен сборщик версии 2. Плагину версии 1 подойдут оба сборщика.</li>
+        <li data-en="Adapter v1 works only with bundler v1. Adapter v2 supports either bundler version.">Адаптер версии 1 работает только со сборщиком версии 1. Адаптер версии 2 поддерживает оба сборщика.</li>
+      </ul>
+      <p data-en="This exercise enumerates all eight combinations in the browser and counts changes from v1. The package names and constraints are examples. On a real project, DepLoom models candidate versions and constraints in Z3.">Здесь учебные пакеты и правила. Страница перебирает в браузере восемь сочетаний и считает изменения относительно версии 1. В реальном проекте DepLoom передаёт версии-кандидаты и ограничения решателю Z3.</p>
+    </section>
+  </main>
+  <script src="nav.js"></script>
+  <script src="combinations.js"></script>
+</body>
+</html>

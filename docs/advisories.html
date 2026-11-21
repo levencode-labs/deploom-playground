@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Известные уязвимости · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+    <h1 data-en="Check a package version">Проверить версию пакета</h1>
+    <p data-en="Two versions of the same package can be affected by different advisories. Use the exact version installed in your lockfile.">У двух версий одной библиотеки могут быть разные известные уязвимости. Возьмите точную версию из lock-файла проекта.</p>
+
+    <section class="panel" aria-labelledby="online-title">
+      <h2 id="online-title" data-en="Look up published advisories">Проверить по базе OSV</h2>
+      <form id="advisory-form">
+        <label class="field" for="package"><span data-en="Public npm package">Публичный npm-пакет</span>
+          <input id="package" type="text" required value="lodash" maxlength="214" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </label>
+        <label class="field" for="version"><span data-en="Installed version">Установленная версия</span>
+          <input id="version" type="text" required value="4.17.20" maxlength="256" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </label>
+        <p id="scope-confirmation" hidden>
+          <label><input id="public-scope" type="checkbox"> <span data-en="I confirm this scoped package name is public.">Подтверждаю, что это публичное имя пакета.</span></label>
+        </p>
+        <p class="hint" data-en="When you submit, your browser sends the package name and version to api.osv.dev. Enter public package names only.">По кнопке браузер отправит название и версию на api.osv.dev. Вводите только публичные названия пакетов.</p>
+        <button class="button" type="submit" id="query-button" disabled data-en="Check with OSV">Проверить в OSV</button>
+        <noscript><p>Для запроса нужен JavaScript. / Enable JavaScript to query OSV.</p></noscript>
+      </form>
+      <p id="query-status" role="status" aria-live="polite"></p>
+      <ul id="advisories" hidden></ul>
+      <p id="other-source" hidden><a id="github-link" rel="noreferrer" data-en="Check the same version in GitHub Advisory Database (JSON)">Проверить ту же версию в GitHub Advisory Database (JSON)</a><br><span class="hint" data-en="Opening this link sends the public package name and version to GitHub.">При открытии ссылки GitHub получит публичное имя пакета и версию.</span></p>
+    </section>
+
+    <section class="panel" aria-labelledby="example-title">
+      <h2 id="example-title" data-en="An example you can read offline">Пример для разбора без сети</h2>
+      <p><strong>lodash@4.17.20</strong> · <span data-en="Advisory checked on November 21, 2026">Карточка проверена 21 ноября 2026 года</span></p>
+      <p data-en="OSV lists a command injection vulnerability for this version. The first fixed release for this particular issue is 4.17.21.">В этой версии lodash известна уязвимость, связанная с выполнением команд. Первое исправление для этой конкретной проблемы вышло в версии 4.17.21.</p>
+      <p data-en="Try both versions above and look for this ID. Other advisories may still apply to the newer version.">Проверьте обе версии выше и поищите этот идентификатор. Для новой версии могут оставаться другие записи.</p>
+      <a href="https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm" data-en="OSV advisory GHSA-35jh-r3h4-6jhm">Карточка OSV GHSA-35jh-r3h4-6jhm</a>
+    </section>
+  </main>
+  <script src="nav.js"></script>
+  <script src="advisories.js"></script>
+</body>
+</html>

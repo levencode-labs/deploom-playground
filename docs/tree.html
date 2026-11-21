@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Дерево зависимостей · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+  <style>
+    .tree-workbench { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.3fr); gap:1rem; align-items:start }
+    .tree-workbench section { min-width:0 }
+    .tree-workbench h2 { margin-top:0 }
+    .tree-controls { display:flex; flex-wrap:wrap; gap:.55rem; margin:.8rem 0 }
+    .tree-workbench textarea { width:100%; min-width:0; box-sizing:border-box; padding:.8rem; border:1px solid #a3afc1; border-radius:.45rem; background:#fff; color:#152c44; font: .92rem/1.45 "IBM Plex Mono", Consolas, monospace; resize:vertical }
+    .tree-workbench label:not(.tree-filter) { display:block; font-weight:600; margin:.85rem 0 .25rem }
+    .tree-workbench .tree-filter { display:flex; align-items:center; gap:.5rem; margin:1rem 0 }
+    .tree-workbench input[type=file] { max-width:100% }
+    .tree-workbench details > summary { cursor:pointer }
+    .tree-workbench .tree-input-lock { padding:.5rem 0; margin-top:.65rem }
+    .tree-workbench .tree-input-lock > summary { font-weight:650 }
+    .tree-output { overflow-wrap:anywhere }
+    #tree-graph { margin-top:.9rem; min-height:4rem }
+    .tree-root { font:650 1.05rem/1.5 "IBM Plex Mono", Consolas, monospace }
+    .tree-branches { margin:0; padding:0 0 0 .7rem; list-style:none }
+    .tree-branches > li { position:relative; padding:.38rem 0 .15rem 1rem; border-left:1px solid #9aaec2 }
+    .tree-branches > li::before { position:absolute; content:""; width:.65rem; height:1.05rem; border-bottom:1px solid #9aaec2; left:0; top:0 }
+    .tree-branches > li:last-child { border-left-color:transparent }
+    .tree-branches > li:last-child::before { border-left:1px solid #9aaec2; left:-1px }
+    .tree-label { font-weight:650; color:#183950 }
+    .tree-edge { font-size:.9rem; color:#506273; margin-left:.35rem }
+    .tree-state { display:inline-block; font:600 .83rem/1.35 system-ui,sans-serif; border-radius:.3rem; padding:.12rem .38rem; margin:.1rem 0 .1rem .4rem; background:#e6ecf1; color:#364656 }
+    .tree-state.good { color:#075946; background:#d8f2e7 }
+    .tree-state.bad { color:#902c17; background:#fde6db }
+    .tree-note { font-size:.91rem; line-height:1.4; color:#445a69; margin:.16rem 0 .3rem }
+    #tree-error { color:#902c17; font-weight:600 }
+    #tree-error:empty,#tree-limit:empty { display:none }
+    @media(max-width:820px) { .tree-workbench { grid-template-columns:1fr } }
+  </style>
+</head>
+<body>
+<header data-nav></header>
+<main>
+  <h1 data-en="Dependency tree">Дерево зависимостей</h1>
+  <p data-en="Paste a package.json or its dependency list. Add a package-lock.json v3 to explore resolved versions and the peer requirements of installed packages. Both files stay in this browser.">Вставьте package.json или его список зависимостей. Добавьте package-lock.json версии 3, чтобы увидеть зафиксированные версии и требования пакетов друг к другу. Оба файла остаются в браузере.</p>
+  <div class="tree-workbench">
+    <section class="panel">
+      <h2 data-en="Project files">Файлы проекта</h2>
+      <p class="hint" data-en="Start with a React example or paste your own JSON.">Начните с примера React или вставьте свой JSON.</p>
+      <div class="tree-controls">
+        <button class="button" type="button" id="tree-broken" data-en="Peer conflict">Конфликт версий</button>
+        <button class="button" type="button" id="tree-fixed" data-en="Matching versions">Совместимая пара</button>
+      </div>
+      <label for="tree-manifest">package.json</label>
+      <textarea id="tree-manifest" rows="9" spellcheck="false" autocapitalize="off"></textarea>
+      <details class="tree-input-lock" id="tree-lockbox">
+        <summary data-en="Add package-lock.json (v3)">Добавить package-lock.json (v3)</summary>
+        <label for="tree-file" data-en="Open a local file">Открыть файл на компьютере</label>
+        <input id="tree-file" type="file" accept=".json,application/json">
+        <label for="tree-lock" data-en="Or paste its contents">Или вставить содержимое</label>
+        <textarea id="tree-lock" rows="5" spellcheck="false" autocapitalize="off" placeholder="package-lock.json"></textarea>
+      </details>
+      <details class="tree-input-lock" id="tree-netbox">
+        <summary data-en="Look up selected versions on npm">Сведения о выбранных версиях из npm</summary>
+        <p class="hint" data-en="Select public packages to send their names and exact versions to registry.npmjs.org. Only unscoped packages are offered. Use the lockfile for scoped packages and transitive versions.">Отметьте публичные пакеты, имена и точные версии которых можно отправить в registry.npmjs.org. Для пакетов со scope и вложенных версий используйте lock-файл.</p>
+        <div id="tree-registry-list"></div>
+        <button class="button" type="button" id="tree-load-meta" data-en="Load selected metadata">Загрузить выбранные записи</button>
+        <p class="hint" id="tree-network-result" role="status"></p>
+      </details>
+      <p id="tree-error" role="alert"></p>
+    </section>
+    <section class="panel tree-output">
+      <h2 data-en="Version requirements">Требования к версиям</h2>
+      <p id="tree-mode" class="hint"></p>
+      <p id="tree-count" role="status"></p>
+      <label class="tree-filter"><input type="checkbox" id="tree-filter"><span data-en="Show only paths with conflicts">Показать только ветки с конфликтами</span></label>
+      <div id="tree-graph"></div>
+      <p id="tree-limit" class="hint"></p>
+    </section>
+  </div>
+</main>
+<script src="nav.js"></script>
+<script src="tree.js"></script>
+</body>
+</html>
