@@ -7,6 +7,7 @@
   <title>Аудит проекта · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
   <link rel="stylesheet" href="report.css">
+  <link rel="stylesheet" href="finding-paths.css">
 </head>
 <body>
   <header data-nav></header>
@@ -28,7 +29,16 @@
         <button type="button" id="stop-audit" hidden data-en="Stop">Остановить</button></div>
       <progress id="report-progress" hidden></progress><p id="audit-status" role="status"></p>
       <div id="result-details" hidden>
-        <h3 data-en="What needs attention">Что требует внимания</h3><ul id="findings" class="report-list"></ul>
+        <h3 data-en="What needs attention">Что требует внимания</h3>
+        <div id="finding-tools" class="finding-tools" hidden>
+          <label><span data-en="Search findings">Найти в отчёте</span><input id="finding-filter" type="search" placeholder="Пакет, название, CVE, GHSA" data-en-placeholder="Package, title, CVE, GHSA"></label>
+          <label><span data-en="Severity">Серьёзность</span><select id="finding-level">
+            <option value="" data-en="All levels">Все уровни</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>None</option>
+            <option value="Unknown" data-en="Unrated">Нет оценки</option>
+          </select></label>
+        </div>
+        <ul id="findings" class="report-list"></ul>
+        <button id="more-findings" type="button" hidden data-en="Show more findings">Показать ещё находки</button>
         <details id="age-details"><summary id="age-heading"></summary><ul id="age-rows" class="report-list"></ul></details>
         <details id="unknown-details"><summary id="unknown-heading"></summary><ul id="unknown-rows" class="report-list"></ul></details>
       </div>
@@ -48,6 +58,6 @@
   <script src="registry.js"></script><script src="severity.js"></script><script src="criterion.js"></script>
   <script src="audit-model.js"></script><script src="hosted-audit.js"></script>
   <script src="selector-data.js"></script><script src="review-example.js"></script>
-  <script src="audit-capture.js"></script><script src="audit.js"></script>
+  <script src="audit-capture.js"></script><script src="finding-paths.js"></script><script src="finding-cards.js"></script><script src="audit.js"></script>
 </body>
 </html>
