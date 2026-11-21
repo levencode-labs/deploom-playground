@@ -35,9 +35,21 @@ test('the handbook ships a bilingual catalog with unique routes, worked examples
       id(lesson.id);
       for (const pair of [lesson.title, lesson.lead, lesson.check, lesson.lab.prompt]) translated(pair, lesson.id);
       assert.ok(lesson.examples.length, lesson.id);
-      for (const example of lesson.examples) {
-        translated(example.title, lesson.id);
-        translated(example.body, lesson.id);
+      assert.ok(lesson.solutions.length, 'Missing fix in ' + lesson.id);
+      assert.ok(lesson.examples.some(example => example.code), 'Missing worked snippet in ' + lesson.id);
+      for (const block of [...lesson.examples, ...lesson.solutions]) {
+        translated(block.title, lesson.id);
+        translated(block.body, lesson.id);
+        if (Array.isArray(block.code)) translated(block.code, lesson.id);
+        else if (block.code !== undefined) assert.equal(typeof block.code, 'string', lesson.id);
+      }
+      if (lesson.layout) {
+        translated(lesson.layout.intro, lesson.id);
+        assert.ok(lesson.layout.paths.length, lesson.id);
+        for (const row of lesson.layout.paths) {
+          assert.ok(row.path && Number.isInteger(row.depth) && row.depth >= 0 && row.depth <= 3, lesson.id);
+          translated(row.note, lesson.id);
+        }
       }
       assert.ok(lesson.lab.states.length > 1, lesson.id);
       for (const state of lesson.lab.states) {

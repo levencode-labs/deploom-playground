@@ -110,6 +110,34 @@
     el.append(make('small', '', label + ' · ' + sectionNumber(entry.ci, entry.li)), make('strong', '', local(entry.lesson.title)));
     return el;
   }
+  function codeBlock(code) {
+    const pre = make('pre', 'book-code');
+    pre.append(make('code', '', Array.isArray(code) ? local(code) : code));
+    return pre;
+  }
+
+  function projectLayout(layout) {
+    const section = make('section', 'book-layout-example');
+    section.append(make('h2', '', t('Где лежат файлы', 'Where the files live')), make('p', '', local(layout.intro)));
+    const list = make('ul', 'project-paths');
+    for (const item of layout.paths) {
+      const row = make('li', 'path-level-' + item.depth);
+      row.append(make('code', '', item.path), make('span', '', local(item.note)));
+      list.append(row);
+    }
+    section.append(list);
+    return section;
+  }
+
+  function blocks(items) {
+    return items.map(item => {
+      const block = make('div', 'worked-example');
+      block.append(make('h3', '', local(item.title)), make('p', '', local(item.body)));
+      if (item.code) block.append(codeBlock(item.code));
+      return block;
+    });
+  }
+
   function render(focus) {
     const requested = location.hash.slice(1);
     const index = Math.max(0, lessons.findIndex(entry => entry.lesson.id === requested));
@@ -136,21 +164,29 @@
     head.append(path, title, make('p', 'lesson-lead', local(lesson.lead)));
     const examples = make('section', 'worked-examples');
     examples.append(make('h2', '', t('Разберём на примерах', 'Worked examples')));
-    for (const example of lesson.examples) {
-      const exampleBlock = make('div', 'worked-example');
-      exampleBlock.append(make('h3', '', local(example.title)), make('p', '', local(example.body)));
-      if (example.code) {
-        const pre = make('pre');
-        pre.append(make('code', '', example.code));
-        exampleBlock.append(pre);
-      }
-      examples.append(exampleBlock);
+    examples.append(...blocks(lesson.examples));
+    const solutions = make('section', 'book-solutions');
+    if (lesson.solutions?.length) {
+      const solutionTitle = make('h2', '', t('Как исправить', 'Ways to fix it'));
+      solutionTitle.tabIndex = -1;
+      solutions.append(solutionTitle, ...blocks(lesson.solutions));
+      const shortcut = make('button', 'book-jump', t('Перейти к решениям', 'Jump to the fixes'));
+      shortcut.type = 'button';
+      shortcut.addEventListener('click', () => {
+        solutionTitle.focus({preventScroll:true});
+        solutions.scrollIntoView({block:'start'});
+      });
+      head.append(shortcut);
     }
     const check = make('section', 'book-check');
-    check.append(make('h2', '', t('Как проверить у себя', 'What to check in your project')), make('p', '', local(lesson.check)));
+    check.append(make('h2', '', t('Как проверить результат', 'How to check the fix')), make('p', '', local(lesson.check)));
     const experiment = DepLoomBookLabs.render(lesson);
-    const selfContained = ['range-and-lock', 'shared-host', 'react-instance', 'repeat-codemod'].includes(lesson.id);
-    const elements = selfContained ? [head, experiment, examples, check] : [head, examples, experiment, check];
+    const selfContained = ['range-and-lock', 'shared-host', 'borrowed-dependency', 'react-instance', 'repeat-codemod'].includes(lesson.id);
+    const elements = [head];
+    if (lesson.layout) elements.push(projectLayout(lesson.layout));
+    elements.push(...(selfContained ? [experiment, examples] : [examples, experiment]));
+    if (lesson.solutions?.length) elements.push(solutions);
+    elements.push(check);
     const related = readingLinks(lesson);
     if (related) elements.push(related);
     if (lesson.sources?.length) {

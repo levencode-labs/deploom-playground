@@ -116,3 +116,32 @@ body:has(.book) { background: #f7f9fc; }
   .release-rail i, .experiment-option[aria-pressed=true], .host-matrix .accepted-host { outline: 2px solid Highlight; }
   .book-paragraphs a[aria-current] { border: 2px solid Highlight; }
 }
+.book-jump { margin: .7rem 0 0; padding: .15rem 0; border: 0; background: none; color: var(--book-blue); text-decoration: underline; text-underline-offset: .22em; font-size: .93rem; }
+.book-solutions, .book-layout-example { margin: 1.45rem 0; }
+.book-solutions { border: 1px solid #b9d5ce; border-radius: .7rem; padding: 1.15rem 1.25rem .3rem; background: #f6fbf9; scroll-margin-top: 1rem; }
+.book-solutions > h2, .book-layout-example > h2 {font-size: 1.45rem; margin: 0 0 .6rem;}
+.book-solutions .worked-example { border-color: #c8dfd8; }
+.book-solutions .worked-example h3 { color: #23534d; }
+.book-solutions + .book-check { background: transparent; padding-block: .15rem; margin-block: 1.1rem 1.5rem; }
+.book-layout-example > p { margin: 0 0 .7rem; font-size: .98rem; color: #405873; }
+.project-paths { padding: .62rem .9rem; margin: 0; list-style: none; background: #edf2f7; border: 1px solid var(--book-line); border-radius: .52rem; }
+.project-paths li { --depth: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: baseline; gap: .35rem 1rem; padding: .37rem 0; line-height: 1.37; }
+.project-paths .path-level-1 { --depth: 1; }
+.project-paths .path-level-2 { --depth: 2; }
+.project-paths .path-level-3 { --depth: 3; }
+.project-paths li code { padding-inline-start: calc(.9rem * var(--depth)); font-size: .9rem; font-weight: 650; color: #173c61; }
+.project-paths li span { color: #415a72; font-size: .88rem; }
+.book-code { tab-size: 2; }
+.host-controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .6rem 1rem; margin: .65rem 0 1.05rem; }
+.host-controls label { display: grid; gap: .27rem; color: #d9e7f4; font-size: .89rem; }
+.host-controls select { border: 1px solid #7991ab; background: #10263e; color: #f1f6ff; border-radius: .35rem; padding: .38rem .55rem; cursor: pointer; font-size: .97rem; }
+.host-matrix small { color: #bad1e6; font-size: .78rem; font-weight: 400; }
+.formik-story { margin: .9rem 0 0; padding: .85rem 1rem; list-style: none; border-radius: .5rem; background: #10243b; border: 1px solid #4c6882; }
+.formik-story li + li { border-top: 1px solid #344b63; margin-top: .4rem; padding-top: .4rem; }
+.formik-story li { display: grid; gap: .18rem; }
+.formik-story span { color: #b3ccdf; font-size: .85rem; }
+.formik-story code { font-size: .95rem; color: white; }
+@media (max-width: 38rem) {
+  .project-paths li { grid-template-columns: minmax(0,1fr); gap: .05rem; }
+  .project-paths li span { padding-inline-start: calc(.9rem * var(--depth)); }
+}
