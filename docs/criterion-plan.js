@@ -1,12 +1,6 @@
 'use strict';
 (() => {
   const {t} = Lab;
-  // UI-branch lock records from the merge lesson. For each direct package the
-  // dated npm snapshot keeps the installed, first eligible and highest stable release.
-  function example() {
-    const {manifest,lock}=LabWebpack.planner('merged');
-    return {manifest,lock,documents:new Map(Object.entries(window.LabWebpackReleaseSnapshot))};
-  }
   const line = (parent,tag,text) => {
     const node = document.createElement(tag); node.textContent=text; parent.append(node); return node;
   };
@@ -41,13 +35,14 @@
       for(const v of [row.version,row.target]) if(v && doc?.versions?.[v]) metadata.set(row.name+'@'+v,doc.versions[v]);
     }
     const changes = result.targets.flatMap(row=>LabPlan.read(man,lock,{[row.name]:row.target}));
-    showReactCheck(parent,changes);
+    if (sample) showReactCheck(parent,changes);
     const yarn = LabYarn.format(lock.packages);
     const peers = yarn ? LabPlan.assessYarn(man,lock,changes,new Map(),metadata,true) : LabPlan.assess(lock,changes,new Map(),metadata,true);
     line(parent,'h3',t('Совместимость предложенных версий','Compatibility of the proposed versions'));
     line(parent,'p',t('Известных peer-конфликтов: ','Known peer conflicts: ')+peers.issues.length+
       t('. Выполнено требований: ','. Satisfied requirements: ')+peers.checks.length+
       t('. Не проверено: ','. Unchecked: ')+peers.unknown.length+'.');
+    if(lock.lockfileVersion===1) line(parent,'p',t('В npm lock v1 нет peer-требований установленных пакетов. Полнота проверки зависит от доступных манифестов.','npm lock v1 omits installed packages’ peer requirements. Coverage depends on the available manifests.'));
     if(peers.issues.length) {
       const list=line(parent,'ul','');
       for(const p of peers.issues.slice(0,10)) line(list,'li',p.path+' → peer '+p.name+'@'+p.range+' · '+(p.version || t('версия отсутствует','no provider')));
@@ -85,54 +80,53 @@
       'If a status in your app has a tooltip, hover it and focus it with Tab. Its explanation should appear both ways. In our migration the wrapper dropped the button ref while the icon still rendered. Run this check in your own app.'));
     line(section,'a',t('Попробовать проверку и скопировать её для MR','Try the check and copy it for your review')).href=Lab.urlFor('runtime.html?assertion=hint');
   }
-  function open(output,{man,lock,level,sample,signal}) {
-    const data = sample && example();
-    if(data) {man=data.manifest;lock=data.lock;}
+  function prepare({output,options,button,progress,man,lock,level,sample,signal}) {
     const rows = LabCriterion.inventory(man,lock);
-    const head = line(output,'p',t('По умолчанию Yellow требует 80%, Green — 100% прямых библиотек в окне свежести. Для каждой библиотеки отсчитываем 12 календарных месяцев от публикации её старшей стабильной версии.',
-      'By default Yellow requires 80% and Green 100% of direct libraries within the freshness window. Each library’s window starts 12 calendar months before its highest stable release.'));
-    head.className='hint';
-    const documents = data?.documents || new Map(), errors=new Map();
-    let source='';
-    const summary=document.createElement('section');
-    const draw=()=>results(summary,{man,lock,level,rows,documents,errors,sample,source});
-    if(!sample) {
-      const hosted=LabRegistry.hostedAudit===true;
-      try {source=LabRegistry.base();} catch(e) {line(output,'p',LabRegistry.message(e));return;}
-      const eligible=rows.filter(row=>row.version);
-      const publicHost=!hosted && source===LabRegistry.defaultBase;
-      line(output,'p',hosted ? t('Даты публикаций и peer-требования берутся из общего снимка Nexus с этой страницы. Выбранные имена проверяются на устройстве.','Release dates and peer requirements come from the shared Nexus snapshot on this site. Selected names are matched on this device.') :
-        t('За датами публикаций браузер обратится в ','For publication dates the browser will contact ')+source+
-        t('. Реестр получит выбранные имена пакетов.',' with the selected package names.'));
-      const selection=line(output,'div','');
-      const go=line(output,'button',hosted ? t('Рассчитать по снимку Nexus','Calculate from the Nexus snapshot') : t('Запросить даты и рассчитать план','Fetch release dates and calculate plan'));
-      go.className='button';
-      const picker=LabPackagePicker.mount(selection,{
-        items:eligible.map(row=>({key:row.name,label:row.name,publicOrigin:row.publicRegistry,selected:!publicHost || row.publicRegistry})),
-        publicDestination:publicHost ? source : null,
-        onChange:ready=>{go.disabled=!ready;},
-      });
-      const progress=line(output,'p','');progress.setAttribute('role','status');
-      const download=hosted && line(output,'a',t('Скачать локальную версию для прямого запроса в Nexus','Download the local lab to query Nexus directly'));
-      if(download){download.href=Lab.urlFor('index.html#local-download');download.hidden=true;}
-      go.onclick=async()=>{
-        const selected=picker.values().map(item=>item.key);
-        if(!selected.length || go.disabled || signal.aborted)return;
-        const queue=selected.slice(); let count=0, skipped=0;
-        go.disabled=true;selection.inert=true;
-        errors.clear();documents.clear();summary.replaceChildren();
-        const status=()=>progress.textContent=t('Обработано пакетов: ','Packages processed: ')+count+'/'+selected.length;
-        status();
+    const eligible=rows.filter(row=>row.version);
+    const documents=new Map(sample ? Object.entries(LabWebpackReleaseSnapshot) : []), errors=new Map();
+    const hosted=LabRegistry.hostedAudit===true;
+    let source=sample?'':LabRegistry.base();
+    function draw() {
+      output.hidden=false;
+      return results(output,{man,lock,level,rows,documents,errors,sample,source});
+    }
+    if (sample || !eligible.length) {
+      button.disabled=false;
+      button.onclick=draw;
+      return;
+    }
+
+    options.hidden=false;
+    line(options,'p',hosted
+      ? t('Даты выпусков берутся из снимка на этом сайте.','Release dates come from this site’s snapshot.')
+      : t('По кнопке выбранные имена пакетов будут отправлены в ','Calculating sends the selected package names to ')+source).className='hint';
+    const publicHost=!hosted && source===LabRegistry.defaultBase;
+    const selection=line(options,'div','');
+    const picker=LabPackagePicker.mount(selection,{
+      items:eligible.map(row=>({key:row.name,label:row.name,publicOrigin:row.publicRegistry,selected:!publicHost || row.publicRegistry})),
+      publicDestination:publicHost ? source : null,
+      onChange:ready=>{
+        button.disabled=!ready;
+        progress.textContent='';
+        output.hidden=true;
+      },
+    });
+    if(!picker.ready()) selection.querySelector('details').open=true;
+    button.onclick=async()=>{
+      const queue=picker.values().map(item=>item.key);
+      const total=queue.length;
+      if(!total || button.disabled || signal.aborted)return;
+      let count=0, skipped=0;
+      button.disabled=true;
+      selection.inert=true;
+      errors.clear();documents.clear();output.replaceChildren();output.hidden=true;
+      const status=()=>progress.textContent=t('Обработано пакетов · ','Packages processed · ')+count+'/'+total;
+      status();
+      try {
         if(hosted) {
-          download.hidden=true;
-          try {
-            const snapshot=await LabRegistry.releases(signal);
-            if(signal.aborted)return;
-            source=t('снимок Nexus от ','Nexus snapshot dated ')+new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC';
-          } catch(e) {
-            if(signal.aborted)return;
-            progress.textContent=LabRegistry.message(e);download.hidden=false;go.disabled=!picker.ready();selection.inert=false;draw();return;
-          }
+          const snapshot=await LabRegistry.releases(signal);
+          if(signal.aborted)return;
+          source=t('снимок от ','snapshot dated ')+new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC';
         }
         async function read() {
           while(queue.length && !signal.aborted) {
@@ -145,15 +139,17 @@
             if(!signal.aborted){count++;status();}
           }
         }
-        await Promise.all(Array.from({length:Math.min(3,selected.length)},read));
+        await Promise.all(Array.from({length:Math.min(3,total)},read));
         if(signal.aborted)return;
-        const result=draw();go.disabled=!picker.ready();selection.inert=false;
-        if(download)download.hidden=!errors.size && !result.unknown;
-        if(hosted)progress.textContent+=' · '+source;
-        if(skipped)progress.textContent+=t('. Из-за сбоя сети пропущено запросов: ','. Requests skipped after the network failure: ')+skipped+'.';
-      };
-    }
-    output.append(summary);draw();
+        draw();
+        if(skipped)progress.textContent+=t('. Из-за сбоя сети пропущено запросов · ','. Requests skipped after the network failure · ')+skipped;
+      } catch(e) {
+        if(signal.aborted)return;
+        progress.textContent=LabRegistry.message(e);
+      } finally {
+        if(!signal.aborted){button.disabled=!picker.ready();selection.inert=false;}
+      }
+    };
   }
-  window.LabCriterionPlan={open,showReactCheck};
+  window.LabCriterionPlan={prepare,showReactCheck};
 })();
