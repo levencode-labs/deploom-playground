@@ -110,17 +110,17 @@
       if(gen!==generation)return;
       if(!input){$('parse-status').textContent=manifest?t('package.json прочитан. Добавьте lock-файл, чтобы определить установленные версии.','Read package.json. Add a lockfile to identify installed versions.'):t('Выберите lock-файл вверху страницы.','Choose a lockfile above.');return;}
       if(input instanceof File && input.size>maxBytes)throw Error('size');
-      const lock=input instanceof File ? LabYarn.read(await input.text()) : input;
+      const lock=input instanceof File ? LabYarn.read(await input.text(),manifest) : input;
       if(gen!==generation)return;
       if(Object.keys(lock?.packages||{}).length>30001)throw Error('size');
       const format=LabYarn.format(lock.packages);
       const inventory=LabAudit.localInventory(lock);
-      const root=manifest || lock.packages[''];
-      project={...inventory,lock,excerpt,manifest:manifest || (format ? null : root),direct:LabAudit.directVersions(root,lock),root:root?.name};
-      $('parse-status').textContent=(root?.name?root.name+' · ':'')+(format||'npm')+' · '+t('прямых зависимостей ','direct dependencies ')+project.direct.length+t(', точных пар «имя + версия» ',', exact name/version pairs ')+project.rows.length+
-        (format&&!manifest?t('. Добавьте package.json для оценки прямых зависимостей.','. Add package.json to assess direct dependencies.'):'');
+      const root=manifest || (!format && lock.lockfileVersion!==1 ? lock.packages[''] : null);
+      project={...inventory,lock,excerpt,manifest:root,direct:LabAudit.directVersions(root || {},lock),root:root?.name};
+      $('parse-status').textContent=(root?.name?root.name+' · ':'')+(format || 'npm v'+lock.lockfileVersion)+' · '+t('прямых зависимостей ','direct dependencies ')+project.direct.length+t(', точных пар «имя + версия» ',', exact name/version pairs ')+project.rows.length+
+        (!root?t('. Добавьте package.json для оценки прямых зависимостей.','. Add package.json to assess direct dependencies.'):'');
       configure();
-    }catch(e){if(gen===generation)$('parse-status').textContent=e.message==='size'?t('Ограничение — 8 МиБ и 30 000 записей в одном файле.','Limit: 8 MiB and 30,000 entries per file.'):t('Проверьте формат: package.json и npm lock v3, Yarn Classic или Berry.','Check the format: package.json and an npm v3, Yarn Classic or Berry lockfile.');}
+    }catch(e){if(gen===generation)$('parse-status').textContent=e.message==='size'?t('Ограничение — 8 МиБ и 30 000 записей в одном файле.','Limit: 8 MiB and 30,000 entries per file.'):t('Проверьте формат: package.json и npm lock v1–v3, Yarn Classic или Berry.','Check the format: package.json and an npm v1–v3, Yarn Classic or Berry lockfile.');}
   }
   async function run() {
     if(active || !project || project.excerpt || $('run-audit').disabled)return;
