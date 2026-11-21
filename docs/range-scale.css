@@ -1,0 +1,10 @@
+.range-controls { display:flex; flex-wrap:wrap; gap:.6rem }
+.range-controls .field { margin:0 }
+.range-controls select { min-height:2.4rem; border:1px solid var(--line); border-radius:.35rem; padding:.3rem .6rem; background:white; color:var(--ink) }
+.range-scale { list-style:none; display:flex; flex-wrap:wrap; gap:.45rem; padding:0; margin:1rem 0 .4rem }
+.range-scale li { display:grid; align-content:start; flex:1 1 5rem; gap:.12rem; padding:.55rem .5rem; min-width:0; border:1px solid var(--line); border-top:.28rem solid #9a695d; border-radius:.3rem; background:#faf7f5; color:#53372a; text-align:center }
+.range-scale li[data-match=true] { border-top-color:#187b71; background:#e5f2ed; color:#164e45 }
+.range-scale li[data-match=unknown] { border-top-color:#8997a2; background:#f3f5f6; color:#354957 }
+.range-scale li[data-selected=true] { outline:2px solid var(--ink); outline-offset:1px }
+.range-scale span,.range-scale strong { font-size:.83rem }
+.range-verdict { font-weight:650; margin:.65rem 0 }

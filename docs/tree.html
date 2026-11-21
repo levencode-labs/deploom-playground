@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Дерево зависимостей · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
+  <link rel="stylesheet" href="range-scale.css">
   <style>
     .tree-workbench { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.3fr); gap:1rem; align-items:start }
     .tree-workbench section { min-width:0 }
@@ -34,6 +35,13 @@
     #tree-error { color:#902c17; font-weight:600 }
     #tree-error:empty,#tree-limit:empty { display:none }
     @media(max-width:820px) { .tree-workbench { grid-template-columns:1fr } }
+    .tree-finder { border-top:1px solid var(--line); padding-top:1rem; margin-top:1.25rem }
+    .tree-finder input,.tree-finder select { display:block; width:100%; min-width:0; min-height:2.45rem; border:1px solid var(--line); border-radius:.35rem; padding:.35rem .6rem; background:white; color:var(--ink) }
+    .tree-finder select { text-overflow:ellipsis }
+    .tree-finder .button { margin:.6rem .3rem .4rem 0 }
+    .tree-route { padding-left:1.6rem }
+    .tree-route li { margin:.3rem 0; overflow-wrap:anywhere }
+    #ranges { scroll-margin-top:1rem }
   </style>
 </head>
 <body>
@@ -47,6 +55,7 @@
       <p class="hint" data-en="Start with a React example or paste your own JSON.">Начните с примера React или вставьте свой JSON.</p>
       <div class="tree-controls">
         <button class="button" type="button" id="tree-broken" data-en="Peer conflict">Конфликт версий</button>
+        <button class="button" type="button" id="tree-two-copies" data-en="Two installed copies">Две копии пакета</button>
         <button class="button" type="button" id="tree-fixed" data-en="Matching versions">Совместимая пара</button>
       </div>
       <label for="tree-manifest">package.json</label>
@@ -74,10 +83,35 @@
       <label class="tree-filter"><input type="checkbox" id="tree-filter"><span data-en="Show only paths with conflicts">Показать только ветки с конфликтами</span></label>
       <div id="tree-graph"></div>
       <p id="tree-limit" class="hint"></p>
+      <section class="tree-finder" aria-labelledby="tree-finder-title">
+        <h3 id="tree-finder-title" data-en="What brought this package here?">Кто привёл этот пакет?</h3>
+        <div id="tree-search-controls" hidden>
+          <label for="tree-query" data-en="Package name, version or path">Имя, версия или путь пакета</label>
+          <input id="tree-query" type="search" spellcheck="false" placeholder="shared-utils">
+          <label id="tree-copy-label"><span data-en="Installed copy">Копия в lock-файле</span><select id="tree-copies"></select></label>
+        </div>
+        <p id="tree-find-hint" class="hint" role="status"></p>
+        <div id="tree-origin" aria-live="polite"></div>
+        <div id="tree-command-block" hidden>
+          <label for="tree-command" data-en="Run from the project root after installation">Команда из корня проекта после установки</label>
+          <input id="tree-command" readonly spellcheck="false">
+          <button type="button" class="button" id="tree-copy-command" data-en="Copy npm explain">Скопировать npm explain</button>
+          <span role="status" id="tree-copied"></span>
+        </div>
+      </section>
     </section>
   </div>
+  <section class="panel" id="ranges">
+    <h2 data-en="Which versions fit this range?">Какие версии входят в диапазон?</h2>
+    <p data-en="Try the caret and tilde below 1.0, then change the candidate version. Each mark represents one stable candidate.">Сравните каретку и тильду на версиях ниже 1.0 и поменяйте кандидата. Каждая отметка — одна стабильная версия.</p>
+    <div data-range-practice></div>
+  </section>
 </main>
 <script src="nav.js"></script>
+<script src="vendor/semver.js"></script>
+<script src="range-scale.js"></script>
+<script src="lock-graph.js"></script>
+<script src="lock-samples.js"></script>
 <script src="tree.js"></script>
 </body>
 </html>

@@ -1,123 +1,78 @@
 'use strict';
-(() => {
-  const { t } = window.Lab;
-  document.title = t('Сочетания версий · DepLoom', 'Version combinations · DepLoom');
-  const form = document.querySelector('#scope');
-  const target = document.querySelector('#target');
-  const bundler = document.querySelector('#bundler');
-  const companion = document.querySelector('#companion');
-  const summary = document.querySelector('#summary');
-  const selection = document.querySelector('#selection');
-  const grids = document.querySelector('#grids');
-  const pluginName = t('Плагин', 'Plugin');
-  const bundlerName = t('Сборщик', 'Bundler');
-  const adapterName = t('Адаптер', 'Adapter');
+function combinationIssues(plugin,bundler,adapter,allowAdapter) {
+  const failures = [];
+  if (plugin !== 2) failures.push('goal');
+  if (plugin === 2 && bundler === 1) failures.push('bundler');
+  if (adapter === 1 && bundler === 2) failures.push('adapter');
+  if (adapter === 2 && !allowAdapter) failures.push('pinned');
+  return failures;
+}
+if (typeof module === 'object' && module.exports) {
+  module.exports = combinationIssues;
+} else {
+  const {t} = window.Lab;
+  const byId = id => document.getElementById(id);
+  const allowed = byId('allow-adapter');
+  allowed.checked = new URLSearchParams(location.search).get('adapter') === '2';
 
-  function element(tag, value) {
-    const node = document.createElement(tag);
-    node.textContent = value;
-    return node;
-  }
-
-  function verdict(pair) {
-    const reasons = [];
-    if (pair[target.value] !== 2) {
-      reasons.push(target.value === 'plugin'
-        ? t('Цель требует плагин версии 2.', 'The goal requires plugin v2.')
-        : t('Цель требует адаптер версии 2.', 'The goal requires adapter v2.'));
+  const rules = {
+    goal:t('Цель — плагин v2.','The goal is plugin v2.'),
+    bundler:t('Плагину v2 нужен сборщик v2.','Plugin v2 needs bundler v2.'),
+    adapter:t('Адаптер v1 поддерживает только сборщик v1.','Adapter v1 supports only bundler v1.'),
+    pinned:t('Адаптер закреплён на v1.','The adapter is pinned to v1.'),
+  };
+  function render() {
+    const matrix = byId('matrix');
+    matrix.replaceChildren();
+    const fits = [];
+    for (const plugin of [1,2]) for (const bundler of [1,2]) for (const adapter of [1,2]) {
+      const row = matrix.insertRow();
+      for (const v of [plugin,bundler,adapter]) row.insertCell().textContent = 'v'+v;
+      const why = combinationIssues(plugin,bundler,adapter,allowed.checked).map(code=>rules[code]);
+      const result = row.insertCell();
+      result.dataset.valid = String(!why.length);
+      result.textContent = why.join(' ') || t('Все условия выполнены.','Meets every constraint.');
+      if (!why.length) fits.push([plugin,bundler,adapter]);
     }
-    if (!bundler.checked && pair.bundler !== 1) {
-      reasons.push(t('Сборщик закреплён на версии 1.', 'The bundler is held at v1.'));
-    }
-    const other = target.value === 'plugin' ? 'adapter' : 'plugin';
-    if (!companion.checked && pair[other] !== 1) {
-      reasons.push(other === 'plugin'
-        ? t('Плагин закреплён на версии 1.', 'The plugin is held at v1.')
-        : t('Адаптер закреплён на версии 1.', 'The adapter is held at v1.'));
-    }
-    if (pair.plugin === 2 && pair.bundler === 1) {
-      reasons.push(t('Плагину версии 2 нужен сборщик версии 2.', 'Plugin v2 requires bundler v2.'));
-    }
-    if (pair.adapter === 1 && pair.bundler === 2) {
-      reasons.push(t('Старый адаптер поддерживает только сборщик версии 1.', 'Adapter v1 supports only bundler v1.'));
-    }
-    return reasons;
-  }
-
-  function describe(p) {
-    return [pluginName+' '+p.plugin, bundlerName+' '+p.bundler, adapterName+' '+p.adapter].join(' · ');
-  }
-
-  const pairs = [];
-  for (const b of [1, 2]) {
-    const table = document.createElement('table');
-    table.createCaption().textContent = bundlerName+' '+b;
-    const head = table.createTHead().insertRow();
-    for (const label of ['', pluginName+' 1', pluginName+' 2']) {
-      const th = element('th', label);
-      if (label) th.scope = 'col';
-      head.append(th);
-    }
-    const body = table.createTBody();
-    for (const a of [1, 2]) {
-      const row = body.insertRow();
-      const rowTitle = element('th', adapterName+' '+a);
-      rowTitle.scope = 'row';
-      row.append(rowTitle);
-      for (const p of [1, 2]) {
-        const pair = { plugin:p, bundler:b, adapter:a, changes:(p-1)+(b-1)+(a-1) };
-        pair.button = element('button','');
-        pair.button.type = 'button';
-        pair.button.className = 'combo-cell';
-        pair.button.addEventListener('click', () => select(pair));
-        row.insertCell().append(pair.button);
-        pairs.push(pair);
-      }
-    }
-    grids.append(table);
-  }
-
-  let selected = pairs.find(p => p.plugin === 2 && p.bundler === 2 && p.adapter === 1);
-  function select(pair) {
-    selected = pair;
-    for (const p of pairs) p.button.setAttribute('aria-pressed', String(p === pair));
-    const reasons = verdict(pair);
-    const title = element('strong', describe(pair));
-    title.className = 'combo-state';
-    selection.replaceChildren(title);
-    if (reasons.length) {
-      const list = document.createElement('ul');
-      for (const reason of reasons) list.append(element('li',reason));
-      selection.append(list);
+    byId('adapter-node').dataset.blocked = String(!fits.length);
+    byId('adapter-version').textContent = t('Адаптер','Adapter')+(allowed.checked ? ' · v2' : ' · v1');
+    byId('adapter-reason').textContent = allowed.checked
+      ? t('Обновление разрешено. Версия 2 поддерживает новый сборщик.','Upgrade allowed. Version 2 supports the new bundler.')
+      : t('Закреплён на v1. Поддерживает только сборщик v1.','Held at v1. Only supports bundler v1.');
+    const heading = document.createElement('strong');
+    const explanation = document.createElement('p');
+    if (fits.length) {
+      const versions = fits[0].map(v=>'v'+v).join(' / ');
+      const changes = fits[0].filter(v=>v!==1).length;
+      heading.textContent = t('Подходит 1 из 8 сочетаний','1 of 8 combinations fits');
+      explanation.textContent = t('Плагин / сборщик / адаптер — '+versions+'. Изменений относительно исходных версий — '+changes+'.',
+        'Plugin / bundler / adapter — '+versions+'. Changes from the original versions: '+changes+'.');
     } else {
-      selection.append(element('p',t('Все условия выполнены. Изменений относительно исходного проекта — ', 'All constraints are met. Changes from the original project: ')+pair.changes+'.'));
+      heading.textContent = t('Подходит 0 из 8 сочетаний','0 of 8 combinations fit');
+      explanation.textContent = t('Плагин требует новый сборщик, а закреплённый адаптер требует старый. Менять только плагин и сборщик недостаточно.',
+        'The plugin needs the new bundler while the pinned adapter needs the old one. Upgrading only the plugin and bundler cannot satisfy both.');
     }
+    const outcome = byId('outcome');
+    outcome.dataset.valid = String(!!fits.length);
+    outcome.replaceChildren(heading,explanation);
   }
-
-  function update() {
-    document.querySelector('#companion-label').textContent = target.value === 'plugin' ? adapterName : pluginName;
-    const allowed = [];
-    for (const pair of pairs) {
-      const valid = verdict(pair).length === 0;
-      if (valid) allowed.push(pair);
-      pair.button.textContent = valid ? '✓' : '×';
-      pair.button.dataset.valid = String(valid);
-      pair.button.setAttribute('aria-label',describe(pair)+' — '+(valid ? t('подходит','fits') : t('не подходит','ruled out')));
+  allowed.addEventListener('change',()=>{
+    Lab.setExampleState({adapter:allowed.checked ? '2' : '1'});
+    render();
+  });
+  byId('prompt').value = t(
+    'Подготовь план обновления [пакет] до [версия] через get_upgrade_plan. Какие ещё пакеты придётся изменить и почему? Покажи требования и перечисли проверки после обновления. Пока только план.',
+    'Use get_upgrade_plan to plan an upgrade of [package] to [version]. Which other packages must change and why? Show the requirements and list the checks to run after upgrading. Plan only.');
+  byId('copy').addEventListener('click',async()=>{
+    const prompt = byId('prompt');
+    try {
+      await navigator.clipboard.writeText(prompt.value);
+      byId('copied').textContent = t('Запрос скопирован.','Request copied.');
+    } catch {
+      prompt.focus();
+      prompt.select();
+      byId('copied').textContent = t('Запрос выделен. Скопируйте текст с клавиатуры.','Request selected. Copy it with your keyboard.');
     }
-    summary.dataset.valid = String(allowed.length > 0);
-    summary.replaceChildren(element('strong',t('Подходящих сочетаний — '+allowed.length+' из 8',allowed.length+' of 8 combinations fit')));
-    if (allowed.length) {
-      const best = allowed.reduce((a,b)=>a.changes <= b.changes ? a : b);
-      summary.append(element('p',t('Минимум изменений — '+best.changes+'. ', 'Fewest changes: '+best.changes+'. ')+describe(best)+'.'));
-    } else {
-      const fixed = [];
-      if (!bundler.checked) fixed.push(t('сборщик','bundler'));
-      if (!companion.checked) fixed.push(t('адаптер','adapter'));
-      const names = fixed.join(t(' и ',' and '));
-      summary.append(element('p',t('Плагину 2 нужен сборщик 2, а ему подходит только адаптер 2. Чтобы продолжить, разрешите менять '+names+'.', 'Plugin v2 needs bundler v2, which only works with adapter v2. Allow changes to the '+names+' to continue.')));
-    }
-    select(selected);
-  }
-  form.addEventListener('change',update);
-  update();
-})();
+  });
+  render();
+}

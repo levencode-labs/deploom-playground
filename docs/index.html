@@ -1,11 +1,38 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>Лаборатория обновлений · DepLoom</title><link rel="stylesheet" href="lab.css"></head>
-<body><header data-nav></header><main><section class="hero"><div><h1 data-en="Dependency migration lab">Лаборатория обновлений</h1><p data-en="Which versions install together? What should you test next? Change one condition and see where a migration breaks.">Какие версии можно поставить вместе? Что проверять после установки? Меняйте условия и смотрите, на каком шаге ломается обновление.</p></div><img src="loom.jpg" alt="DepLoom"></section>
-<section class="links-section tools"><h2 data-en="Tools for your project">Инструменты для своего проекта</h2><div class="grid">
-<a class="link-card" href="tree.html"><strong data-en="Dependency tree">Дерево зависимостей</strong><span data-en="Paste a manifest. Add a lockfile to inspect nested versions and conflicting requirements.">Вставьте package.json. Добавьте lock-файл, чтобы увидеть вложенные версии и несовпадающие требования.</span></a>
-<a class="link-card" href="advisories.html"><strong data-en="Look up advisories">Проверить уязвимости</strong><span data-en="Look up published OSV advisories for an exact version of a public npm package.">Укажите имя публичного npm-пакета и точную версию, чтобы найти опубликованные записи в OSV.</span></a>
-</div></section><section class="links-section"><h2 data-en="Three version experiments">Три опыта с версиями</h2><div class="grid">
-<a class="link-card" href="peers.html"><strong data-en="What moves with React DOM?">Что обновить вместе с React DOM?</strong><span data-en="Four pairs of versions. Only one is rejected by npm.">Четыре сочетания двух версий. Только одно из них отвергает npm.</span></a>
-<a class="link-card" href="runtime.html"><strong data-en="It installs. Does it render?">Установка прошла. А кнопка?</strong><span data-en="Upgrade React and test the old call that renders a button.">Обновите React и проверьте старый вызов, который рисует кнопку.</span></a>
-<a class="link-card" href="combinations.html"><strong data-en="How many packages have to change?">Сколько пакетов придётся тронуть?</strong><span data-en="Pin a neighbouring package and see which bundler and plugin choices remain.">Закрепите соседний пакет и посмотрите, какие варианты останутся у сборщика и плагина.</span></a>
-</div></section></main><script src="nav.js"></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>DepLoom Migration Lab · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+  <link rel="stylesheet" href="range-scale.css">
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+<section class="masthead"><div><h1>DepLoom Migration Lab</h1><p data-en="Investigate a failed install, review a lockfile from a PR, or plan your own project upgrade.">Разберите упавшую установку, проверьте lock-файл из PR или спланируйте обновление своего проекта.</p></div><img src="loom.jpg" alt=""></section>
+<section class="panel peer-work" data-experiment="peer">
+<h2 data-en="Why won’t npm let me update just React DOM?">Почему npm не даёт обновить только React DOM?</h2>
+<div class="lab-work"><form id="input">
+<p data-en="The app selects a React version. React DOM declares which versions it supports.">Приложение выбирает версию React. React DOM указывает диапазон, с которым умеет работать.</p>
+<fieldset class="choice"><legend><span data-en="React in the app">React в приложении</span></legend><label><input type="radio" name="react" value="18.2.0" checked>18.2.0</label><label><input type="radio" name="react" value="18.3.1">18.3.1</label></fieldset>
+<input name="dom" type="hidden" value="18.3.1">
+<div class="peer-line"><code id="issuer"></code><span id="edge"></span><code id="chosen"></code></div>
+</form><div class="peer-out" id="result" aria-live="polite">
+<h3 id="verdict"></h3><div id="scale"></div><button type="button" class="evidence-line" id="evidence" aria-pressed="false"></button>
+<p data-en="Source — recorded strict-peer npm install for this pair. Select the line to highlight the requirement and selected version." class="hint">Источник — запись строгой установки npm для этой пары. Нажмите на строку, чтобы выделить требование и выбранную версию.</p>
+</div></div><div class="actions"><a class="primary" id="inspect-tree" href="tree.html"><span data-en="Inspect in the tree">Разобрать в дереве</span></a> <a href="tree.html?own=1"><span data-en="Open your own project">Открыть свой проект</span></a></div>
+</section>
+<section class="links-section tools"><h2 data-en="Try it on your own project">Попробовать на своём проекте</h2><div class="grid">
+<a class="link-card" href="audit.html"><strong data-en="Dependency audit">Аудит зависимостей</strong><span data-en="Compare installed versions with npm latest or check for known advisories.">Сравните версии с npm latest или проверьте их на известные уязвимости.</span></a>
+<a class="link-card" href="plan.html"><strong data-en="Upgrade plan">План обновления</strong><span data-en="Choose target versions and check neighbouring packages’ requirements.">Задайте целевые версии и проверьте требования соседних пакетов.</span></a>
+<a class="link-card" href="compare.html"><strong data-en="Compare lockfiles">Сравнить lock-файлы</strong><span data-en="Trace a changed installation path to the package that brought it in.">Найдите изменившийся путь и пакет, который его привёл.</span></a>
+</div></section>
+  </main>
+  <script src="nav.js"></script>
+  <script src="vendor/semver.js"></script>
+  <script src="range-scale.js"></script>
+  <script src="experiments.js"></script>
+</body>
+</html>

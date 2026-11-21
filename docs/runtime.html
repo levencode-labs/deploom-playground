@@ -1,3 +1,27 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>Пакеты установились. А кнопка появилась? · DepLoom</title><link rel="stylesheet" href="lab.css"></head>
-<body><header data-nav></header><main><h1 data-en="The packages installed. Did the button render?">Пакеты установились. А кнопка появилась?</h1><p data-en="Upgrade both packages to React 19 while keeping the old button factory. Then change one line of application code and compare results.">Поднимите обе библиотеки до React 19, сохранив старый способ создать кнопку. Затем замените одну строку приложения и сравните результаты.</p><div class="lab-work" data-experiment="runtime"><form class="panel" id="input"><h2 data-en="Experiment settings">Условия опыта</h2><fieldset class="choice"><legend><span data-en="React and React DOM">React и React DOM</span></legend><label><input type="radio" name="stack" value="18.3.1" checked><span data-en="18.3.1">18.3.1</span></label><label><input type="radio" name="stack" value="19.0.0"><span data-en="19.0.0">19.0.0</span></label></fieldset><fieldset class="choice"><legend><span data-en="Application code">Код приложения</span></legend><label><input type="radio" name="factory" value="old" checked><span data-en="createFactory">createFactory</span></label><label><input type="radio" name="factory" value="new"><span data-en="createElement">createElement</span></label></fieldset></form><section class="panel verdict" id="result" aria-live="polite" aria-atomic="true"><h2 id="verdict"></h2><p id="why"></p><div class="result-row"><b><span data-en="Installation">Установка</span></b><span id="install"></span></div><div class="result-row"><b><span data-en="Button render">Рендер кнопки</span></b><span id="render"></span></div><pre id="evidence"></pre></section></div><p class="notes hint"><span data-en="Four recorded Node.js checks. Both pairs were installed with npm in separate directories. The render check covers one server-rendered button.">Четыре записанные проверки в Node.js. Пары React и React DOM установлены через npm в отдельных каталогах. Проверка подтверждает результат для одной кнопки при серверном рендеринге.</span></p><a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide#removed-reactcreatefactory"><span data-en="See the React 19 upgrade guide">Изменение в руководстве React 19</span></a></main><script src="nav.js"></script><script src="experiments.js"></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>React SSR · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+<h1 data-en="Why did the install pass but the button disappear?">Почему установка прошла, а кнопка пропала?</h1>
+<p data-en="After the React 19 upgrade, CI installed the dependencies. See what happened when the app first tried to render a button.">После перехода на React 19 CI поставил зависимости. Посмотрите, что произошло при первой попытке отрисовать кнопку.</p>
+<section class="panel" data-experiment="runtime"><form id="input">
+<fieldset class="choice"><legend><span data-en="React and React DOM">React и React DOM</span></legend><label><input type="radio" name="stack" value="18.3.1">18.3.1</label><label><input type="radio" name="stack" value="19.0.0" checked>19.0.0</label></fieldset>
+<fieldset class="choice"><legend><span data-en="Application call">Вызов приложения</span></legend><label><input type="radio" name="api" value="createFactory" checked>createFactory</label><label><input type="radio" name="api" value="createElement">createElement</label></fieldset></form>
+<div class="lab-work" id="result" aria-live="polite"><div><h2 data-en="Application code">Строка приложения</h2><pre id="call"></pre></div><div><h2 data-en="SSR result">Результат SSR</h2><pre id="ssr"></pre>
+<p data-en="Source — recorded npm install and one-button SSR run in Node.js." class="hint">Источник — запись запуска npm и SSR одной кнопки в Node.js.</p></div></div>
+<p><b><span data-en="npm install">Установка npm</span></b> · <span id="install"></span></p><p id="why"></p></section>
+<p data-en="In your project, look for createFactory calls, then run a render test for the component that uses them.">В своём проекте найдите вызовы createFactory, затем запустите тест рендера того компонента, который их использует.</p>
+<a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide#removed-reactcreatefactory"><span data-en="React 19 upgrade guide">Руководство по переходу на React 19</span></a>
+  </main>
+  <script src="nav.js"></script>
+  <script src="experiments.js"></script>
+</body>
+</html>

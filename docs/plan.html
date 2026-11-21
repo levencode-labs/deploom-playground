@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>План обновления · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+<h1 data-en="Upgrade plan">План обновления</h1>
+<p data-en="Choose exact targets for your direct dependencies. Find out which neighbour needs another edit before changing your branch.">Выберите, до каких версий хотите поднять прямые зависимости. Узнайте, какой пакет потребует ещё одной правки, до того как менять ветку.</p>
+<section class="panel plan-input"><h2 data-en="Project and targets">Проект и цель</h2>
+<div class="grid"><label class="field">package.json<input id="manifest-file" type="file" accept=".json,application/json"></label><label class="field">package-lock.json v3<input id="lock-file" type="file" accept=".json,application/json"></label></div>
+<p id="project" class="hint"></p>
+<details><summary data-en="Supply target metadata locally">Добавить требования целевых версий с диска</summary>
+<p class="hint" data-en="Choose the published package.json for each target version, for example from its unpacked tarball. This also works offline for private packages.">Выберите package.json каждой целевой версии, например из распакованного архива пакета. Так можно проверить и внутренние библиотеки без обращения в реестр.</p>
+<label class="field"><span data-en="Target package manifests">Манифесты целевых пакетов</span><input type="file" multiple id="meta-files" accept=".json,application/json"></label></details>
+<label class="field" for="targets"><span data-en="Which packages and exact versions should change?">Какие пакеты обновить и до каких версий?</span></label>
+<textarea id="targets" rows="3" spellcheck="false">{"react-dom": "18.3.1"}</textarea>
+<div class="actions"><button type="button" class="button" id="make-plan"><span data-en="Calculate locally">Рассчитать локально</span></button><button type="button" id="sample"><span data-en="Restore React example">Вернуть пример React</span></button></div>
+</section>
+<section class="panel" id="plan-output" aria-live="polite" aria-atomic="true"></section>
+<section class="panel" id="network" hidden><h2 data-en="Look up target version requirements">Получить требования целевых версий</h2>
+<p data-en="Only the names and exact versions below will be sent to registry.npmjs.org. Confirm that these are public packages before looking them up.">В registry.npmjs.org уйдут только перечисленные ниже имена и точные версии. Отметьте действие, если эти пакеты публичны.</p>
+<pre id="send-list"></pre><label><input type="checkbox" id="public-ok"> <span data-en="I confirm these packages are public">Подтверждаю публичность этих пакетов</span></label>
+<button type="button" id="lookup" disabled><span data-en="Look up versions in npm">Запросить версии в npm</span></button><p id="net-status" role="status"></p></section>
+<p data-en="The plan checks peer requirements at their current install paths in a root npm project. After editing, regenerate the lockfile, review the diff, then run npm ci and your application tests." class="hint">План проверяет peer-требования при текущем размещении пакетов в корневом npm-проекте. После правок пересоберите lock-файл, просмотрите diff, запустите npm ci и тесты приложения.</p>
+  </main>
+  <script src="nav.js"></script>
+  <script src="vendor/semver.js"></script>
+  <script src="lock-graph.js"></script>
+  <script src="plan-model.js"></script>
+  <script src="plan.js"></script>
+</body>
+</html>

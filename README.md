@@ -1,13 +1,19 @@
 # DepLoom Migration Lab
 
-[Открыть на русском](https://levencode-labs.github.io/deploom-playground/?lang=ru) · [Open in English](https://levencode-labs.github.io/deploom-playground/?lang=en)
+[Открыть лабораторию](https://levencode-labs.github.io/deploom-playground/?lang=ru) · [Open in English](https://levencode-labs.github.io/deploom-playground/?lang=en)
 
-A small browser lab for npm dependency migrations. Explore peer ranges, a React API removal, and a three-package constraint problem. The tree explorer accepts package.json and optional package-lock.json v3. The advisory tool queries OSV for an exact public package version.
+Change React by one patch and see why npm accepts a pair it rejected before. Five interactive examples cover peer requirements, an API removed in React 19, a three-package migration, a stale lockfile in CI, and a scoped override that fixes one installed copy.
 
-Open **docs/index.html** locally, or serve the docs directory with any static HTTP server. Exercises and lockfile inspection work offline. The UI keeps local project inputs in your browser. Explicit registry and advisory lookups send only the selected public package names and versions to the displayed service.
+- **Tools** compares npm v3 lockfiles by installation path, audits selected public packages against OSV and npm’s latest tag, and plans explicit root dependency changes against known peer requirements.
+- **Visualizations** traces individual package copies to a parent, prepares an exact `npm explain` command and shows how npm semver ranges work.
+- **Examples** links to the recorded npm/SSR runs and the offline teaching fixtures. Language and public example selections can be shared by URL.
+
+Open **docs/index.html** locally or serve **docs/** with a static HTTP server. The exercises, lock comparison, tree and local part of the planner work offline. No build or dependency installation is required. The browser keeps project files local. External checks require a user action and display the public package names or versions being requested.
 
 ## По-русски
 
-Три опыта показывают, почему версия библиотеки может не устроить соседний пакет, каким образом установка проходит при сломанном коде и что меняется, когда разрешаешь обновить ещё одну зависимость. Дерево показывает диапазоны из манифеста и установленные версии из lock-файла. Для проверки известных уязвимостей введите точную версию публичного npm-пакета.
+На первой странице попробуйте обновить только React DOM, затем поднимите React и откройте ту же пару в дереве. В «Инструментах» можно проверить свой PR. Сравните две версии lock-файла, найдите оставшуюся старую копию, проверьте выбранные публичные версии по OSV и npm или задайте цель обновления и посмотрите требования соседей. Для этого достаточно браузера.
 
-Для локального запуска откройте **docs/index.html**. Установка зависимостей и сборка сайту не нужны. В дереве используется npm semver под лицензией ISC. Текст лицензии включён в docs/tree.js.
+Планировщик проверяет известные peer-требования для явно заданных целей в корне проекта. Для фактической проверки обновления нужны новый lock-файл, чистая установка и тесты приложения.
+
+Run the regression suite with `node --test tests/*.test.js`. Run `node tests/npm-pr-fixture.cjs` to reproduce the CI and override fixtures using an isolated loopback npm registry. The embedded npm semver bundle includes its ISC license in **docs/vendor/semver.js**.

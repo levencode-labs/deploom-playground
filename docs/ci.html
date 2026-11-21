@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Установка в CI · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+    <h1 data-en="Why did npm ci stop?">Почему остановился npm ci?</h1>
+    <p data-en="A PR updates one dependency range. Will the build still install the same dependency tree? Move between the three revisions to see the exact lines npm compared.">В PR обновили диапазон одной зависимости. Сможет ли сборка установить зафиксированное дерево? Переключите ревизию и посмотрите, какие строки сравнил npm.</p>
+    <fieldset class="choice">
+      <legend data-en="PR revision">Ревизия PR</legend>
+      <label><input type="radio" name="stage" value="base" checked><span data-en="Before the PR">До PR</span></label>
+      <label><input type="radio" name="stage" value="mismatch"><span data-en="Only the manifest changed">Изменён только манифест</span></label>
+      <label><input type="radio" name="stage" value="fixed"><span data-en="Both files updated">Обновлены оба файла</span></label>
+    </fieldset>
+    <div class="lab-work">
+      <section class="panel">
+        <h2 data-en="Files in this revision">Файлы ревизии</h2>
+        <h3>package.json</h3><pre><code id="manifest-line"></code></pre>
+        <h3>package-lock.json</h3>
+        <p class="hint"><code>packages["node_modules/demo-lib"]</code></p>
+        <pre><code id="lock-line"></code></pre>
+      </section>
+      <section class="panel verdict" id="ci-result" aria-live="polite" aria-atomic="true">
+        <h2 id="ci-verdict"></h2>
+        <p id="ci-why"></p>
+        <pre id="ci-log"></pre>
+        <p class="hint" data-en="Source — recorded npm ci run in the isolated fixture.">Источник — запись запуска npm ci в изолированном учебном проекте.</p>
+      </section>
+    </div>
+    <section class="panel">
+      <h2 data-en="What to check in your own PR">Что проверить в своём PR</h2>
+      <p data-en="Run npm install --package-lock-only with your project's npm version and registry settings. Review the lockfile diff, then run npm ci and the project checks with the same settings as CI.">Выполните npm install --package-lock-only с версией npm и настройками реестра вашего проекта. Посмотрите diff lock-файла, затем запустите npm ci и проверки проекта с настройками CI.</p>
+      <p class="hint" data-en="Recorded on Node 24.18.0 and npm 11.16.0. The isolated exercise registry offers exactly demo-lib 1.2.3 and 2.0.0. The page displays recorded results and runs offline.">Записано на Node 24.18.0 и npm 11.16.0. В изолированном учебном реестре доступны ровно две версии demo-lib — 1.2.3 и 2.0.0. Страница показывает результаты прогонов и работает без сети.</p>
+      <a href="https://docs.npmjs.com/cli/v11/commands/npm-ci/" data-en="npm ci documentation">Документация npm ci</a> ·
+      <a href="https://github.com/levencode-labs/deploom-playground/blob/main/tests/npm-pr-fixture.cjs" data-en="Reproduce the npm runs">Воспроизвести прогоны npm</a>
+    </section>
+  </main>
+  <script src="nav.js"></script>
+  <script src="pr-cases.js"></script>
+</body>
+</html>

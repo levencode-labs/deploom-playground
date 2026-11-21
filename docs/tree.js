@@ -1,22 +1,3 @@
-/* npm semver v7.8.1
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-*/
-var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Object.getOwnPropertyDescriptor;var Be=Object.getOwnPropertyNames;var Me=Object.getPrototypeOf,Ye=Object.prototype.hasOwnProperty;var $=(r,e)=>()=>(e||r((e={exports:{}}).exports,e),e.exports),ze=(r,e)=>{for(var t in e)P(r,t,{get:e[t],enumerable:!0})},B=(r,e,t,s)=>{if(e&&typeof e=="object"||typeof e=="function")for(let i of Be(e))!Ye.call(r,i)&&i!==t&&P(r,i,{get:()=>e[i],enumerable:!(s=We(e,i))||s.enumerable});return r};var q=(r,e,t)=>(t=r!=null?ke(Me(r)):{},B(e||!r||!r.__esModule?P(t,"default",{value:r,enumerable:!0}):t,r)),Ke=r=>B(P({},"__esModule",{value:!0}),r);var d=$((Rr,M)=>{"use strict";var Ze=typeof process=="object"&&process.env&&process.env.NODE_DEBUG&&/\bsemver\b/i.test(process.env.NODE_DEBUG)?(...r)=>console.error("SEMVER",...r):()=>{};M.exports=Ze});var w=$((Ir,Y)=>{"use strict";var Je="2.0.0",Qe=Number.MAX_SAFE_INTEGER||9007199254740991,et=16,tt=256-6,rt=["major","premajor","minor","preminor","patch","prepatch","prerelease"];Y.exports={MAX_LENGTH:256,MAX_SAFE_COMPONENT_LENGTH:et,MAX_SAFE_BUILD_LENGTH:tt,MAX_SAFE_INTEGER:Qe,RELEASE_TYPES:rt,SEMVER_SPEC_VERSION:Je,FLAG_INCLUDE_PRERELEASE:1,FLAG_LOOSE:2}});var C=$((O,z)=>{"use strict";var{MAX_SAFE_COMPONENT_LENGTH:x,MAX_SAFE_BUILD_LENGTH:st,MAX_LENGTH:it}=w(),nt=d();O=z.exports={};var at=O.re=[],Et=O.safeRe=[],n=O.src=[],lt=O.safeSrc=[],a=O.t={},ot=0,y="[a-zA-Z0-9-]",ct=[["\\s",1],["\\d",it],[y,st]],ht=r=>{for(let[e,t]of ct)r=r.split(`${e}*`).join(`${e}{0,${t}}`).split(`${e}+`).join(`${e}{1,${t}}`);return r},l=(r,e,t)=>{let s=ht(e),i=ot++;nt(r,i,e),a[r]=i,n[i]=e,lt[i]=s,at[i]=new RegExp(e,t?"g":void 0),Et[i]=new RegExp(s,t?"g":void 0)};l("NUMERICIDENTIFIER","0|[1-9]\\d*");l("NUMERICIDENTIFIERLOOSE","\\d+");l("NONNUMERICIDENTIFIER",`\\d*[a-zA-Z-]${y}*`);l("MAINVERSION",`(${n[a.NUMERICIDENTIFIER]})\\.(${n[a.NUMERICIDENTIFIER]})\\.(${n[a.NUMERICIDENTIFIER]})`);l("MAINVERSIONLOOSE",`(${n[a.NUMERICIDENTIFIERLOOSE]})\\.(${n[a.NUMERICIDENTIFIERLOOSE]})\\.(${n[a.NUMERICIDENTIFIERLOOSE]})`);l("PRERELEASEIDENTIFIER",`(?:${n[a.NONNUMERICIDENTIFIER]}|${n[a.NUMERICIDENTIFIER]})`);l("PRERELEASEIDENTIFIERLOOSE",`(?:${n[a.NONNUMERICIDENTIFIER]}|${n[a.NUMERICIDENTIFIERLOOSE]})`);l("PRERELEASE",`(?:-(${n[a.PRERELEASEIDENTIFIER]}(?:\\.${n[a.PRERELEASEIDENTIFIER]})*))`);l("PRERELEASELOOSE",`(?:-?(${n[a.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${n[a.PRERELEASEIDENTIFIERLOOSE]})*))`);l("BUILDIDENTIFIER",`${y}+`);l("BUILD",`(?:\\+(${n[a.BUILDIDENTIFIER]}(?:\\.${n[a.BUILDIDENTIFIER]})*))`);l("FULLPLAIN",`v?${n[a.MAINVERSION]}${n[a.PRERELEASE]}?${n[a.BUILD]}?`);l("FULL",`^${n[a.FULLPLAIN]}$`);l("LOOSEPLAIN",`[v=\\s]*${n[a.MAINVERSIONLOOSE]}${n[a.PRERELEASELOOSE]}?${n[a.BUILD]}?`);l("LOOSE",`^${n[a.LOOSEPLAIN]}$`);l("GTLT","((?:<|>)?=?)");l("XRANGEIDENTIFIERLOOSE",`${n[a.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);l("XRANGEIDENTIFIER",`${n[a.NUMERICIDENTIFIER]}|x|X|\\*`);l("XRANGEPLAIN",`[v=\\s]*(${n[a.XRANGEIDENTIFIER]})(?:\\.(${n[a.XRANGEIDENTIFIER]})(?:\\.(${n[a.XRANGEIDENTIFIER]})(?:${n[a.PRERELEASE]})?${n[a.BUILD]}?)?)?`);l("XRANGEPLAINLOOSE",`[v=\\s]*(${n[a.XRANGEIDENTIFIERLOOSE]})(?:\\.(${n[a.XRANGEIDENTIFIERLOOSE]})(?:\\.(${n[a.XRANGEIDENTIFIERLOOSE]})(?:${n[a.PRERELEASELOOSE]})?${n[a.BUILD]}?)?)?`);l("XRANGE",`^${n[a.GTLT]}\\s*${n[a.XRANGEPLAIN]}$`);l("XRANGELOOSE",`^${n[a.GTLT]}\\s*${n[a.XRANGEPLAINLOOSE]}$`);l("COERCEPLAIN",`(^|[^\\d])(\\d{1,${x}})(?:\\.(\\d{1,${x}}))?(?:\\.(\\d{1,${x}}))?`);l("COERCE",`${n[a.COERCEPLAIN]}(?:$|[^\\d])`);l("COERCEFULL",n[a.COERCEPLAIN]+`(?:${n[a.PRERELEASE]})?(?:${n[a.BUILD]})?(?:$|[^\\d])`);l("COERCERTL",n[a.COERCE],!0);l("COERCERTLFULL",n[a.COERCEFULL],!0);l("LONETILDE","(?:~>?)");l("TILDETRIM",`(\\s*)${n[a.LONETILDE]}\\s+`,!0);O.tildeTrimReplace="$1~";l("TILDE",`^${n[a.LONETILDE]}${n[a.XRANGEPLAIN]}$`);l("TILDELOOSE",`^${n[a.LONETILDE]}${n[a.XRANGEPLAINLOOSE]}$`);l("LONECARET","(?:\\^)");l("CARETTRIM",`(\\s*)${n[a.LONECARET]}\\s+`,!0);O.caretTrimReplace="$1^";l("CARET",`^${n[a.LONECARET]}${n[a.XRANGEPLAIN]}$`);l("CARETLOOSE",`^${n[a.LONECARET]}${n[a.XRANGEPLAINLOOSE]}$`);l("COMPARATORLOOSE",`^${n[a.GTLT]}\\s*(${n[a.LOOSEPLAIN]})$|^$`);l("COMPARATOR",`^${n[a.GTLT]}\\s*(${n[a.FULLPLAIN]})$|^$`);l("COMPARATORTRIM",`(\\s*)${n[a.GTLT]}\\s*(${n[a.LOOSEPLAIN]}|${n[a.XRANGEPLAIN]})`,!0);O.comparatorTrimReplace="$1$2$3";l("HYPHENRANGE",`^\\s*(${n[a.XRANGEPLAIN]})\\s+-\\s+(${n[a.XRANGEPLAIN]})\\s*$`);l("HYPHENRANGELOOSE",`^\\s*(${n[a.XRANGEPLAINLOOSE]})\\s+-\\s+(${n[a.XRANGEPLAINLOOSE]})\\s*$`);l("STAR","(<|>)?=?\\s*\\*");l("GTE0","^\\s*>=\\s*0\\.0\\.0\\s*$");l("GTE0PRE","^\\s*>=\\s*0\\.0\\.0-0\\s*$")});var D=$((pr,K)=>{"use strict";var ut=Object.freeze({loose:!0}),ft=Object.freeze({}),$t=r=>r?typeof r!="object"?ut:r:ft;K.exports=$t});var ee=$((Lr,Q)=>{"use strict";var Z=/^[0-9]+$/,J=(r,e)=>{if(typeof r=="number"&&typeof e=="number")return r===e?0:r<e?-1:1;let t=Z.test(r),s=Z.test(e);return t&&s&&(r=+r,e=+e),r===e?0:t&&!s?-1:s&&!t?1:r<e?-1:1},Rt=(r,e)=>J(e,r);Q.exports={compareIdentifiers:J,rcompareIdentifiers:Rt}});var S=$((Nr,re)=>{"use strict";var G=d(),{MAX_LENGTH:te,MAX_SAFE_INTEGER:v}=w(),{safeRe:g,t:F}=C(),It=D(),{compareIdentifiers:U}=ee(),j=class r{constructor(e,t){if(t=It(t),e instanceof r){if(e.loose===!!t.loose&&e.includePrerelease===!!t.includePrerelease)return e;e=e.version}else if(typeof e!="string")throw new TypeError(`Invalid version. Must be a string. Got type "${typeof e}".`);if(e.length>te)throw new TypeError(`version is longer than ${te} characters`);G("SemVer",e,t),this.options=t,this.loose=!!t.loose,this.includePrerelease=!!t.includePrerelease;let s=e.trim().match(t.loose?g[F.LOOSE]:g[F.FULL]);if(!s)throw new TypeError(`Invalid Version: ${e}`);if(this.raw=e,this.major=+s[1],this.minor=+s[2],this.patch=+s[3],this.major>v||this.major<0)throw new TypeError("Invalid major version");if(this.minor>v||this.minor<0)throw new TypeError("Invalid minor version");if(this.patch>v||this.patch<0)throw new TypeError("Invalid patch version");s[4]?this.prerelease=s[4].split(".").map(i=>{if(/^[0-9]+$/.test(i)){let E=+i;if(E>=0&&E<v)return E}return i}):this.prerelease=[],this.build=s[5]?s[5].split("."):[],this.format()}format(){return this.version=`${this.major}.${this.minor}.${this.patch}`,this.prerelease.length&&(this.version+=`-${this.prerelease.join(".")}`),this.version}toString(){return this.version}compare(e){if(G("SemVer.compare",this.version,this.options,e),!(e instanceof r)){if(typeof e=="string"&&e===this.version)return 0;e=new r(e,this.options)}return e.version===this.version?0:this.compareMain(e)||this.comparePre(e)}compareMain(e){return e instanceof r||(e=new r(e,this.options)),this.major<e.major?-1:this.major>e.major?1:this.minor<e.minor?-1:this.minor>e.minor?1:this.patch<e.patch?-1:this.patch>e.patch?1:0}comparePre(e){if(e instanceof r||(e=new r(e,this.options)),this.prerelease.length&&!e.prerelease.length)return-1;if(!this.prerelease.length&&e.prerelease.length)return 1;if(!this.prerelease.length&&!e.prerelease.length)return 0;let t=0;do{let s=this.prerelease[t],i=e.prerelease[t];if(G("prerelease compare",t,s,i),s===void 0&&i===void 0)return 0;if(i===void 0)return 1;if(s===void 0)return-1;if(s===i)continue;return U(s,i)}while(++t)}compareBuild(e){e instanceof r||(e=new r(e,this.options));let t=0;do{let s=this.build[t],i=e.build[t];if(G("build compare",t,s,i),s===void 0&&i===void 0)return 0;if(i===void 0)return 1;if(s===void 0)return-1;if(s===i)continue;return U(s,i)}while(++t)}inc(e,t,s){if(e.startsWith("pre")){if(!t&&s===!1)throw new Error("invalid increment argument: identifier is empty");if(t){let i=`-${t}`.match(this.options.loose?g[F.PRERELEASELOOSE]:g[F.PRERELEASE]);if(!i||i[1]!==t)throw new Error(`invalid identifier: ${t}`)}}switch(e){case"premajor":this.prerelease.length=0,this.patch=0,this.minor=0,this.major++,this.inc("pre",t,s);break;case"preminor":this.prerelease.length=0,this.patch=0,this.minor++,this.inc("pre",t,s);break;case"prepatch":this.prerelease.length=0,this.inc("patch",t,s),this.inc("pre",t,s);break;case"prerelease":this.prerelease.length===0&&this.inc("patch",t,s),this.inc("pre",t,s);break;case"release":if(this.prerelease.length===0)throw new Error(`version ${this.raw} is not a prerelease`);this.prerelease.length=0;break;case"major":(this.minor!==0||this.patch!==0||this.prerelease.length===0)&&this.major++,this.minor=0,this.patch=0,this.prerelease=[];break;case"minor":(this.patch!==0||this.prerelease.length===0)&&this.minor++,this.patch=0,this.prerelease=[];break;case"patch":this.prerelease.length===0&&this.patch++,this.prerelease=[];break;case"pre":{let i=Number(s)?1:0;if(this.prerelease.length===0)this.prerelease=[i];else{let E=this.prerelease.length;for(;--E>=0;)typeof this.prerelease[E]=="number"&&(this.prerelease[E]++,E=-2);if(E===-1){if(t===this.prerelease.join(".")&&s===!1)throw new Error("invalid increment argument: identifier already exists");this.prerelease.push(i)}}if(t){let E=[t,i];s===!1&&(E=[t]),U(this.prerelease[0],t)===0?isNaN(this.prerelease[1])&&(this.prerelease=E):this.prerelease=E}break}default:throw new Error(`invalid increment argument: ${e}`)}return this.raw=this.format(),this.build.length&&(this.raw+=`+${this.build.join(".")}`),this}};re.exports=j});var ne=$((Or,ie)=>{"use strict";var se=S(),pt=(r,e,t=!1)=>{if(r instanceof se)return r;try{return new se(r,e)}catch(s){if(!t)return null;throw s}};ie.exports=pt});var Ee=$((Ar,ae)=>{"use strict";var Lt=ne(),Nt=(r,e)=>{let t=Lt(r,e);return t?t.version:null};ae.exports=Nt});var oe=$((Tr,le)=>{"use strict";var b=class{constructor(){this.max=1e3,this.map=new Map}get(e){let t=this.map.get(e);if(t!==void 0)return this.map.delete(e),this.map.set(e,t),t}delete(e){return this.map.delete(e)}set(e,t){if(!this.delete(e)&&t!==void 0){if(this.map.size>=this.max){let i=this.map.keys().next().value;this.delete(i)}this.map.set(e,t)}return this}};le.exports=b});var A=$((dr,he)=>{"use strict";var ce=S(),Ot=(r,e,t)=>new ce(r,t).compare(new ce(e,t));he.exports=Ot});var fe=$((Sr,ue)=>{"use strict";var At=A(),Tt=(r,e,t)=>At(r,e,t)===0;ue.exports=Tt});var Re=$((mr,$e)=>{"use strict";var dt=A(),St=(r,e,t)=>dt(r,e,t)!==0;$e.exports=St});var pe=$((Pr,Ie)=>{"use strict";var mt=A(),Pt=(r,e,t)=>mt(r,e,t)>0;Ie.exports=Pt});var Ne=$((wr,Le)=>{"use strict";var wt=A(),Ct=(r,e,t)=>wt(r,e,t)>=0;Le.exports=Ct});var Ae=$((Cr,Oe)=>{"use strict";var Dt=A(),Gt=(r,e,t)=>Dt(r,e,t)<0;Oe.exports=Gt});var de=$((Dr,Te)=>{"use strict";var vt=A(),gt=(r,e,t)=>vt(r,e,t)<=0;Te.exports=gt});var me=$((Gr,Se)=>{"use strict";var Ft=fe(),Xt=Re(),qt=pe(),xt=Ne(),yt=Ae(),Ut=de(),jt=(r,e,t,s)=>{switch(e){case"===":return typeof r=="object"&&(r=r.version),typeof t=="object"&&(t=t.version),r===t;case"!==":return typeof r=="object"&&(r=r.version),typeof t=="object"&&(t=t.version),r!==t;case"":case"=":case"==":return Ft(r,t,s);case"!=":return Xt(r,t,s);case">":return qt(r,t,s);case">=":return xt(r,t,s);case"<":return yt(r,t,s);case"<=":return Ut(r,t,s);default:throw new TypeError(`Invalid operator: ${e}`)}};Se.exports=jt});var ge=$((vr,ve)=>{"use strict";var m=Symbol("SemVer ANY"),V=class r{static get ANY(){return m}constructor(e,t){if(t=Pe(t),e instanceof r){if(e.loose===!!t.loose)return e;e=e.value}e=e.trim().split(/\s+/).join(" "),H("comparator",e,t),this.options=t,this.loose=!!t.loose,this.parse(e),this.semver===m?this.value="":this.value=this.operator+this.semver.version,H("comp",this)}parse(e){let t=this.options.loose?we[Ce.COMPARATORLOOSE]:we[Ce.COMPARATOR],s=e.match(t);if(!s)throw new TypeError(`Invalid comparator: ${e}`);this.operator=s[1]!==void 0?s[1]:"",this.operator==="="&&(this.operator=""),s[2]?this.semver=new De(s[2],this.options.loose):this.semver=m}toString(){return this.value}test(e){if(H("Comparator.test",e,this.options.loose),this.semver===m||e===m)return!0;if(typeof e=="string")try{e=new De(e,this.options)}catch{return!1}return _(e,this.operator,this.semver,this.options)}intersects(e,t){if(!(e instanceof r))throw new TypeError("a Comparator is required");return this.operator===""?this.value===""?!0:new Ge(e.value,t).test(this.value):e.operator===""?e.value===""?!0:new Ge(this.value,t).test(e.semver):(t=Pe(t),t.includePrerelease&&(this.value==="<0.0.0-0"||e.value==="<0.0.0-0")||!t.includePrerelease&&(this.value.startsWith("<0.0.0")||e.value.startsWith("<0.0.0"))?!1:!!(this.operator.startsWith(">")&&e.operator.startsWith(">")||this.operator.startsWith("<")&&e.operator.startsWith("<")||this.semver.version===e.semver.version&&this.operator.includes("=")&&e.operator.includes("=")||_(this.semver,"<",e.semver,t)&&this.operator.startsWith(">")&&e.operator.startsWith("<")||_(this.semver,">",e.semver,t)&&this.operator.startsWith("<")&&e.operator.startsWith(">")))}};ve.exports=V;var Pe=D(),{safeRe:we,t:Ce}=C(),_=me(),H=d(),De=S(),Ge=X()});var X=$((gr,xe)=>{"use strict";var bt=/\s+/g,k=class r{constructor(e,t){if(t=Ht(t),e instanceof r)return e.loose===!!t.loose&&e.includePrerelease===!!t.includePrerelease?e:new r(e.raw,t);if(e instanceof W)return this.raw=e.value,this.set=[[e]],this.formatted=void 0,this;if(this.options=t,this.loose=!!t.loose,this.includePrerelease=!!t.includePrerelease,this.raw=e.trim().replace(bt," "),this.set=this.raw.split("||").map(s=>this.parseRange(s.trim())).filter(s=>s.length),!this.set.length)throw new TypeError(`Invalid SemVer Range: ${this.raw}`);if(this.set.length>1){let s=this.set[0];if(this.set=this.set.filter(i=>!Xe(i[0])),this.set.length===0)this.set=[s];else if(this.set.length>1){for(let i of this.set)if(i.length===1&&Zt(i[0])){this.set=[i];break}}}this.formatted=void 0}get range(){if(this.formatted===void 0){this.formatted="";for(let e=0;e<this.set.length;e++){e>0&&(this.formatted+="||");let t=this.set[e];for(let s=0;s<t.length;s++)s>0&&(this.formatted+=" "),this.formatted+=t[s].toString().trim()}}return this.formatted}format(){return this.range}toString(){return this.range}parseRange(e){e=e.replace(Kt,"");let s=((this.options.includePrerelease&&Yt)|(this.options.loose&&zt))+":"+e,i=Fe.get(s);if(i)return i;let E=this.options.loose,o=E?p[I.HYPHENRANGELOOSE]:p[I.HYPHENRANGE];e=e.replace(o,Er(this.options.includePrerelease)),u("hyphen replace",e),e=e.replace(p[I.COMPARATORTRIM],Wt),u("comparator trim",e),e=e.replace(p[I.TILDETRIM],Bt),u("tilde trim",e),e=e.replace(p[I.CARETTRIM],Mt),u("caret trim",e);let h=e.split(" ").map(R=>Jt(R,this.options)).join(" ").split(/\s+/).map(R=>ar(R,this.options));E&&(h=h.filter(R=>(u("loose invalid filter",R,this.options),!!R.match(p[I.COMPARATORLOOSE])))),u("range list",h);let c=new Map,f=h.map(R=>new W(R,this.options));for(let R of f){if(Xe(R))return[R];c.set(R.value,R)}c.size>1&&c.has("")&&c.delete("");let N=[...c.values()];return Fe.set(s,N),N}intersects(e,t){if(!(e instanceof r))throw new TypeError("a Range is required");return this.set.some(s=>qe(s,t)&&e.set.some(i=>qe(i,t)&&s.every(E=>i.every(o=>E.intersects(o,t)))))}test(e){if(!e)return!1;if(typeof e=="string")try{e=new Vt(e,this.options)}catch{return!1}for(let t=0;t<this.set.length;t++)if(lr(this.set[t],e,this.options))return!0;return!1}};xe.exports=k;var _t=oe(),Fe=new _t,Ht=D(),W=ge(),u=d(),Vt=S(),{safeRe:p,src:kt,t:I,comparatorTrimReplace:Wt,tildeTrimReplace:Bt,caretTrimReplace:Mt}=C(),{FLAG_INCLUDE_PRERELEASE:Yt,FLAG_LOOSE:zt}=w(),Kt=new RegExp(kt[I.BUILD],"g"),Xe=r=>r.value==="<0.0.0-0",Zt=r=>r.value==="",qe=(r,e)=>{let t=!0,s=r.slice(),i=s.pop();for(;t&&s.length;)t=s.every(E=>i.intersects(E,e)),i=s.pop();return t},Jt=(r,e)=>(r=r.replace(p[I.BUILD],""),u("comp",r,e),r=tr(r,e),u("caret",r),r=Qt(r,e),u("tildes",r),r=sr(r,e),u("xrange",r),r=nr(r,e),u("stars",r),r),L=r=>!r||r.toLowerCase()==="x"||r==="*",Qt=(r,e)=>r.trim().split(/\s+/).map(t=>er(t,e)).join(" "),er=(r,e)=>{let t=e.loose?p[I.TILDELOOSE]:p[I.TILDE];return r.replace(t,(s,i,E,o,h)=>{u("tilde",r,s,i,E,o,h);let c;return L(i)?c="":L(E)?c=`>=${i}.0.0 <${+i+1}.0.0-0`:L(o)?c=`>=${i}.${E}.0 <${i}.${+E+1}.0-0`:h?(u("replaceTilde pr",h),c=`>=${i}.${E}.${o}-${h} <${i}.${+E+1}.0-0`):c=`>=${i}.${E}.${o} <${i}.${+E+1}.0-0`,u("tilde return",c),c})},tr=(r,e)=>r.trim().split(/\s+/).map(t=>rr(t,e)).join(" "),rr=(r,e)=>{u("caret",r,e);let t=e.loose?p[I.CARETLOOSE]:p[I.CARET],s=e.includePrerelease?"-0":"";return r.replace(t,(i,E,o,h,c)=>{u("caret",r,i,E,o,h,c);let f;return L(E)?f="":L(o)?f=`>=${E}.0.0${s} <${+E+1}.0.0-0`:L(h)?E==="0"?f=`>=${E}.${o}.0${s} <${E}.${+o+1}.0-0`:f=`>=${E}.${o}.0${s} <${+E+1}.0.0-0`:c?(u("replaceCaret pr",c),E==="0"?o==="0"?f=`>=${E}.${o}.${h}-${c} <${E}.${o}.${+h+1}-0`:f=`>=${E}.${o}.${h}-${c} <${E}.${+o+1}.0-0`:f=`>=${E}.${o}.${h}-${c} <${+E+1}.0.0-0`):(u("no pr"),E==="0"?o==="0"?f=`>=${E}.${o}.${h}${s} <${E}.${o}.${+h+1}-0`:f=`>=${E}.${o}.${h}${s} <${E}.${+o+1}.0-0`:f=`>=${E}.${o}.${h} <${+E+1}.0.0-0`),u("caret return",f),f})},sr=(r,e)=>(u("replaceXRanges",r,e),r.split(/\s+/).map(t=>ir(t,e)).join(" ")),ir=(r,e)=>{r=r.trim();let t=e.loose?p[I.XRANGELOOSE]:p[I.XRANGE];return r.replace(t,(s,i,E,o,h,c)=>{u("xRange",r,s,i,E,o,h,c);let f=L(E),N=f||L(o),R=N||L(h),T=R;return i==="="&&T&&(i=""),c=e.includePrerelease?"-0":"",f?i===">"||i==="<"?s="<0.0.0-0":s="*":i&&T?(N&&(o=0),h=0,i===">"?(i=">=",N?(E=+E+1,o=0,h=0):(o=+o+1,h=0)):i==="<="&&(i="<",N?E=+E+1:o=+o+1),i==="<"&&(c="-0"),s=`${i+E}.${o}.${h}${c}`):N?s=`>=${E}.0.0${c} <${+E+1}.0.0-0`:R&&(s=`>=${E}.${o}.0${c} <${E}.${+o+1}.0-0`),u("xRange return",s),s})},nr=(r,e)=>(u("replaceStars",r,e),r.trim().replace(p[I.STAR],"")),ar=(r,e)=>(u("replaceGTE0",r,e),r.trim().replace(p[e.includePrerelease?I.GTE0PRE:I.GTE0],"")),Er=r=>(e,t,s,i,E,o,h,c,f,N,R,T)=>(L(s)?t="":L(i)?t=`>=${s}.0.0${r?"-0":""}`:L(E)?t=`>=${s}.${i}.0${r?"-0":""}`:o?t=`>=${t}`:t=`>=${t}${r?"-0":""}`,L(f)?c="":L(N)?c=`<${+f+1}.0.0-0`:L(R)?c=`<${f}.${+N+1}.0-0`:T?c=`<=${f}.${N}.${R}-${T}`:r?c=`<${f}.${N}.${+R+1}-0`:c=`<=${c}`,`${t} ${c}`.trim()),lr=(r,e,t)=>{for(let s=0;s<r.length;s++)if(!r[s].test(e))return!1;if(e.prerelease.length&&!t.includePrerelease){for(let s=0;s<r.length;s++)if(u(r[s].semver),r[s].semver!==W.ANY&&r[s].semver.prerelease.length>0){let i=r[s].semver;if(i.major===e.major&&i.minor===e.minor&&i.patch===e.patch)return!0}return!1}return!0}});var Ue=$((Fr,ye)=>{"use strict";var or=X(),cr=(r,e)=>{try{return new or(r,e).range||"*"}catch{return null}};ye.exports=cr});var be=$((Xr,je)=>{"use strict";var hr=X(),ur=(r,e,t)=>{try{e=new hr(e,t)}catch{return!1}return e.test(r)};je.exports=ur});var fr={};ze(fr,{satisfies:()=>Ve.default,valid:()=>_e.default,validRange:()=>He.default});var _e=q(Ee()),He=q(Ue()),Ve=q(be());return Ke(fr);})();
-
 'use strict';
 
 (() => {
@@ -26,10 +7,8 @@ var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Obj
   const manifestInput = $('tree-manifest');
   const lockInput = $('tree-lock');
   const limit = { chars: 8_000_000, edges: 240, depth: 12 };
-  const groupKeys = ['dependencies', 'optionalDependencies', 'devDependencies', 'peerDependencies'];
-  const packageName = /^(?:@[a-z\d~][a-z\d._~-]*\/)?[a-z\d~][a-z\d._~-]*$/i;
+  const { groupKeys, usableName, declarations, lockedPackage } = LabLockGraph;
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-  const usableName = name => name.length <= 214 && packageName.test(name);
   const has = (obj, key) => Object.hasOwn(obj, key);
   const el = (tag, cls, text) => {
     const node = document.createElement(tag);
@@ -80,34 +59,82 @@ var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Obj
     return value.packages;
   }
 
-  function* declarations(record, root) {
-    for (const group of groupKeys) {
-      if (group === 'devDependencies' && !root) continue;
-      const map = record[group];
-      if (!object(map)) continue;
-      for (const [name, range] of Object.entries(map)) {
-        if (!usableName(name) || typeof range !== 'string') continue;
-        if (group === 'dependencies' && object(record.optionalDependencies) && has(record.optionalDependencies, name)) continue;
-        yield { name, range, group, optional: group === 'optionalDependencies' ||
-          (group === 'peerDependencies' && record.peerDependenciesMeta?.[name]?.optional === true) };
-      }
+  let lockPackages;
+  let explanationGraph;
+  let availableCopies = [];
+
+  function installedEntries(packages) {
+    const entries = [];
+    // Only paths composed of package names can become a terminal command.
+    const safePath = /^node_modules\/(?:@[a-z\d~][a-z\d._~-]*\/)?[a-z\d~][a-z\d._~-]*(?:\/node_modules\/(?:@[a-z\d~][a-z\d._~-]*\/)?[a-z\d~][a-z\d._~-]*)*$/i;
+    for (const [path, record] of Object.entries(packages)) {
+      if (!safePath.test(path) || !object(record) || record.link) continue;
+      const name = path.split('node_modules/').pop();
+      entries.push({ path, label: name + (typeof record.version === 'string' ? '@' + record.version : ''), name });
     }
+    return entries;
   }
 
-  // A peer's provider must be placed beside or above its consumer.
-  function lockedPackage(packages, owner, edge) {
-    const dirs = owner ? owner.split('/') : [];
-    if (edge.group === 'peerDependencies' && owner) {
-      const lastModules = dirs.lastIndexOf('node_modules');
-      if (lastModules >= 0) dirs.splice(lastModules);
-    }
-    while (true) {
-      if (dirs[dirs.length - 1] !== 'node_modules') {
-        const key = [...dirs, 'node_modules', edge.name].join('/');
-        if (has(packages, key)) return { key, record: packages[key] };
+  function showCopy() {
+    const chosen = $('tree-copies').value;
+    const result = $('tree-origin');
+    result.replaceChildren();
+    $('tree-command-block').hidden = true;
+    $('tree-copied').textContent = '';
+    if (!chosen || !lockPackages) return;
+    explanationGraph ??= LabLockGraph.build(lockPackages, currentManifest);
+    const paths = LabLockGraph.chain(explanationGraph, chosen);
+    if (paths) {
+      const list = el('ol', 'tree-route');
+      list.append(el('li', '', typeof currentManifest.name === 'string' ? currentManifest.name : t('Корень проекта', 'Project root')));
+      for (const path of paths.slice(1)) {
+        const edge = explanationGraph.parents.get(path);
+        const version = lockPackages[path].version;
+        const item = el('li');
+        item.append(el('code', '', edge.name + '@' + (typeof version === 'string' ? version : '?')),
+          el('span', 'tree-edge', edge.group + ' ' + edge.range));
+        list.append(item);
       }
-      if (!dirs.length) return null;
-      dirs.pop();
+      result.append(el('strong', '', t('Один путь от корня', 'One path from the project root')), list);
+    } else {
+      result.append(el('p', 'hint', explanationGraph.clipped ?
+        t('Поиск ограничен первыми 20 000 связей. Путь к этой копии не найден в просмотренной части.', 'The search stops after 20,000 edges. No path to this copy was found in the visited subgraph.') :
+        t('Запись есть в lock-файле. Путь из указанного манифеста не найден. Проверьте соответствие файлов и ссылки workspaces.', 'This entry is present in the lockfile. No path was found from the supplied manifest. Check that the files match and inspect workspace links.')));
+    }
+    $('tree-command').value = 'npm explain "' + chosen + '"';
+    $('tree-command-block').hidden = false;
+  }
+
+  function findCopies() {
+    const query = $('tree-query').value.trim().toLowerCase();
+    const select = $('tree-copies');
+    const previous = select.value;
+    select.replaceChildren();
+    let total = 0;
+    if (lockPackages) {
+      for (const copy of availableCopies) {
+        if (!copy.label.toLowerCase().includes(query) && !copy.path.toLowerCase().includes(query)) continue;
+        if (++total <= 80) select.add(new Option(copy.label + ' · ' + copy.path, copy.path));
+      }
+    }
+    if ([...select.options].some(option => option.value === previous)) select.value = previous;
+    $('tree-search-controls').hidden = !lockPackages;
+    $('tree-copy-label').hidden = !total;
+    $('tree-find-hint').textContent = !lockPackages ?
+      t('Добавьте package-lock.json v3, чтобы отличить вложенную копию от одноимённого пакета в корне и получить точную команду npm explain.', 'Add a v3 package-lock.json to distinguish a nested copy from the root copy and get its exact npm explain command.') :
+      total ? t('Совпадений', 'Matches') + ' ' + total + (total > 80 ? t('. Показаны первые 80. Уточните имя или путь.', '. Showing the first 80. Refine the name or path.') : '.') :
+      t('Совпадений нет. Попробуйте имя пакета или часть пути в node_modules.', 'No matches. Try a package name or a part of its node_modules path.');
+    showCopy();
+  }
+
+  async function copyCommand() {
+    const input = $('tree-command');
+    try {
+      await navigator.clipboard.writeText(input.value);
+      $('tree-copied').textContent = t('Команда скопирована.', 'Command copied.');
+    } catch {
+      input.focus(); input.select();
+      $('tree-copied').textContent = t('Команда выделена. Скопируйте её сочетанием клавиш.', 'The command is selected. Copy it using the keyboard.');
     }
   }
 
@@ -193,6 +220,27 @@ var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Obj
         line.append(el('span', 'tree-edge', edgeType + node.range));
         if (node.state !== 'unknown') line.append(el('span', 'tree-state ' + node.state, node.state === 'bad' ? t('Конфликт', 'Conflict') : t('Подходит', 'Matches')));
         container.append(line);
+        if (node.group === 'peerDependencies' && node.version && treeSemver.validRange(node.range)) {
+          const scale = document.createElement('details');
+          scale.className = 'tree-scale';
+          scale.append(el('summary', '', t('Проверить диапазон ', 'Inspect range ') + node.range));
+          scale.addEventListener('toggle', () => {
+            if (!scale.open || scale.children.length > 1) return;
+            const candidates = new Set([node.version]);
+            if (lockPackages) {
+              for (const [path, record] of Object.entries(lockPackages)) {
+                if (record && (record.name || path.split('node_modules/').at(-1)) === node.name && record.version) candidates.add(record.version);
+                if (candidates.size >= 8) break;
+              }
+            } else if (node.name === 'react') {
+              candidates.add('18.2.0'); candidates.add('18.3.1');
+            }
+            const plot = el('div');
+            scale.append(plot);
+            LabRangeScale.render(plot,{range:node.range,selected:node.version,candidates:[...candidates]});
+          });
+          container.append(scale);
+        }
         if (node.reason) container.append(el('p', 'tree-note', node.reason));
         if (nested) {
           container.open = depth < 2 || node.hasConflict;
@@ -244,18 +292,29 @@ var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Obj
       const manifest = readManifest();
       const packages = readLock();
       currentManifest = manifest;
+      if (resetChoices) {
+        lockPackages = packages;
+        explanationGraph = null;
+        availableCopies = packages ? installedEntries(packages) : [];
+      }
       graph = buildGraph(manifest, packages);
       $('tree-error').textContent = '';
       $('tree-mode').textContent = packages ?
         t('Версии из lock-файла. Каждая связь сравнивает требование с версией в ближайшей доступной папке. Проверки приложения и движка выполняются отдельно.', 'Lockfile versions. Each edge compares a requirement with the version in the nearest valid location. Runtime and engine checks are separate.')
         : t('План по манифесту. Для React 18.2.0 и 18.3.1 встроены требования React DOM. Сторонние пакеты можно дополнить данными npm. Расположение и фактические версии даёт lock-файл.', 'Manifest preview. React DOM peer requirements are built in for 18.2.0 and 18.3.1. You can load npm metadata for other packages. A lockfile supplies actual versions and locations.');
       $('tree-netbox').hidden = Boolean(packages);
-      if (resetChoices) showChoices(manifest);
+      if (resetChoices) {
+        showChoices(manifest);
+        findCopies();
+      }
       drawTree();
     } catch (error) {
       $('tree-error').textContent = error instanceof SyntaxError ? t('Проверьте синтаксис JSON в заполненных полях.', 'Check JSON syntax in both input fields.') : error.message;
       for (const id of ['tree-mode', 'tree-count', 'tree-graph', 'tree-limit']) $(id).replaceChildren();
       $('tree-netbox').hidden = true;
+      lockPackages = null;
+      availableCopies = []; explanationGraph = null;
+      findCopies();
     }
   }
 
@@ -266,8 +325,8 @@ var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Obj
     timer = setTimeout(() => render(true), 140);
   }
 
-  function seed(reactVersion) {
-    manifestInput.value = JSON.stringify({ name: 'react-demo', dependencies: { react: reactVersion, 'react-dom': '18.3.1' } }, null, 2);
+  function seed(reactVersion, domVersion = '18.3.1') {
+    manifestInput.value = JSON.stringify({ name: 'react-demo', dependencies: { react: reactVersion, 'react-dom': domVersion } }, null, 2);
     lockInput.value = ''; $('tree-file').value = ''; $('tree-filter').checked = false;
     changed(); clearTimeout(timer); render(true);
   }
@@ -323,5 +382,31 @@ var treeSemver=(()=>{var ke=Object.create;var P=Object.defineProperty;var We=Obj
   });
   $('tree-load-meta').addEventListener('click', getMetadata);
   if (lang === 'en') document.title = 'Dependency tree · DepLoom';
-  seed('18.2.0');
+  $('tree-query').addEventListener('input', findCopies);
+  $('tree-copies').addEventListener('change', showCopy);
+  $('tree-copy-command').addEventListener('click', copyCommand);
+  $('tree-two-copies').addEventListener('click', () => {
+    const sample = LabSamples.before;
+    manifestInput.value = JSON.stringify(sample.packages[''], null, 2);
+    lockInput.value = JSON.stringify(sample, null, 2);
+    $('tree-lockbox').open = true;
+    $('tree-file').value = '';
+    $('tree-filter').checked = false;
+    $('tree-query').value = 'shared-utils';
+    changed(); clearTimeout(timer); render(true);
+  });
+  const query = new URLSearchParams(location.search);
+  if (query.get('own') === '1') {
+    manifestInput.value = ''; lockInput.value = '';
+    $('tree-netbox').hidden = true;
+    manifestInput.placeholder = '{"dependencies": {"react": "^18.2.0"}}';
+    $('tree-mode').textContent = t('Вставьте манифест, чтобы построить дерево.', 'Paste a manifest to build the tree.');
+    findCopies();
+    manifestInput.focus({ preventScroll: true });
+  } else {
+    const known = ['18.2.0', '18.3.1'];
+    const react = query.get('react');
+    const dom = query.get('dom');
+    seed(known.includes(react) ? react : '18.2.0', known.includes(dom) ? dom : '18.3.1');
+  }
 })();

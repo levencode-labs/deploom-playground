@@ -1,0 +1,71 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+
+function model(fetch) {
+  const ctx=vm.createContext({window:{}, URL, fetch});
+  for(const file of ['vendor/semver.js','lock-graph.js','audit-model.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs',file),'utf8'),ctx,{filename:file});
+  }
+  return ctx.window.LabAudit;
+}
+function saved(version='1.2.3') {
+  return {version,resolved:'https://registry.npmjs.org/lib/-/lib-'+version+'.tgz'};
+}
+test('inventory deduplicates physical copies and retains the original name for an npm alias',()=>{
+  const api=model(()=>assert.fail('Reading a lockfile must stay local'));
+  const lock={lockfileVersion:3,packages:{
+    '':{},'node_modules/lib':saved(), 'packages/app/node_modules/lib':saved(),
+    'node_modules/lib-alias':{...saved(),name:'lib'},'node_modules/other':saved(),
+    'node_modules/local':{version:'1.0.0',resolved:'file:../local'},
+    'node_modules/local-link':{resolved:'packages/local',link:true},
+    'node_modules/vcs':{version:'1.2.3',resolved:'git+https://example.org/project'},
+    'node_modules/private':{...saved(),name:'lib',private:true},
+    'node_modules/range':{...saved(),name:'lib',version:'^1.2.0'},
+    'node_modules/spoof':{...saved(),name:'lib',resolved:'https://registry.npmjs.org.example/lib/-/lib-1.2.3.tgz'},
+  }};
+  const {rows,skipped}=api.inventory(lock);
+  assert.equal(rows.length,1);assert.equal(rows[0].name,'lib');assert.equal(rows[0].paths.length,3);assert.equal(skipped.length,7);
+  assert.throws(()=>api.inventory({lockfileVersion:2,packages:{}}),/format/);
+});
+const json=(data,status=200)=>({ok:status===200,status,json:async()=>data});
+const rows=names=>names.map(name=>({name,version:'1.0.0',state:'ready',ids:[]}));
+test('only confirmed npm versions reach OSV, queries are paginated per package',async()=>{
+  const seen=[];
+  const fetch=async(url,options)=>{
+    if(url.includes('registry.npmjs.org')) {
+      const name=new URL(url).pathname.split('/')[1];
+      return name==='removed' ? json({},404) : json({name,version:'1.0.0'});
+    }
+    const queries=JSON.parse(options.body).queries;
+    seen.push(queries.map(q=>[q.package.name,q.page_token]));
+    return json({results:queries.map(q=>q.package.name==='clear'?{}:
+      q.page_token ? {vulns:[{id:'GHSA-one'},{id:'GHSA-two'}]} : {vulns:[{id:'GHSA-one'}],next_page_token:'next'})});
+  };
+  const packages=rows(['removed','affected','clear']);
+  await model(fetch).check(packages,new AbortController().signal);
+  assert.deepEqual(packages.map(r=>r.state),['unknown','found','empty']);
+  assert.equal(packages[0].note,'missing');
+  assert.deepEqual(Array.from(packages[1].ids),['GHSA-one','GHSA-two']);
+  assert.equal(seen.length,2);assert.deepEqual(seen[1],[['affected','next']]);
+  assert.ok(!JSON.stringify(seen).includes('removed'));
+});
+test('on a later-page error, retain previously received IDs and mark coverage incomplete',async()=>{
+  const packages=rows(['lib']);
+  const fetch=async(url,options)=>{
+    if(url.includes('registry.npmjs.org')) return json({name:'lib',version:'1.0.0'});
+    return JSON.parse(options.body).queries[0].page_token ? json({},503) :
+      json({results:[{vulns:[{id:'GHSA-saved'}],next_page_token:'page-2'}]});
+  };
+  await model(fetch).check(packages,new AbortController().signal);
+  assert.equal(packages[0].state,'unknown');assert.deepEqual(Array.from(packages[0].ids),['GHSA-saved']);
+});
+test('a missing result is not a clean result; network requests are bounded',async()=>{
+  const api=model(async(url)=>url.includes('registry.npmjs.org') ? json({name:'lib',version:'1.0.0'}) : json({results:[]}));
+  await assert.rejects(api.check(rows(Array(21).fill('lib')),new AbortController().signal),/size/);
+  const packages=rows(['lib']);
+  await api.check(packages,new AbortController().signal);assert.equal(packages[0].state,'unknown');
+});

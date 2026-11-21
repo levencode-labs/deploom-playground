@@ -1,3 +1,33 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>Можно обновить только React DOM? · DepLoom</title><link rel="stylesheet" href="lab.css"></head>
-<body><header data-nav></header><main><h1 data-en="Can React DOM move on its own?">Можно обновить только React DOM?</h1><p data-en="Both packages start at 18.2.0. Change only React DOM first. Which requirement stops npm?">Проект начинается с версии 18.2.0 у обоих пакетов. Поменяйте сначала только React DOM. Какое требование останавливает npm?</p><div class="lab-work" data-experiment="peer"><form class="panel" id="input"><h2 data-en="Experiment settings">Условия опыта</h2><fieldset class="choice"><legend><span data-en="react version">Версия react</span></legend><label><input type="radio" name="react" value="18.2.0" checked><span data-en="18.2.0">18.2.0</span></label><label><input type="radio" name="react" value="18.3.1"><span data-en="18.3.1">18.3.1</span></label></fieldset><fieldset class="choice"><legend><span data-en="react-dom version">Версия react-dom</span></legend><label><input type="radio" name="dom" value="18.2.0" checked><span data-en="18.2.0">18.2.0</span></label><label><input type="radio" name="dom" value="18.3.1"><span data-en="18.3.1">18.3.1</span></label></fieldset></form><section class="panel verdict" id="result" aria-live="polite" aria-atomic="true"><h2 id="verdict"></h2><p id="why"></p><div class="result-row"><b><span data-en="Installation">Установка</span></b><span id="install"></span></div><div class="result-row"><b><span data-en="Server render">Рендер страницы</span></b><span id="render"></span></div><pre id="evidence"></pre></section></div><p class="notes hint"><span data-en="Recorded strict-peer npm installs followed by renderToString on one element. Your choices stay in this browser.">Показаны записанные установки npm со строгой проверкой peer-зависимостей и вызов renderToString для одного элемента. Браузер никуда не отправляет ваш выбор.</span></p><a href="tree.html"><span data-en="Explore the same versions in the tree">Исследовать те же версии в дереве</span></a></main><script src="nav.js"></script><script src="experiments.js"></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>ERESOLVE · DepLoom</title>
+  <link rel="stylesheet" href="lab.css">
+  <link rel="stylesheet" href="range-scale.css">
+</head>
+<body>
+  <header data-nav></header>
+  <main>
+<h1 data-en="Why did npm return ERESOLVE?">Почему npm вернул ERESOLVE?</h1>
+<section class="panel peer-work" data-experiment="peer">
+
+<div class="lab-work"><form id="input">
+<p data-en="The app selects a React version. React DOM declares which versions it supports.">Приложение выбирает версию React. React DOM указывает диапазон, с которым умеет работать.</p>
+<fieldset class="choice"><legend><span data-en="React in the app">React в приложении</span></legend><label><input type="radio" name="react" value="18.2.0" checked>18.2.0</label><label><input type="radio" name="react" value="18.3.1">18.3.1</label></fieldset>
+<fieldset class="choice"><legend><span data-en="React DOM in the app">React DOM в приложении</span></legend><label><input type="radio" name="dom" value="18.2.0">18.2.0</label><label><input type="radio" name="dom" value="18.3.1" checked>18.3.1</label></fieldset>
+<div class="peer-line"><code id="issuer"></code><span id="edge"></span><code id="chosen"></code></div>
+</form><div class="peer-out" id="result" aria-live="polite">
+<h3 id="verdict"></h3><div id="scale"></div><button type="button" class="evidence-line" id="evidence" aria-pressed="false"></button>
+<p data-en="Source — recorded strict-peer npm install for this pair. Select the line to highlight the requirement and selected version." class="hint">Источник — запись строгой установки npm для этой пары. Нажмите на строку, чтобы выделить требование и выбранную версию.</p>
+</div></div><div class="actions"><a class="primary" id="inspect-tree" href="tree.html"><span data-en="Inspect in the tree">Разобрать в дереве</span></a> <a href="tree.html?own=1"><span data-en="Open your own project">Открыть свой проект</span></a></div>
+<p data-en="In your project, find peer … from … in the npm log and compare it with the version from npm explain react." class="hint">В своём проекте найдите в логе строку peer … from … и сравните её с версией из npm explain react.</p></section>
+  </main>
+  <script src="nav.js"></script>
+  <script src="vendor/semver.js"></script>
+  <script src="range-scale.js"></script>
+  <script src="experiments.js"></script>
+</body>
+</html>

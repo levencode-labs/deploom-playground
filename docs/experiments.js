@@ -1,31 +1,46 @@
 'use strict';
 (() => {
-  const t = window.Lab.t;
+  const { t, urlFor, setExampleState } = window.Lab;
   const form = document.querySelector('#input');
-  const peer = document.querySelector('[data-experiment]').dataset.experiment === 'peer';
   const el = id => document.getElementById(id);
-  function show() {
-    const data=new FormData(form);
-    const react = data.get('react');
-    const dom = data.get('dom');
-    const old = data.get('factory')==='old';
-    const removed = data.get('stack')==='19.0.0';
-    const badPeer = peer && react==='18.2.0' && dom==='18.3.1';
-    const badCall = !peer && removed && old;
-    el('result').dataset.status=badPeer||badCall?'fail':'pass';
-    el('install').textContent = badPeer ? 'ERESOLVE' : t('Прошла','Passed');
-    el('render').textContent = badPeer ? t('Не запускался','Not run') : badCall ? 'TypeError' : t('Прошёл','Passed');
+  const peer = !!document.querySelector('[data-experiment="peer"]');
+  const publicState = new URLSearchParams(location.search);
+  for (const radio of form.querySelectorAll('input[type="radio"]')) {
+    if (radio.value === publicState.get(radio.name)) radio.checked = true;
+  }
+  function show(changed) {
+    const data = Object.fromEntries(new FormData(form));
+    if (changed) setExampleState(data);
     if (peer) {
-      const min = dom==='18.3.1'?'18.3.1':'18.2.0';
-      el('verdict').textContent = badPeer?t('npm отклонил сочетание','npm rejected the pair'):t('Установка и рендер прошли','Install and render passed');
-      el('why').textContent = t('React DOM '+dom+' требует react@^'+min+'. Версия '+react+(badPeer?' ниже нижней границы.':' входит в этот диапазон.'),'React DOM '+dom+' requires react@^'+min+'. Version '+react+(badPeer?' is below the lower bound.':' satisfies that range.'));
-      el('evidence').textContent=badPeer?'npm error code ERESOLVE\npeer react@"^18.3.1" from react-dom@18.3.1':'renderToString → <p>DepLoom</p>';
+      const { react, dom } = data;
+      const range = '^' + dom;
+      const ok = treeSemver.satisfies(react, range);
+      el('result').dataset.status = ok ? 'pass' : 'fail';
+      el('issuer').textContent = 'react-dom@' + dom;
+      el('edge').textContent = t('требует ', 'requires ') + 'react@' + range + ' →';
+      el('chosen').textContent = 'react@' + react;
+      el('verdict').textContent = ok ? t('Обе версии можно установить', 'These versions install together') : 'npm · ERESOLVE';
+      LabRangeScale.render(el('scale'), {range, selected: react, candidates:['18.2.0','18.3.1','19.0.0']});
+      el('evidence').textContent = ok ? 'npm install · exit 0' :
+        'peer react@"' + range + '" from react-dom@' + dom;
+      el('inspect-tree').href = urlFor('tree.html?' + new URLSearchParams({ react, dom }));
+      el('evidence').setAttribute('aria-pressed', 'false');
+      form.closest('section').classList.remove('highlight-peer');
     } else {
-      el('verdict').textContent=badCall?t('Установка прошла, рендер упал','Install passed, render failed'):t('Кнопка отрендерилась','The button rendered');
-      el('why').textContent=old ? (removed?t('В React 19 удалили createFactory. Обе библиотеки установились, но приложение упало при создании элемента.','React 19 removed createFactory. Both packages installed, but creating the element failed.'):t('В React 18 вызов ещё работает. В режиме разработки React предупреждает, что createFactory устарел.','React 18 still supports this call and prints a deprecation warning in development.')) :t('createElement доступен в обеих версиях. Проверка сравнила итоговую HTML-строку с ожидаемой.','Both versions provide createElement. The check compared the resulting HTML with the expected string.');
-      el('evidence').textContent=(old?"React.createFactory('button')(null, 'OK')":"React.createElement('button', null, 'OK')")+'\n'+(badCall?'TypeError: React.createFactory is not a function':'renderToString → <button>OK</button>');
+      const old = data.api === 'createFactory';
+      const fail = old && data.stack === '19.0.0';
+      el('install').textContent = t('прошла', 'passed');
+      el('call').textContent = old ? "React.createFactory('button')(null, 'OK')" : "React.createElement('button', null, 'OK')";
+      el('ssr').textContent = fail ? 'TypeError: React.createFactory is not a function' : '<button>OK</button>';
+      el('result').dataset.status = fail ? 'fail' : 'pass';
+      el('why').textContent = fail ? t('В React 19 удалили createFactory. Ошибка возникает, когда приложение вызывает эту функцию.', 'React 19 removed createFactory. The error occurs when the app calls that function.') :
+        t('Результат renderToString совпал с ожидаемым HTML.', 'The renderToString output matched the expected HTML.');
     }
   }
-  form.addEventListener('change',show);
-  show();
+  if (peer) el('evidence').addEventListener('click', () => {
+    const highlight = form.closest('section').classList.toggle('highlight-peer');
+    el('evidence').setAttribute('aria-pressed', String(highlight));
+  });
+  form.addEventListener('change', () => show(true));
+  show(false);
 })();
