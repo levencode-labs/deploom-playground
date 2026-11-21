@@ -35,7 +35,7 @@
       ['runtime.html', t('Куда после обновления пропала подсказка?','Where did the hint go after upgrading?')],
       ['combinations.html', t('Почему совместимые ветки ломаются при слиянии?','Why do working branches break when merged?')],
       ['ci.html', t('Почему сборка упала после правки package.json?','Why did npm ci fail after a manifest edit?')],
-      ['override.html', t('Почему в проекте осталась вторая копия библиотеки?','Where did the old copy come from?')],
+      ['override.html', t('Почему после override сломался CSS-селектор?','Why did the CSS selector break after an override?')],
     ]],
   ];
   const main = document.querySelector('main');

@@ -25,6 +25,11 @@ test('root metadata does not count as an installed-copy change',()=>{
   current.packages[''].name='renamed';
   assert.deepEqual(compare(old,current),[]);
 });
+test('a root range edit explains a diff with identical installed copies',()=>{
+  const pair=['^1.0.0','~1.2.0'].map(range=>({lockfileVersion:3,packages:{'':{dependencies:{lib:range}},'node_modules/lib':{version:'1.2.3'}}}));
+  assert.deepEqual(compare(...pair),[]);
+  assert.deepEqual(compare.rootRequirements(...pair),[{section:'dependencies',name:'lib',before:'^1.0.0',after:'~1.2.0'}]);
+});
 test('validates the v3 root and every record',()=>{
   for(const wrong of [null,{lockfileVersion:2},{lockfileVersion:3,packages:[]},{lockfileVersion:3,packages:{}},lock({x:[]})])
     assert.throws(()=>compare(wrong,lock({})),TypeError);

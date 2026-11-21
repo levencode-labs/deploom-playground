@@ -30,12 +30,13 @@
       const next = stage==='base'?'mismatch':stage==='mismatch'?'fixed':'base';
       el('ci-next').textContent={base:t('Изменить одну строку в package.json →','Edit one line in package.json →'),mismatch:t('Обновить lock и повторить npm ci →','Update the lock and retry npm ci →'),fixed:t('Вернуться к исходной ветке','Back to the original branch')}[stage];
       el('ci-next').onclick=()=>{sync(next);render();};
-      sync(stage);
+      if (!candidate || Object.hasOwn(steps,candidate)) sync(stage);
     }
     for (const input of document.querySelectorAll('input[name=stage]')) input.addEventListener('change',()=>{sync(input.value);render();});
     addEventListener('hashchange',()=>{if(location.hash!=='#main-content') render();});
     render();
   } else {
+    if (new URLSearchParams(location.hash.slice(1)).has('scope')) el('copies-case').open=true;
     const parents = ['ui-kit','build-tool'];
     const samplePath = parent => 'node_modules/'+parent+'/node_modules/shared-utils';
     const params = () => new URLSearchParams(location.hash.slice(1));
@@ -81,7 +82,9 @@
         parent==='ui-kit' ? t('В package.json библиотеки кнопок указана 1.2.3. Правило в корне проекта меняет именно эту копию на 1.2.4.','ui-kit declares 1.2.3. The root override selects 1.2.4 for this copy.') :
           t('У build-tool собственная копия. Правило ограничено веткой ui-kit, поэтому под build-tool остаётся 1.2.3.','build-tool has its own copy. The rule is scoped to ui-kit, so build-tool keeps 1.2.3.');
       el('copy-path').textContent = 'npm explain '+physical;
-      sync('scope='+stage+(picked?'&parent='+parent:''));
+      el('nested-tree').href=ReviewExample.link('tree.html','copies',stage,physical);
+      el('nested-compare').href=ReviewExample.link('compare.html','copies',stage,physical);
+      if(el('copies-case').open) sync('scope='+stage+(picked?'&parent='+parent:''));
     }
     for (const input of document.querySelectorAll('input[name=scope]')) input.addEventListener('change',()=>{
       const state=params();state.set('scope',input.value);sync(state.toString());render();

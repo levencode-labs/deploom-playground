@@ -17,6 +17,11 @@
   const versionPart = '(?:0|[1-9][0-9]*)';
   const preId = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)';
   const exactVersion = new RegExp('^' + [versionPart, versionPart, versionPart].join('\\.') + '(?:-' + preId + '(?:\\.' + preId + ')*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$');
+  const query=new URLSearchParams(location.search);
+  if(query.get('example')==='selector' && Object.hasOwn(SelectorLab.cases,query.get('rev'))) {
+    const record=SelectorLab.cases[query.get('rev')];
+    nameField.value='nth-check';versionField.value=record.nthVersion;
+  }
   let activeRequest;
 
   function resetResult() {

@@ -15,7 +15,7 @@
 <section class="panel plan-input"><h2 data-en="Project and targets">Проект и цель</h2>
 <div class="grid"><label class="field">package.json<input id="manifest-file" type="file" accept=".json,application/json"></label><label class="field">yarn.lock / package-lock.json v3<input id="lock-file" type="file" accept=".json,.lock"></label></div>
 <p id="project" class="hint"></p>
-<details><summary data-en="Use package metadata from disk">Добавить package.json библиотек для офлайн-проверки</summary>
+<details id="local-metadata"><summary data-en="Use package metadata from disk">Добавить package.json библиотек для офлайн-проверки</summary>
 <p class="hint" data-en="Use the package.json of a target release or of a direct dependency already installed in node_modules. Its peerDependencies field lists its requirements.">Подойдёт package.json целевой версии или уже установленной прямой зависимости из node_modules. В нём перечислены требования к соседним пакетам.</p>
 <label class="field"><span data-en="Target package manifests">Манифесты целевых пакетов</span><input type="file" multiple id="meta-files" accept=".json,application/json"></label></details>
 <div class="grid">
@@ -43,6 +43,9 @@
 <script src="yarn-lock.js"></script>
 <script src="drop-files.js" defer></script>
   <script src="plan-model.js"></script>
+  <script src="webpack-data.js"></script>
+  <script src="selector-data.js"></script>
+  <script src="review-example.js"></script>
   <script src="plan.js"></script>
 </body>
 </html>

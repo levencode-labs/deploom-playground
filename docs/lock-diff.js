@@ -38,4 +38,17 @@ function comparePackageLocks(before, after) {
   return changes;
 }
 
+function compareRootRequirements(before, after) {
+  if (globalThis.LabYarn?.format(before.packages)) return [];
+  const rows = [];
+  for (const section of ['dependencies','devDependencies','optionalDependencies','peerDependencies']) {
+    const a=before.packages[''][section] || {}, b=after.packages[''][section] || {};
+    for (const name of [...new Set([...Object.keys(a),...Object.keys(b)])].sort()) {
+      const old=Object.hasOwn(a,name)?a[name]:null, next=Object.hasOwn(b,name)?b[name]:null;
+      if (old!==next) rows.push({section,name,before:old,after:next});
+    }
+  }
+  return rows;
+}
+comparePackageLocks.rootRequirements = compareRootRequirements;
 if (typeof module === 'object' && module.exports) module.exports = comparePackageLocks;

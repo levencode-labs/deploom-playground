@@ -125,6 +125,12 @@
     return entries;
   }
 
+  function commandFor(path) {
+    const copy=availableCopies.find(item=>item.path===path);
+    if (!copy) return '';
+    const yarn=LabYarn.format(lockPackages);
+    return yarn ? (yarn==='Yarn Classic'?'yarn why ':'yarn why -R ')+copy.name : 'npm explain "'+path+'"';
+  }
   function showCopy() {
     const chosen = $('tree-copies').value;
     const result = $('tree-origin');
@@ -151,11 +157,7 @@
         t('Поиск ограничен первыми 20 000 связей. Путь к этой копии не найден в просмотренной части.', 'The search stops after 20,000 edges. No path to this copy was found in the visited subgraph.') :
         t('Запись есть в lock-файле. Путь из указанного манифеста не найден. Проверьте соответствие файлов и ссылки workspaces.', 'This entry is present in the lockfile. No path was found from the supplied manifest. Check that the files match and inspect workspace links.')));
     }
-    const yarn = LabYarn.format(lockPackages);
-    if (yarn) {
-      const name = LabYarn.parts(chosen).name;
-      $('tree-command').value = yarn === 'Yarn Classic' ? 'yarn why '+name : 'yarn why -R '+name;
-    } else $('tree-command').value = 'npm explain "' + chosen + '"';
+    $('tree-command').value=commandFor(chosen);
     $('tree-command-block').hidden = false;
   }
 
@@ -264,7 +266,7 @@
   function drawTree() {
     if (!graph) return;
     const onlyConflicts = $('tree-filter').checked;
-    LabMap.render(graph,currentManifest,onlyConflicts);
+    LabMap.render(graph,currentManifest,onlyConflicts,commandFor);
     function branch(nodes, depth) {
       const list = el('ul', 'tree-branches');
       for (const node of nodes) {
@@ -383,6 +385,7 @@
   }
 
   function changed() {
+    $('lesson-copy').hidden=true;
     clearTimeout(timer);
     request?.abort(); request = null; registry = new Map();
     $('tree-network-result').textContent = '';
@@ -479,7 +482,28 @@
   }
   for(const name of ['classic','berry'])$('yarn-'+name).onclick=()=>yarnSample(name==='berry');
   const query = new URLSearchParams(location.search);
-  if (query.get('own') === '1' || !['react','dom','yarn'].some(key=>query.has(key))) {
+  const publicExample=ReviewExample.fixture();
+  if (publicExample) {
+    const {lock,manifest}=publicExample;
+    const chosen=query.get('path');
+    manifestInput.value=JSON.stringify(manifest,null,2);lockText=JSON.stringify(lock);sampleOpen=true;
+    changed();clearTimeout(timer);render(true);
+    const copy=availableCopies.find(item=>item.path===chosen);
+    if (copy) {
+      $('tree-query').value=copy.name;findCopies();$('tree-copies').value=chosen;showCopy();
+      const graph=LabLockGraph.build(lock.packages,manifest), edge=graph.parents.get(chosen);
+      const owner=edge?.owner || '';
+      const root=manifest.name || t('проект','project');
+      const parentName=owner.split('node_modules/').at(-1);
+      const parent=owner ? parentName+'@'+lock.packages[owner].version : root;
+      const override=owner && (manifest.overrides?.[parent] || manifest.overrides?.[parentName])?.[copy.name];
+      $('lesson-parent').textContent=edge ? parent+' → '+copy.name+'@'+edge.range+' · '+t('в lock-файле ','locked ')+copy.label+
+        (override ? ' · override '+override : '') : copy.label;
+      $('lesson-proof').textContent=chosen+'\n'+commandFor(chosen);
+      $('lesson-copy').hidden=false;$('network-panel').hidden=true;
+      $('lesson-map').onclick=()=>{$('network-panel').hidden=false;$('network-panel').scrollIntoView({block:'start'});};
+    }
+  } else if (query.get('own') === '1' || !['react','dom','yarn'].some(key=>query.has(key))) {
     manifestInput.value = ''; lockText = '';
     $('tree-netbox').hidden = true;
     manifestInput.placeholder = '{"dependencies": {"react": "^18.2.0"}}';

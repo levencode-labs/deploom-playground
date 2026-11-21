@@ -16,7 +16,42 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="We updated one copy. Where is the other one?">Обновили библиотеку. Откуда в проекте вторая копия старой версии?</h1>
+    <h1 data-en="The lockfile has the patched version. Why did a CSS selector break after an override?">В lock-файле исправленная версия. Почему после override сломался CSS-селектор?</h1>
+    <p data-en="You’re reviewing a fix for nth-check. Your app uses it indirectly, when its SVG optimizer selects elements. Is a successful install enough to approve this change?">Вы ревьюите исправление для nth-check. Приложение использует библиотеку косвенно, когда инструмент обработки SVG ищет элементы. Достаточно ли для ревью успешной установки?</p>
+    <details><summary data-en="Where the proposed fix came from">Откуда взялось предложение</summary>
+      <p data-en="The Create React App issue reported this dependency chain.">В отчёте о Create React App указана такая цепочка.</p>
+      <p><code>react-scripts@5.0.1 → @svgr/webpack@5.5.0 → @svgr/plugin-svgo@5.5.0 → svgo@1.3.2 → css-select@2.1.0 → nth-check@1.0.2</code></p>
+      <p data-en="A commenter suggested forcing nth-check to 2.1.1 across the project. We try a narrower override under css-select@2.1.0. The lab installs the final pair and its dependencies.">В комментарии предложили закрепить nth-check на 2.1.1 во всём проекте. В лаборатории проверяем более узкую правку — только для css-select@2.1.0. Ставим последние два пакета цепочки и их зависимости.</p>
+      <a href="https://github.com/react/create-react-app/issues/13062" data-en="Original report">Исходный отчёт</a> · <a href="https://github.com/react/create-react-app/issues/13062#issuecomment-1472333611" data-en="Comment proposing 2.1.1">Совет из комментария</a> · <a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides" data-en="npm override rules">Как npm применяет overrides</a>
+    </details>
+    <section class="panel selector-lab">
+      <fieldset class="choice"><legend data-en="Which revision are you reviewing?">Какую правку смотрим?</legend>
+        <label><input type="radio" name="revision" value="base"><span data-en="Original pair">Исходная пара</span></label>
+        <label><input type="radio" name="revision" value="override" checked><span data-en="Override nth-check">Закрепить nth-check</span></label>
+        <label><input type="radio" name="revision" value="parent"><span data-en="Update css-select">Обновить css-select</span></label>
+      </fieldset>
+      <pre id="revision-code"></pre>
+      <p data-en="An SVG has two sibling rectangles. Its optimizer calls css-select.selectAll with rect:nth-child(2). Predict what the caller gets.">В SVG два соседних прямоугольника. Инструмент передаёт их в css-select.selectAll с условием rect:nth-child(2). Как думаете, что получит вызывающий код?</p>
+      <fieldset class="choice"><legend data-en="My prediction">Мой прогноз</legend>
+        <label><input type="radio" name="prediction" value="second"><span data-en="Just the second rectangle">Только второй прямоугольник</span></label>
+        <label><input type="radio" name="prediction" value="empty"><span data-en="No rectangles">Ни одного</span></label>
+        <label><input type="radio" name="prediction" value="error"><span data-en="An exception">Исключение</span></label></fieldset>
+      <button class="button" id="reveal" type="button" disabled data-en="Check my prediction">Проверить прогноз</button>
+      <section id="selector-result" hidden aria-live="polite" tabindex="-1">
+        <h2 id="actual-heading"></h2><div class="rect-stage" aria-hidden="true"><span>rect 1</span><span id="rect-two">rect 2</span></div>
+        <div class="review-facts"><div><strong data-en="Resolved in the lock">Версия в lock-файле</strong><code id="actual-lock"></code></div>
+          <div><strong>GHSA-rp65-9cf3-cjxr</strong><span id="actual-advisory"></span></div>
+          <div><strong>rect:nth-child(2)</strong><code id="actual-call"></code></div></div>
+        <p id="actual-install"></p><p id="actual-why"></p>
+        <details><summary data-en="See the published code behind the exception">Открыть фрагменты кода, объясняющие ошибку</summary><div id="published-code"></div></details>
+        <p><a id="selector-compare" data-en="What changed?">Что поменялось?</a> · <a id="selector-tree" data-en="Who brought in this copy?">Кто привёл эту копию?</a> · <a id="selector-audit" data-en="Check this version">Проверить эту версию</a></p>
+        <p><a id="selector-plan" data-en="Plan an update of the parent package">Проверить план обновления родительского пакета</a></p>
+        <p class="hint"><a href="https://github.com/advisories/GHSA-rp65-9cf3-cjxr" data-en="Affected range in the advisory">Диапазон в advisory</a> · <a href="https://github.com/levencode-labs/deploom-playground/blob/main/tests/selector-replay.cjs" data-en="Replay the clean installs and selector test">Воспроизвести установки и тест селектора</a></p>
+        <h3 data-en="In your own review">В своём MR</h3>
+        <p data-en="Run npm explain for this copy. Check what its parent calls, then exercise that operation on a real input. For CRA, find a compatible SVG tool higher up the chain and build one of the app’s SVGs. This fixture covers the library pair only.">Запустите npm explain для этой копии. Посмотрите, какую функцию вызывает родитель, и проверьте её на настоящем входе. Для CRA предстоит подобрать совместимый инструмент выше по цепочке и собрать SVG приложения. Здесь проверена только пара библиотек.</p><pre id="selector-command"></pre>
+      </section>
+    </section>
+    <details id="copies-case" class="panel"><summary data-en="What if there are two copies?">А если копий две?</summary>
     <p data-en="A dependency check flags shared-utils 1.2.3. Your team never added it directly. The UI components and the build tool each installed their own copy. Update the copy used by the components, then click the remaining 1.2.3 to find out who still needs it. The packages in this exercise are fictional.">В отчёте сборки попросили обновить shared-utils 1.2.3 из-за уязвимости. Вы её вообще не добавляли. Оказывается, библиотека кнопок (ui-kit) и инструмент сборки (build-tool) установили по своей копии. Обновите ту, которой пользуются кнопки. Затем нажмите на оставшуюся 1.2.3 и найдите, откуда она взялась. Пакеты в примере учебные.</p>
     <div class="lesson-nav"><button id="override-next" type="button"></button></div>
     <details><summary data-en="Choose a revision">Выбрать ревизию</summary><fieldset class="choice">
@@ -30,6 +65,7 @@
     </section>
     <section class="panel verdict" id="who-brought-it" aria-live="polite" aria-atomic="true">
       <h2 id="parent-title"></h2><p id="parent-reason"></p><pre id="copy-path"></pre>
+      <p><a id="nested-tree" data-en="Who brought in this copy?">Кто привёл эту копию?</a> · <a id="nested-compare" data-en="What changed?">Что поменялось?</a></p>
       <p class="hint" data-en="Source — teaching packages and the recorded nested npm install.">Источник — учебные пакеты и запись установки npm в режиме nested.</p>
     </section>
     <section class="panel">
@@ -40,9 +76,11 @@
       <a href="https://docs.npmjs.com/cli/v11/commands/npm-explain/">npm explain</a> ·
       <a href="https://github.com/levencode-labs/deploom-playground/blob/main/tests/npm-pr-fixture.cjs" data-en="Reproduce these trees">Воспроизвести эти деревья</a>
     </section>
+    </details>
   </main>
   <script src="nav.js"></script>
   <script src="lock-samples.js"></script>
+  <script src="vendor/semver.js"></script><script src="selector-data.js"></script><script src="review-example.js"></script><script src="selector-lesson.js"></script>
   <script src="pr-cases.js"></script>
 </body>
 </html>

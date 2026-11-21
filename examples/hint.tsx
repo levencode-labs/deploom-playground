@@ -17,7 +17,11 @@ function HintLesson() {
   const [visible,setVisible]=React.useState(false);
   React.useEffect(()=>{
     if(!anchor)return;
-    const show=()=>setVisible(true), hide=()=>setVisible(false);
+    const show=()=>setVisible(true);
+    const hide=(event:Event)=>{
+      // A tap may synthesize mouseleave while the button still has focus.
+      if(event.type==='blur' || document.activeElement!==anchor) setVisible(false);
+    };
     for(const event of ['mouseenter','focus','click']) anchor.addEventListener(event,show);
     for(const event of ['mouseleave','blur']) anchor.addEventListener(event,hide);
     return ()=>{

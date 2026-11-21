@@ -99,6 +99,7 @@
   async function load(source) {
     const revision=++generation;
     active?.abort();active=undefined;data=undefined;selected.clear();
+    $('one-advisory').href=Lab.urlFor('advisories.html');
     $('direct-report').hidden=true;$('inventory').hidden=true;$('parse-status').textContent='';$('audit-status').textContent='';
     try {
       const manifestFile=$('audit-manifest').files[0];
@@ -153,6 +154,14 @@
         e.message==='manifest' ? t('В первое поле нужен package.json проекта. Lock-файл останется во втором.','The first field expects the project package.json. Your lockfile stays in the second.') :
         t('Нужен yarn.lock (Classic или Berry) либо корневой npm lock-файл v3.','Use a Yarn Classic or Berry lock, or a root npm v3 lockfile.');
     }
+  }
+  if(ReviewExample.kind==='selector') {
+    const record=ReviewExample.fixture();
+    if(record) load(record.lock).then(()=>{
+      if($('audit-file').files.length || $('audit-manifest').files.length || !data) return;
+      $('audit-filter').value='nth-check';renderRows();
+      $('one-advisory').href=ReviewExample.link('advisories.html','selector',ReviewExample.revision,record.nthPath);
+    });
   }
   $('sample').addEventListener('click',()=>{ $('audit-file').value='';$('audit-manifest').value='';load(example); });
   for(const id of ['audit-file','audit-manifest']) $(id).addEventListener('change',()=>load($('audit-file').files[0]));

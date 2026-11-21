@@ -25,6 +25,7 @@
         <label class="field">package-lock.json v3 / yarn.lock<input id="audit-file" type="file" accept=".json,.lock"></label>
       </div>
       <div class="audit-actions"><button type="button" class="button" id="sample" data-en="Load example lockfile">Загрузить учебный lock-файл</button></div>
+      <p><a id="one-advisory" href="advisories.html" data-en="Look up one package in OSV">Посмотреть одну версию в OSV</a></p>
       <p id="parse-status" role="status"></p>
     </section>
     <section class="panel" id="inventory" hidden>
@@ -57,6 +58,7 @@
 <script src="yarn-lock.js"></script>
 <script src="drop-files.js" defer></script>
   <script src="audit-model.js"></script>
+  <script src="selector-data.js"></script><script src="review-example.js"></script>
   <script src="audit.js"></script>
 </body>
 </html>

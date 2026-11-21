@@ -16,6 +16,12 @@
       resolved:'https://registry.npmjs.org/' + name + '/-/' + name + '-18.2.0.tgz'};
   }
   const sample = {lockfileVersion:3,packages};
+  const params = new URLSearchParams(location.search);
+  const lessonRevision = params.get('revision');
+  const webpackLesson = params.get('example')==='webpack' ? LabWebpack.planner(lessonRevision) : null;
+  const selectorLesson = ReviewExample.kind==='selector' ? ReviewExample.fixture() : null;
+  const lesson = webpackLesson || selectorLesson;
+  const initialTargets = webpackLesson?.targets || (selectorLesson ? {'css-select':'4.3.0'} : {'react-dom':'18.3.1'});
   let active, revision = 0;
 
   function reset() {
@@ -29,6 +35,21 @@
   const lockFile = () => el('lock-file').files[0];
   const demo = () => !manifestFile() && !lockFile();
   function caption() {
+    if (selectorLesson && demo()) {
+      el('project').textContent = t('Версии в выбранной ревизии · ','Versions in this revision · ')+
+        'css-select@'+selectorLesson.cssVersion+' → nth-check@'+selectorLesson.nthVersion+
+        t('. Здесь проверяются известные peer-требования к корневой цели css-select@4.3.0. Вызов селектора проверяется отдельно в уроке.',
+          '. This checks known peer requirements for the root target css-select@4.3.0. The lesson tests the actual selector call separately.');
+      return;
+    }
+    if (webpackLesson && demo()) {
+      el('project').textContent = lessonRevision==='merged'
+        ? t('Слияние двух MR. Общий lock-файл не собрался. Проверяем цели из двух веток по версиям и требованиям UI-ветки.',
+            'Merged MRs. npm could not produce a merged lockfile. Check both branches’ targets against the UI branch versions and requirements.')
+        : t('Исправленная ревизия. Проверяем переход с версий UI-ветки на webpack 5 и CSS-плагин 2.9.0.',
+            'Fixed revision. Check the change from the UI branch to webpack 5 and CSS plugin 2.9.0.');
+      return;
+    }
     el('project').textContent = demo() ?
       t('Сейчас открыт пример с React 18.2.0. Чтобы взять свой проект, выберите оба файла.','The React 18.2.0 example is open. Select both files to use your project.') :
       t('Выбранные файлы читаются только в браузере.','Selected files are read only in this browser.');
@@ -42,7 +63,7 @@
   }
   async function choosePackages() {
     const file=manifestFile();
-    let man=manifest;
+    let man=lesson?.manifest || manifest;
     if(file) {
       try { man=file.size<=20*1024*1024 ? JSON.parse(await file.text()) : {}; } catch { man={}; }
       if(file!==manifestFile()) return;
@@ -71,7 +92,7 @@
   async function calculate() {
     reset(); const current = revision;
     try {
-      let man = manifest, lock = sample;
+      let man = lesson?.manifest || manifest, lock = lesson?.lock || sample;
       if (!demo()) {
         const files = [manifestFile(),lockFile()];
         if (!files.every(Boolean)) throw Error('files');
@@ -81,7 +102,11 @@
       if (current !== revision) return;
       const yarn = LabYarn.format(lock.packages);
       const changes = LabPlan.read(man,lock,JSON.parse(el('targets').value));
-      const evidence = new Map(metadata);
+      const evidence = new Map(webpackLesson && demo() ? LabWebpack.records : metadata);
+      if (selectorLesson && demo()) {
+        const target = SelectorLab.cases.parent;
+        evidence.set('css-select@'+target.cssVersion,target.lock.packages[target.cssPath]);
+      }
       const fromLock = new Set();
       const byName = new Map(changes.filter(c=>c.publicRegistry).map(c=>[c.name,c]));
       for (const [path,record] of Object.entries(lock.packages)) {
@@ -119,6 +144,14 @@
         t('В проверенных требованиях конфликтов нет','No conflicts in the checked requirements'));
       if(notFound.length) add('p',notFound.map(c=>c.name+'@'+c.target).join(', ')+t(' · npmjs вернул 404. Уточните версию в цели. Для внутренней сборки загрузите её package.json.',' · npmjs returned 404. Edit the target version, or supply its package.json for an internal build.'));
 
+      if (missing.length) {
+        const supply = add('button',t('Добавить package.json нужной версии с диска','Supply the target package.json from disk'));
+        supply.type = 'button';
+        supply.onclick = () => {
+          document.getElementById('local-metadata').open = true;
+          document.getElementById('meta-files').focus();
+        };
+      }
       for(const item of notFound) {
         const link=add('a',t('Посмотреть опубликованные версии ','See published releases of ')+item.name);
         link.href='https://www.npmjs.com/package/'+item.name+'?activeTab=versions';
@@ -140,7 +173,10 @@
       for (const [rows,mark] of [[result.issues,'✗'],[result.checks,'✓']]) {
         for (const row of rows.slice(0,100)) {
           const li = document.createElement('li');
-          li.textContent = mark + ' ' + row.path + ' → peer ' + row.name + '@' + row.range + ' · ' + (row.version || t('нет провайдера','missing provider'));
+          const consumer = lesson && demo() && row.path.startsWith('node_modules/')
+            ? row.path.slice('node_modules/'.length) : null;
+          const owner = consumer ? consumer + '@' + (changes.find(c=>c.name===consumer)?.target || lock.packages[row.path].version) : row.path;
+          li.textContent = mark + ' ' + owner + ' → peer ' + row.name + '@' + row.range + ' · ' + (row.version || t('нет провайдера','missing provider'));
           lines.append(li);
         }
       }
@@ -151,7 +187,7 @@
         for(const path of result.unknown){const li=document.createElement('li');li.textContent=path;list.append(li);}
         detail.append(summary,list);
       }
-      const sources = new Set([demo() ? t('учебный lock-файл','sample lockfile') : t('ваши package.json и lock-файл','your package.json and lockfile')]);
+      const sources = new Set([selectorLesson && demo() ? t('сохранённый lock-файл этой ревизии и запись css-select@4.3.0 из lock-файла новой пары','the selected revision’s saved lockfile and the css-select@4.3.0 entry in the new pair’s lockfile') : webpackLesson && demo() ? t('прямые зависимости из lock-файла UI-ветки и сохранённые требования целевых пакетов','direct UI-branch lock entries and saved target package requirements') : demo() ? t('учебный lock-файл','sample lockfile') : t('ваши package.json и lock-файл','your package.json and lockfile')]);
       if (confirmed.size) sources.add(t('метаданные выбранных версий из npmjs','npmjs metadata for selected releases'));
       if (uploaded.size) sources.add(t('загруженные манифесты целевых версий','uploaded target manifests'));
       for (const {name,target,record,publicRegistry} of changes) {
@@ -159,6 +195,10 @@
         if (publicRegistry && !local.has(key) && !fromLock.has(key) && record.version !== target && metadata.has(key)) sources.add(recorded.has(key) ? t('сохранённые требования React из npm','saved React metadata from npm') : t('ответ npm для целевой версии','npm response for target version'));
       }
       add('p',t('Источник — ','Source — ') + [...sources].join(', ') + '.').className = 'hint';
+      if (selectorLesson && demo()) {
+        add('a',t('Проверить селектор в этой ревизии','Test the selector in this revision')).href =
+          ReviewExample.link('override.html','selector',ReviewExample.revision);
+      }
       if (result.issues.length) add('p',t('Посмотрите на диапазон после peer. Добавьте совместимую версию соседа в цель либо пересмотрите исходное обновление.','Look at the range after peer. Add a compatible neighbour version to the targets or reconsider the original upgrade.'));
       const suggested = new Set();
       for (const row of result.issues) {
@@ -239,8 +279,12 @@
   });
   el('sample').onclick = () => {
     confirmed.clear();absent.clear();el('manifest-file').value = ''; el('lock-file').value = ''; el('meta-files').value = '';
-    el('targets').value = '{"react-dom": "18.3.1"}'; el('batch-goals').open=false;choosePackages();caption();calculate();
+    el('targets').value = JSON.stringify(initialTargets,null,2); el('batch-goals').open=false;choosePackages();caption();calculate();
   };
   el('make-plan').onclick = calculate;
+  if (lesson) {
+    el('targets').value=JSON.stringify(initialTargets,null,2);
+    el('sample').textContent=t('Вернуть учебную ревизию','Restore the example revision');
+  }
   choosePackages();caption();calculate();
 })();

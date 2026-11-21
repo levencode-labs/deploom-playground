@@ -10,7 +10,8 @@
   const state = {before:null, after:null};
   const reads = {before:0, after:0};
   const sourceErrors = {before:'',after:''};
-  let example = true;
+  let example = true, lesson=null, focusPath='', rootEdits=[];
+  const params=new URLSearchParams(location.search);
   let changes = [];
   let graphs;
   let selected = '';
@@ -75,6 +76,12 @@
     if (!row) return;
     selected = row.path;
     byId('path').textContent = selected;
+    const treeLink=byId('copy-tree');
+    const preferred=lesson && lesson.before===ReviewExample.revision?'before':'after';
+    const side=lesson && (Object.hasOwn(state[preferred].lock.packages,selected) ? preferred : preferred==='after'?'before':'after');
+    treeLink.hidden=!side || !['selector','copies'].includes(lesson.kind);
+    if (!treeLink.hidden) treeLink.href=ReviewExample.link('tree.html',lesson.kind,lesson[side],selected);
+    if (lesson && ['selector','copies'].includes(lesson.kind) && selected && (Object.hasOwn(state.before.lock.packages,selected)||Object.hasOwn(state.after.lock.packages,selected))) Lab.setExampleState({path:selected});
     sideDetail(byId('old-side'),'before',row);
     sideDetail(byId('new-side'),'after',row);
     for (const button of byId('changes').querySelectorAll('button')) {
@@ -108,12 +115,18 @@
     byId('empty').hidden = visible.length > 0;
     byId('empty').textContent = changes.length
       ? t('По этим условиям записей нет.','No entries match these filters.')
-      : t('Записи lock-файлов совпадают.','All lockfile entries match.');
+      : rootEdits.length ? '' : t('Установленные копии совпадают.','Installed copies match.');
     byId('pagination').hidden = filtered.length <= pageSize;
     byId('prev').disabled = start === 0;
     byId('next').disabled = start + pageSize >= filtered.length;
     byId('range').textContent = (start+1)+'–'+Math.min(start+pageSize,filtered.length)+' / '+filtered.length;
-    showSelection(visible.find(row => row.path === selected) || visible[0]);
+    let row=visible.find(row => row.path === selected) || visible[0];
+    if (focusPath && !query && !kind) {
+      const known=sides.every(side=>Object.hasOwn(state[side].lock.packages,focusPath));
+      row=changes.find(r=>r.path===focusPath) || (known ? {path:focusPath,type:'unchanged',fields:[]} : row);
+      focusPath='';
+    }
+    showSelection(row);
   }
   function refresh() {
     const report = byId('report');
@@ -136,6 +149,7 @@
         return;
       }
       changes = comparePackageLocks(before,after);
+      rootEdits=comparePackageLocks.rootRequirements(before,after);
       graphs = {};
       for (const side of sides) {
         const pkgs=state[side].lock.packages;
@@ -151,6 +165,10 @@
       message.textContent = t('Нужны два корректных корневых package-lock.json версии 3 с разделом packages.', 'Supply two valid root npm v3 lockfiles with a packages section.');
       return;
     }
+    byId('root-verdict').hidden=byId('root-lines').hidden=!rootEdits.length;
+    byId('root-verdict').textContent=changes.length?t('Изменились требования корня и записи пакетов.','Root requirements and package entries changed.'):
+      t('Изменилось требование корня. Установленные копии совпадают.','The root requirement changed. Installed copies match.');
+    byId('root-lines').textContent=rootEdits.map(r=>['− '+r.section+'.'+r.name+'  '+(r.before??'—'),'+ '+r.section+'.'+r.name+'  '+(r.after??'—')].join('\n')).join('\n');
     const counts = {added:0, removed:0, changed:0};
     for (const row of changes) counts[row.type]++;
     const summary = byId('counts');
@@ -166,24 +184,42 @@
     byId('query').value = '';
     byId('kind').value = '';
     byId('details').setAttribute('aria-label',t('Детали записи','Entry details'));
-    selected = '';
+    selected = focusPath;
     page = 0;
     report.hidden = false;
     renderList();
   }
-  function useExample() {
-    example = true;
+  function useExample(fromLink=false) {
+    example = true;lesson=null;focusPath='';
+    let pair=LabSamples, names=null;
+    if (fromLink===true) {
+      const {kind,revision,fixture}=ReviewExample, sample=fixture();
+      if(sample) {
+        const base=kind==='selector'?'base':'before';
+        const after=revision===base?(kind==='selector'?'override':'after'):revision;
+        lesson={kind,before:base,after};
+        pair={before:fixture(kind,base).lock,after:fixture(kind,after).lock};
+        names=[base,after];
+        focusPath=params.get('path') || (kind==='selector'?sample.nthPath:'');
+      } else if(kind==='rollup') {
+        pair=RollupLab;names=['Rollup · 18','Rollup · 1'];
+        focusPath='node_modules/@rollup/rollup-linux-x64-'+(params.get('focus')==='linux-musl'?'musl':'gnu');
+      } else if(kind==='root-range') {
+        const sample=range=>({lockfileVersion:3,packages:{'':{dependencies:{lib:range}},'node_modules/lib':{version:'1.2.3'}}});
+        pair={before:sample('^1.0.0'),after:sample('~1.2.0')};
+      }
+    }
     for (const side of sides) {
       sourceErrors[side] = '';
       reads[side]++;
       byId(side).value = '';
-      state[side] = {lock:window.LabSamples[side], name: side==='before' ? t('Пример до обновления','Example before update') : t('Пример после обновления','Example after update')};
+      state[side] = {lock:pair[side], name: names ? names[sides.indexOf(side)] : side==='before' ? t('Пример до обновления','Example before update') : t('Пример после обновления','Example after update')};
     }
     refresh();
   }
   async function read(side) {
     if (example) {
-      example = false;
+      example = false;lesson=null;focusPath='';
       state.before = state.after = null;
     }
     const generation = ++reads[side];
@@ -212,5 +248,5 @@
   byId('prev').addEventListener('click',()=>{page--; renderList();});
   byId('next').addEventListener('click',()=>{page++; renderList();});
   for (const [id,event] of [['query','input'],['kind','change']]) byId(id).addEventListener(event,()=>{page=0; renderList();});
-  useExample();
+  useExample(true);
 })();

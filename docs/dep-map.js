@@ -18,7 +18,7 @@
   }
   el('zoom-in').onclick=()=>{zoom=Math.min(1.6,zoom+.2);resize();};
   el('zoom-out').onclick=()=>{zoom=Math.max(.4,zoom-.2);resize();};
-  function render(graph,manifest,conflictsOnly){
+  function render(graph,manifest,conflictsOnly,commandFor){
     svg.replaceChildren();el('network-info').replaceChildren();el('network-panel').hidden=!graph;
     if(!graph)return;
     const root={key:'',name:manifest.name||t('Проект','Project'),version:manifest.mapSource || 'package.json',depth:0};
@@ -79,7 +79,7 @@
     function select(key){
       selected=key;const n=nodes.get(key);info.replaceChildren();
       const title=document.createElement('strong');title.textContent=n.name+' · '+n.version;info.append(title);
-      const adjacent=edges.filter(e=>e.from===key||e.to===key);
+      const adjacent=edges.filter(e=>e.to===key).concat(edges.filter(e=>e.from===key&&e.to!==key));
       for(const node of nodes.values())node.g.setAttribute('aria-pressed',String(node.key===key));
       for(const edge of edges)edge.line.classList.toggle('active',adjacent.includes(edge));
       const list=document.createElement('ul');
@@ -89,6 +89,8 @@
           (entry.state==='bad'?t(' · конфликт',' · conflict'):'');list.append(li);
       }
       info.append(list);
+      const command=commandFor?.(key);
+      if(command) {const pre=document.createElement('pre');pre.textContent=command;info.append(pre);}
       if(adjacent.length>12)info.append(t('Показаны первые 12 связей.','Showing the first 12 edges.'));
     }
     for(const n of nodes.values()){

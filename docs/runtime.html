@@ -12,7 +12,15 @@
   <main>
 <h1 data-en="The status is still there. Why did its hint disappear after the upgrade?">Статус на месте. Куда после обновления делась подсказка?</h1>
 <p data-en="A team discovered this after moving to React 19. The status icon still rendered. Only when someone hovered it did they notice that the explanation was gone. Try the reduced example below.">После перехода на React 19 команда заметила это уже при использовании приложения. Иконка статуса осталась на месте. Человек навёл на неё мышь, чтобы узнать подробности, и ничего не произошло. Ниже можно повторить этот момент.</p>
-<section class="panel"><h2 data-en="Try to read the hint">Попробуйте прочитать подсказку</h2><div id="hint-mount"></div>
+<section class="panel"><h2 data-en="Which test would catch the missing hint?">Какой тест заметит пропавшую подсказку?</h2>
+<form id="hint-test"><fieldset class="choice">
+  <legend data-en="Choose what your test will check">Выберите, что должен проверить тест</legend>
+  <label><input type="radio" name="assertion" value="status"><span data-en="The status “Pending review” is visible">Виден статус «На проверке»</span></label>
+  <label><input type="radio" name="assertion" value="hint"><span data-en="The explanation “Waiting for a reviewer” appears">Появилось пояснение «Ожидает проверки коллегой»</span></label>
+</fieldset></form>
+<p data-en="Compare the result before and after passing the ref to the button.">Сравните результат до и после передачи ref кнопке.</p>
+<div id="hint-mount"></div>
+<p id="hint-observation" role="status" aria-live="polite" aria-atomic="true"></p>
 <p class="hint" data-en="Source — this reduced component runs in your browser with React 19.0.0. Both variants pass strict TypeScript.">Источник — упрощённый компонент, который работает прямо в браузере на React 19.0.0. Оба варианта проходят строгую проверку TypeScript.</p></section>
 <section class="notes"><h2 data-en="What should I take into my PR?">Какую проверку взять в свой PR?</h2>
 <p data-en="A ref gives the hint a reference to a real element. TypeScript allows a component to receive a ref without attaching it. Add an interaction test: hover the status, then assert that the explanatory text is visible.">Через ref подсказка получает ссылку на элемент страницы. Компонент может принять ref и забыть передать его кнопке — оба варианта допустимы для TypeScript. В тесте наведите мышь на статус и дождитесь текста подсказки. Проверка одной иконки эту ошибку пропустит.</p>
@@ -31,5 +39,6 @@
   <script src="nav.js"></script>
   <script src="experiments.js"></script>
   <script src="hint-demo.js"></script>
+  <script src="hint-check.js"></script>
 </body>
 </html>

@@ -1,21 +1,15 @@
 'use strict';
 (() => {
-  const versions={
-    'css-loader':{'3.6.0':'^4.0.0 || ^5.0.0','6.11.0':'^5.0.0'},
-    'webpack-cli':{'3.3.12':'4.x.x','4.10.0':'4.x.x || 5.x.x'},
-    'mini-css-extract-plugin':{'0.9.0':'^4.4.0','2.9.0':'^5.0.0'}
-  };
-  const base={webpack:'4.47.0','css-loader':'3.6.0','webpack-cli':'3.3.12'};
-  const build={webpack:'5.91.0','css-loader':'6.11.0','webpack-cli':'4.10.0'};
-  const ui={'mini-css-extract-plugin':'0.9.0'};
-  const merged={...build,...ui};
-  const fixed={...build,'mini-css-extract-plugin':'2.9.0'};
+  const {versions,base,build,ui,merged,fixed} = typeof module==='object' && module.exports
+    ? require('./webpack-data') : LabWebpack;
   const mergeError='npm error code ERESOLVE\nnpm error Found: webpack@5.91.0\nnpm error peer webpack@"^4.4.0" from mini-css-extract-plugin@0.9.0';
   function conflicts(snapshot,semver=treeSemver){
     return Object.entries(snapshot).filter(([name,version])=>versions[name] && !semver.satisfies(snapshot.webpack,versions[name][version]));
   }
   if(typeof module==='object' && module.exports){module.exports={versions,base,build,ui,conflicts};return;}
   const {t}=Lab, el=id=>document.getElementById(id);
+  const buildRecord = 'webpack 5.91.0 · page.css\n.review-status { color: #1456a1; }';
+  const plannerUrl = revision => Lab.urlFor('plan.html?example=webpack&revision='+revision+'#plan-output');
   // Recorded with DepLoom Core 9d1b01d, plan_workspace_upgrade, on the UI branch lock.
   // Goal: webpack 5.91.0. Candidates are the two lesson releases per mutable package.
   function showCorePlan(visible) {
@@ -63,7 +57,7 @@
     const report = el('merge-report');
     const labels = {
       ready: 'Merge',
-      merged: t('Проверить установку по плану', 'Check the planned versions'),
+      merged: t('Обновить плагин и собрать страницу', 'Update the plugin and build the page'),
       fixed: t('Вернуться к двум MR', 'Reset to the two MRs'),
     };
     let state = ['merged','fixed'].includes(params.get('merge')) ? params.get('merge') : 'ready';
@@ -76,20 +70,23 @@
       const step = {ready:0,merged:3,fixed:4}[state];
       el('merge-detail').href = Lab.urlFor('combinations.html?step=' + step);
       showCorePlan(state !== 'ready');
+      el('webpack-planner').hidden = report.hidden;
       if (report.hidden) return;
+      el('webpack-planner').href = plannerUrl(state);
+      el('css-proof').hidden = state!=='fixed';
       const snapshot = state === 'merged' ? merged : fixed;
       const blocked = conflicts(snapshot).length > 0;
       report.dataset.status = blocked ? 'fail' : 'pass';
       el('merge-heading').textContent = blocked
         ? t('Git объединил изменения. npm остановился.', 'Git merged the changes. npm stopped.')
-        : t('npm собрал lock-файл для плана DepLoom', 'npm resolved the lockfile for DepLoom’s plan');
+        : t('Исправленная сборка выпустила стили страницы', 'The fixed build emitted the page stylesheet');
       el('merge-evidence').textContent = blocked ? mergeError :
-        plugin + '@' + fixed[plugin] + ' → webpack ' + versions[plugin][fixed[plugin]] + ' · ✓ ' + fixed.webpack + '\nnpm · exit 0';
+        buildRecord;
       el('merge-lesson').textContent = blocked
         ? t('В сборке теперь webpack 5, а плагин из UI-ветки требует webpack 4. Ниже — план DepLoom на тот момент, когда обе ветки ещё можно было изменить.',
             'The merged build uses webpack 5, but the UI plugin needs webpack 4. Below is DepLoom’s plan from the point when both branches could still change.')
-        : t('Плагин 2.9.0 принимает webpack 5. Следующая проверка в проекте — собрать страницу и убедиться, что стили попали в CSS-файл.',
-            'Plugin 2.9.0 accepts webpack 5. Next, build the page and check that the stylesheet is emitted.');
+        : t('В объединённой ветке сохранили css-loader 6.11.0 и подняли плагин до 2.9.0. После npm ci тест собрал страницу, открыл указанный в HTML файл page.css и нашёл правило для .review-status.',
+            'The merged branch kept css-loader 6.11.0 and upgraded the plugin to 2.9.0. After npm ci, the test built the page, read the page.css linked by the HTML and found the .review-status rule.');
     }
     action.addEventListener('click', () => {
       state = {ready:'merged',merged:'fixed',fixed:'ready'}[state];
@@ -105,7 +102,7 @@
     [build,t('MR сборки · новый css-loader','Tooling MR · upgrade css-loader'),t('Чтобы взять css-loader 6, нужен webpack 5. Прежний webpack-cli 3 запускал только webpack 4. Поэтому в этом MR обновили сразу три пакета.','css-loader 6 needs webpack 5. The old webpack-cli 3 requires webpack 4, so the developer updates three packages in this branch.'),t('Посмотреть отдельный UI MR →','Inspect the separate UI branch →')],
     [{...base,...ui},t('UI MR · вынести стили','UI MR · extract a stylesheet'),t('У второго разработчика всё ещё исходный webpack 4. Для новой страницы он добавил mini-css-extract-plugin. В его ветке диапазон плагина выполняется.','The other developer still has webpack 4 from the common commit. They add mini-css-extract-plugin for a new page. Its requirement is satisfied in this branch.'),t('Объединить обе ветки →','Merge the branches →')],
     [merged,t('После слияния','After the merge'),t('Из первой ветки приехал webpack 5, из второй — плагин для webpack 4. Разработчики меняли разные строки package.json. Git может их объединить, а менеджеру пакетов нужно ещё согласовать версии.','One branch brings webpack 5, the other brings a plugin that needs webpack 4. Git can merge separate manifest lines. The package manager must also reconcile the versions.'),t('Подобрать плагин для webpack 5 →','Try the plugin for webpack 5 →')],
-    [fixed,t('Проверка общей версии','Check the combined versions'),t('У плагина 2.9.0 нижняя граница уже на пятой ветке webpack. Обе задачи теперь помещаются в один план. Следующая проверка — собрать страницу и убедиться, что CSS попал в результат.','Plugin 2.9.0 accepts webpack 5. Both changes now fit the same plan. Next, build the page and check that the stylesheet is emitted.'),t('Пройти ещё раз','Start again')]
+    [fixed,t('Проверка общей версии','Check the combined versions'),t('У плагина 2.9.0 нижняя граница уже на пятой ветке webpack. Обе задачи теперь помещаются в один план. Собрали страницу с импортом style.css, открыли page.css, на который ссылается HTML, и проверили правило .review-status.','Plugin 2.9.0 accepts webpack 5. Both changes now fit the same plan. We built a page that imports style.css, opened the page.css referenced by the HTML and checked its .review-status rule.'),t('Пройти ещё раз','Start again')]
   ];
   const query=new URLSearchParams(location.search);
   let stage=Math.max(0,Math.min(4,Number(query.get('step') ?? (query.get('adapter')==='2'?4:0))||0));stage=Math.floor(stage);
@@ -124,7 +121,9 @@
       const at=Number(part.dataset.at);part.classList.toggle('visited',at<=stage);part.classList.toggle('current',at===stage);
     }
     el('npm-record').hidden=stage===0;
-    el('npm-record').textContent=stage===3?mergeError:
+    el('css-proof').hidden=stage!==4;
+    el('webpack-planner').href=plannerUrl(stage===4?'fixed':'merged');
+    el('npm-record').textContent=stage===3?mergeError:stage===4?buildRecord:
       t('Запись запуска npm · lock-файл построен · exit 0','Recorded npm run · lockfile resolved · exit 0');
     el('scene').dataset.status=bad.length?'fail':'pass';el('scene').classList.remove('step-enter');void el('scene').offsetWidth;el('scene').classList.add('step-enter');
     el('previous').disabled=!stage;el('next').textContent=next;el('takeaway').hidden=stage<3;

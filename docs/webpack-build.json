@@ -1,0 +1,25 @@
+{
+  "environment": {
+    "platform": "win32",
+    "node": "24.18.0",
+    "npm": "11.16.0"
+  },
+  "revision": "fixed",
+  "versions": {
+    "webpack": "5.91.0",
+    "webpack-cli": "4.10.0",
+    "css-loader": "6.11.0",
+    "mini-css-extract-plugin": "2.9.0"
+  },
+  "install": {
+    "command": "npm ci --ignore-scripts --no-audit --no-fund --strict-peer-deps",
+    "exitCode": 0
+  },
+  "check": {
+    "script": "tests/fixtures/webpack-css/verify.cjs",
+    "exitCode": 0,
+    "html": "index.html",
+    "linkedStylesheet": "page.css",
+    "emittedRule": ".review-status { color: #1456a1; }"
+  }
+}
