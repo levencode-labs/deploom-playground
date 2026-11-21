@@ -5,8 +5,7 @@
   const t = (ru, en) => lang === 'en' ? en : ru;
   const $ = id => document.getElementById(id);
   const manifestInput = $('tree-manifest');
-  let lockText = '', sampleOpen = false;
-  const fileInput = $('tree-file');
+  let lockText = '', sampleOpen = false, editorChanged = false;
   let parsedText, parsedLock, mapRootKey;
   const limit = { chars: 8_000_000, edges: 240, depth: 12 };
   const { groupKeys, usableName, declarations, lockedPackage } = LabLockGraph;
@@ -325,6 +324,12 @@
   }
 
   function showChoices(manifest) {
+    const hosted=LabRegistry.hostedAudit===true;
+    $('tree-local').hidden=true;
+    if(hosted){
+      $('tree-source-hint').textContent=t('Выбранные имена сравниваются на устройстве с общим снимком Nexus с этой страницы.','Selected names are matched on this device against the shared Nexus snapshot from this site.');
+      $('tree-load-meta').textContent=t('Проверить по снимку Nexus','Check the Nexus snapshot');
+    }
     const list = $('tree-registry-list');
     list.replaceChildren();
     const entries = [...eligible(manifest)];
@@ -339,7 +344,19 @@
     $('tree-load-meta').disabled = true;
   }
 
+  function clearOutput(message = '') {
+    graph = currentManifest = null;
+    $('tree-details').hidden = $('tree-netbox').hidden = true;
+    LabMap.render(null);
+    $('tree-error').textContent = message;
+    for (const id of ['tree-mode', 'tree-count', 'tree-graph', 'tree-limit']) $(id).replaceChildren();
+    lockPackages = explanationGraph = null;
+    availableCopies = [];
+    findCopies();
+  }
+
   function render(resetChoices) {
+    if (!manifestInput.value.trim() && !lockText.trim()) { clearOutput(); return; }
     graph = currentManifest = null;
     try {
       const packages = readLock();
@@ -369,14 +386,7 @@
       $('tree-details').hidden = false;
       drawTree();
     } catch (error) {
-      $('tree-details').hidden = true;
-      LabMap.render(null);
-      $('tree-error').textContent = error instanceof SyntaxError ? t('Проверьте синтаксис JSON в заполненных полях.', 'Check JSON syntax in both input fields.') : error.message;
-      for (const id of ['tree-mode', 'tree-count', 'tree-graph', 'tree-limit']) $(id).replaceChildren();
-      $('tree-netbox').hidden = true;
-      lockPackages = null;
-      availableCopies = []; explanationGraph = null;
-      findCopies();
+      clearOutput(error instanceof SyntaxError ? t('Проверьте синтаксис JSON в данных проекта.', 'Check the JSON syntax in the project files.') : error.message);
     }
   }
 
@@ -391,11 +401,12 @@
 
   function seed(reactVersion, domVersion = '18.3.1') {
     manifestInput.value = JSON.stringify({ name: 'react-demo', dependencies: { react: reactVersion, 'react-dom': domVersion } }, null, 2);
-    sampleOpen = true; lockText = ''; fileInput.value = ''; $('tree-manifest-file').value=''; $('tree-filter').checked = false;
+    sampleOpen = true; lockText = ''; $('tree-filter').checked = false;
     changed(); clearTimeout(timer); render(true);
   }
 
   async function getMetadata() {
+    const hosted=LabRegistry.hostedAudit===true;
     const available = eligible(currentManifest);
     const selected = [...$('tree-registry-list').querySelectorAll('input:checked')].map(x => available.get(x.value)).filter(Boolean);
     if (!selected.length || lockText.trim()) return;
@@ -407,6 +418,18 @@
     status.textContent = t('Запрашиваю выбранные версии…', 'Loading selected versions…');
     const received = new Map();
     const failures = [];
+    let source='';
+    $('tree-local').hidden=true;
+    if(hosted) {
+      try {
+        const snapshot=await LabRegistry.releases(controller.signal);
+        source=t('Снимок Nexus от ','Nexus snapshot dated ')+new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC. ';
+      } catch(e) {
+        if(request!==controller)return;
+        request=null;status.textContent=LabRegistry.message(e);$('tree-local').hidden=false;button.disabled=false;return;
+      }
+      if(request!==controller)return;
+    }
     let failureMessage = '';
     await Promise.all(selected.map(async edge => {
       const key = edge.name + '@' + edge.range;
@@ -416,61 +439,51 @@
         received.set(edge.name + '@' + record.version, record);
       } catch (error) {
         failures.push(key);
-        failureMessage ||= LabRegistry.message(error);
+        failureMessage ||= hosted && error.status===404 ? t('Записи нет в снимке.','No entry in the snapshot.') : LabRegistry.message(error);
       }
     }));
     if (request !== controller) return;
     for (const [key, record] of received) registry.set(key, record);
     request = null;
-    status.textContent = t('Загружено записей', 'Loaded records') + ' ' + received.size + '.' +
+    $('tree-local').hidden=!hosted || !failures.length;
+    status.textContent = source+t('Загружено записей', 'Loaded records') + ' ' + received.size + '.' +
       (failures.length ? ' ' + t('Недоступны', 'Unavailable') + ' — ' + failures.join(', ') + '. ' + failureMessage : '');
     button.disabled = !$('tree-registry-list').querySelector('input:checked');
     render(false);
   }
 
-  async function useFolder(selection) {
+  async function useProject(files) {
     const revision = ++projectRevision;
+    clearTimeout(timer);
+    request?.abort(); request = null;
     try {
-      const files = await selection;
-      if (!files || revision !== projectRevision) return;
-      if ([files.manifest, files.lock].some(file => file && file.size > limit.chars)) {
+      if ([files?.manifest, files?.lock].some(file => file && file.size > limit.chars)) {
         throw Error(t('Лимит каждого файла — 8 МБ.', 'Each file must be at most 8 MB.'));
       }
-      const [manifest, lock] = await Promise.all([files.manifest?.text(), files.lock?.text()]);
+      const [manifest, lock] = await Promise.all([files?.manifest?.text(), files?.lock?.text()]);
       if (revision !== projectRevision) return;
-      LabRegistry.setFile($('tree-manifest-file'), files.manifest);
-      LabRegistry.setFile(fileInput, files.lock);
+      const keepEdit = editorChanged && !sampleOpen && (files?.manifest || files?.lock) &&
+        (files.changedSlot === 'lock' || (!manifest && lock && !lockText && files.changedSlot !== 'manifest'));
+      if (!keepEdit) { manifestInput.value = manifest || ''; editorChanged = false; }
       sampleOpen = false;
       lockText = lock || '';
-      manifestInput.value = manifest || '';
       $('tree-query').value = '';
       $('tree-filter').checked = false;
       LabMap.render(null);
-      // This also invalidates any pending manifest read in the drag-and-drop handler.
-      manifestInput.dispatchEvent(new Event('input', {bubbles:true}));
-      clearTimeout(timer);
+      changed(); clearTimeout(timer);
       render(true);
     } catch (error) {
-      if (revision === projectRevision) $('tree-error').textContent = error.message;
+      if (revision !== projectRevision) return;
+      sampleOpen = editorChanged = false; lockText = ''; manifestInput.value = '';
+      changed(); clearTimeout(timer);
+      clearOutput(error.message);
     }
   }
-  window.addEventListener('lab-project', ({detail}) => useFolder(detail || {manifest:null,lock:null}));
-  $('tree-manifest-file').addEventListener('change', () => { projectRevision++; });
+  window.addEventListener('lab-project', ({detail}) => useProject(detail));
   manifestInput.addEventListener('input', () => {
-    if (sampleOpen) {lockText='';fileInput.value='';sampleOpen=false;}
+    editorChanged = true;
+    if (sampleOpen) {lockText='';sampleOpen=false;}
     changed();
-  });
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (sampleOpen) { manifestInput.value=''; sampleOpen=false; }
-    changed(); clearTimeout(timer);
-    lockText='';
-    try {
-      if (file?.size > limit.chars) throw Error(t('Лимит файла — 8 МБ.', 'File limit: 8 MB.'));
-      const text = file ? await file.text() : '';
-      if (fileInput.files[0] !== file) return;
-      lockText=text;render(true);
-    } catch (error) { if (fileInput.files[0] === file) {LabMap.render(null);$('tree-details').hidden=true;$('tree-error').textContent=error.message;} }
   });
   $('tree-broken').addEventListener('click', () => seed('18.2.0'));
   $('tree-fixed').addEventListener('click', () => seed('18.3.1'));
@@ -486,8 +499,7 @@
   $('tree-two-copies').addEventListener('click', () => {
     const sample = LabSamples.before;
     manifestInput.value = JSON.stringify(sample.packages[''], null, 2);
-    sampleOpen = true; lockText = JSON.stringify(sample); $('tree-manifest-file').value='';
-    $('tree-file').value = '';
+    sampleOpen = true; lockText = JSON.stringify(sample);
     $('tree-filter').checked = false;
     $('tree-query').value = 'shared-utils';
     changed(); clearTimeout(timer); render(true);
@@ -501,7 +513,7 @@
       lines.push(berry?'  resolution: "'+name+'@npm:'+version+'"':'  resolved "https://registry.yarnpkg.com/'+name+'/-/'+name+'-'+version+'.tgz"');
       if(name==='color-convert')lines.push('  dependencies:',berry?'    color-name: "npm:~1.1.4"':'    color-name "~1.1.4"');
     }
-    sampleOpen = true; $('tree-manifest-file').value=''; lockText=lines.join('\n')+'\n';$('tree-file').value='';$('tree-filter').checked=false;
+    sampleOpen = true; lockText=lines.join('\n')+'\n';$('tree-filter').checked=false;
     $('tree-query').value='color-name';changed();clearTimeout(timer);render(true);
   }
   for(const name of ['classic','berry'])$('yarn-'+name).onclick=()=>yarnSample(name==='berry');

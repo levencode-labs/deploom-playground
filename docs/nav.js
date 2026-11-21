@@ -38,7 +38,7 @@
   }
   const sections = [
     [t('Инструменты','Tools'), [
-      ['audit.html', t('Аудит проекта по папке','Audit a project folder')],
+      ['audit.html', t('Аудит зависимостей проекта','Project dependency audit')],
       ['plan.html', t('План для Yellow, Green или пакета','Plan for Yellow, Green, or a package')],
       ['compare.html', t('Сравнить lock-файлы','Compare lockfiles')],
       ['advisories.html', t('Уязвимости','Vulnerabilities')],

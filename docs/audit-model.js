@@ -76,7 +76,7 @@
     const registered = [];
     await pool(selected,4,async row=>{
       try {
-        if (!trusted || !row.publicOrigin) {
+        if (!trusted) {
           const doc=await LabRegistry.manifest(row.name,row.version,signal);
           if (doc.private === true) {row.note='missing';return;}
         }
@@ -96,11 +96,16 @@
           for(const entry of vulns) ids.add(entry.id);
           row.ids=[...ids];
           const token=page.next_page_token;
-          if (token===undefined || token==='') {row.state=ids.size?'found':'empty'; delete row.note;return;}
+          if (token===undefined || token==='') {
+            row.lookedUp=true;
+            row.state=ids.size?'found':trusted && !row.publicOrigin?'unknown':'empty';
+            if(row.state==='unknown')row.reason=Lab.t('Совпадений в OSV нет. Публичное происхождение версии не подтверждено.','No OSV matches. Public provenance of this version is unconfirmed.');
+            delete row.note;return;
+          }
           if(typeof token!=='string' || seen.has(token) || seen.size>=20) return;
           seen.add(token); requests.push({row,token,seen,ids});
         });
-      } catch(e) {for(const {row} of current) row.reason=LabRegistry.message(e);}
+      } catch(e) {for(const {row} of current) row.reason=LabRegistry.message(e);return e;}
     }
   }
 
@@ -124,7 +129,7 @@
         findings.set(id,{id,summary:r.title || '',href,...LabSeverity.rating(r)});
         if(!row.ids.includes(id)) row.ids.push(id);
       }
-      row.state=row.ids.length?'found':'empty';delete row.note;
+      row.lookedUp=true;row.state=row.ids.length?'found':'empty';delete row.note;
     }
   }
 

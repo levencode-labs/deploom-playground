@@ -249,11 +249,14 @@
     }
   }
   window.addEventListener('lab-project', ({detail}) => {
-    example=false; lesson=null; focusPath='';
-    for(const side of sides) {
-      reads[side]++; state[side]=null; sourceErrors[side]=''; byId(side).value='';
+    if (example) {
+      reads.before++; state.before=null; sourceErrors.before=''; byId('before').value='';
+    } else if (detail?.changedSlot==='manifest') {
+      return;
     }
-    if(detail?.lock) LabRegistry.setFile(byId('after'),detail.lock);
+    example=false; lesson=null; focusPath='';
+    if (detail?.lock) LabRegistry.setFile(byId('after'),detail.lock);
+    else byId('after').value='';
     read('after');
   });
   for (const side of sides) byId(side).addEventListener('change',()=>read(side));

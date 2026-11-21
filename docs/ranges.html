@@ -15,10 +15,8 @@
 <p data-en="Compare a requirement from package.json with an exact version from a lockfile. You can type both values and check them offline.">Сопоставьте требование из package.json с версией из lock-файла. Обе строки можно ввести вручную и проверить офлайн.</p>
 <section class="panel range-tool" aria-labelledby="range-input-title">
 <h2 id="range-input-title" data-en="What does the package require?">Какое требование проверяем?</h2>
-<details id="manifest-options"><summary data-en="Choose a dependency from package.json">Выбрать зависимость из package.json</summary>
-<label class="field">package.json<input id="range-file" type="file" accept=".json,application/json"></label>
 <label id="range-dep-field" class="field" hidden><span data-en="Dependency and original range">Зависимость и исходный диапазон</span><select id="range-dep"></select></label>
-<p id="manifest-status" class="hint" role="status"></p></details>
+<p id="manifest-status" class="hint" role="status" data-en="Select package.json at the top of the page to use its dependencies here.">Выберите package.json вверху страницы, чтобы подставить зависимость из проекта.</p>
 <form id="range-form" autocomplete="off">
 <div class="range-controls">
 <label class="field"><span data-en="npm package">Пакет npm</span><input name="pkg" spellcheck="false" placeholder="@scope/name"></label>
@@ -28,7 +26,7 @@
 <div class="range-result" aria-live="polite" aria-atomic="true">
 <pre id="range-source"></pre><div id="range-scale"></div><p id="range-reason" class="hint"></p></div>
 <div class="range-lookup"><button id="load-versions" type="button" class="button" data-en="Load published versions">Загрузить опубликованные версии</button>
-<p id="range-host" class="hint"></p><p id="lookup-status" role="status"></p></div>
+<a id="range-local" hidden href="index.html#local-download" data-en="Download the local version to look up releases">Скачать локальную версию для поиска выпусков</a><p id="range-host" class="hint"></p><p id="lookup-status" role="status"></p></div>
 </section>
 <details id="range-examples" class="panel"><summary data-en="Examples from the react-dom 18.2.0 manifest">Примеры из манифеста react-dom 18.2.0</summary>
 <p data-en="react-dom declares scheduler as a dependency and asks the application to provide React. Select a line, then try the next minor release on the scale.">react-dom устанавливает scheduler как свою зависимость, а подходящий React получает от приложения. Выберите строку и проверьте следующую минорную версию на шкале.</p>
@@ -40,6 +38,5 @@
   <script src="range-scale.js"></script>
   <script src="registry.js"></script>
   <script src="ranges.js"></script>
-  <script src="drop-files.js" defer></script>
 </body>
 </html>

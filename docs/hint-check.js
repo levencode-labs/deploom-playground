@@ -12,18 +12,16 @@
   }
   document.getElementById('copy-note').onclick = async () => {
     const note = document.getElementById('migration-note');
-    let message;
+    const status = document.getElementById('copy-status');
+    const range = document.createRange();
+    range.selectNodeContents(note);
+    const selection = getSelection();
+    selection.removeAllRanges(); selection.addRange(range);
+    status.textContent = t('Текст выделен. Его можно скопировать.', 'Text selected. You can copy it.');
     try {
       await navigator.clipboard.writeText(note.textContent);
-      message = t('Проверка скопирована.', 'Check copied.');
-    } catch {
-      const range = document.createRange();
-      range.selectNodeContents(note);
-      const selection = getSelection();
-      selection.removeAllRanges(); selection.addRange(range);
-      message = t('Текст выделен. Скопируйте его.', 'Text selected. Use Copy.');
-    }
-    document.getElementById('copy-status').textContent = message;
+      status.textContent = t('Проверка скопирована.', 'Check copied.');
+    } catch {}
   };
   const prior = new URLSearchParams(location.search).get('assertion');
   if (prior === 'status' || prior === 'hint') choice.elements.assertion.value = prior;

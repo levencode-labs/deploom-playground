@@ -24,6 +24,11 @@
   const initialTargets = webpackLesson?.targets || (selectorLesson ? {'css-select':'4.3.0'} : {'react-dom':'18.3.1'});
   let active, revision = 0;
   const manual = () => el('plan-mode').value==='manual';
+  const hosted=LabRegistry.hostedAudit===true;
+  let snapshotSource='';
+  function localDownload() {
+    add('a',t('Скачать локальную версию для прямого запроса в Nexus','Download the local lab to query Nexus directly')).href=Lab.urlFor('index.html#local-download');
+  }
   function registryAddress() {
     try { return LabRegistry.base(); } catch { return ''; }
   }
@@ -35,14 +40,13 @@
     el('net-status').textContent = '';
     el('plan-output').replaceChildren();
   }
-  const manifestFile = () => el('manifest-file').files[0];
-  const lockFile = () => el('lock-file').files[0];
-  const demo = () => !manifestFile() && !lockFile();
+  let manifestFile=null, lockFile=null;
+  const demo = () => !manifestFile && !lockFile;
   function caption() {
     if (!manual()) {
       el('project').textContent = demo()
         ? t('Открыта UI-ветка из примера про webpack. Даты выпусков сохранены на 1 июля 2024 года.','The UI branch from the webpack lesson is open. Release dates are saved as of 1 July 2024.')
-        : [manifestFile()?.name,lockFile()?.name].filter(Boolean).join(' + ')+t(' · чтение в браузере.',' · read locally.');
+        : [manifestFile?.name,lockFile?.name].filter(Boolean).join(' + ')+t(' · чтение в браузере.',' · read locally.');
       return;
     }
     if (selectorLesson && demo()) {
@@ -61,7 +65,7 @@
       return;
     }
     el('project').textContent = demo() ?
-      t('Сейчас открыт пример с React 18.2.0. Чтобы взять свой проект, выберите оба файла.','The React 18.2.0 example is open. Select both files to use your project.') :
+      t('Сейчас открыт пример с React 18.2.0. Для своего плана добавьте package.json и lock-файл в шапке.','The React 18.2.0 example is open. Add your package.json and lockfile in the header to plan your upgrade.') :
       t('Выбранные файлы читаются только в браузере.','Selected files are read only in this browser.');
   }
   function syncGoal() {
@@ -72,11 +76,11 @@
     el('goal-version').value=single[1] || '';
   }
   async function choosePackages() {
-    const file=manifestFile();
+    const file=manifestFile;
     let man=lesson?.manifest || manifest;
     if(file) {
       try { man=file.size<=20*1024*1024 ? JSON.parse(await file.text()) : {}; } catch { man={}; }
-      if(file!==manifestFile()) return;
+      if(file!==manifestFile) return;
     }
     const names=new Set([...LabLockGraph.declarations(man || {},true)].filter(e=>e.group!=='peerDependencies').map(e=>e.name));
     el('goal-package').replaceChildren(new Option(t('Выберите пакет','Choose a package'),''), ...[...names].sort().map(name=>new Option(name,name)));
@@ -104,8 +108,12 @@
     try {
       let man = lesson?.manifest || manifest, lock = lesson?.lock || sample;
       if (!demo()) {
-        const files = [manifestFile(),lockFile()];
-        if (!files.every(Boolean)) throw Error('files');
+        const files = [manifestFile,lockFile];
+        if (!files.every(Boolean)) {
+          add('p', manifestFile ? t('Добавьте lock-файл в шапке, чтобы узнать установленные версии.','Add a lockfile in the header to identify installed versions.') :
+            t('Добавьте package.json в шапке, чтобы выбрать цель проекта.','Add package.json in the header to select a project target.'));
+          return;
+        }
         if (files.some(file => file.size > 20*1024*1024)) throw Error('size');
         [man,lock] = await Promise.all([files[0].text().then(JSON.parse), files[1].text().then(LabYarn.read)]);
       }
@@ -152,12 +160,15 @@
       const result = yarn ? LabPlan.assessYarn(man,lock,changes,evidence,local) : LabPlan.assess(lock,changes,evidence,local);
       const missing = changes.filter(c => c.record.version !== c.target && !local.has(c.name+'@'+c.target) && (!c.publicRegistry || !evidence.has(c.name+'@'+c.target)));
       const notFound = missing.filter(c=>absent.has(c.name+'@'+c.target));
-      add('h2',notFound.length ? t('Выбранный реестр не нашёл запись версии','The selected registry did not find the version record') :
+      add('h2',notFound.length ? (hosted ? t('В снимке Nexus нет записи версии','Version record absent from the Nexus snapshot') : t('Выбранный реестр не нашёл запись версии','The selected registry did not find the version record')) :
         result.issues.length ? t('Для обновления нужна ещё одна правка','Another change is needed') :
         missing.length ? t('У цели пока неизвестны требования','Target requirements are unknown') :
         result.unknown.length ? t('Цель проверена частично','Target partially checked') :
         t('В проверенных требованиях конфликтов нет','No conflicts in the checked requirements'));
-      if(notFound.length) add('p',notFound.map(c=>c.name+'@'+c.target).join(', ')+' · '+registryAddress()+t(' вернул 404. Уточните версию или загрузите её package.json.',' returned 404. Edit the target or supply its package.json.'));
+      if(notFound.length) {
+        add('p',notFound.map(c=>c.name+'@'+c.target).join(', ')+' · '+(hosted ? snapshotSource : registryAddress()+t(' вернул 404. Уточните версию или загрузите её package.json.',' returned 404. Edit the target or supply its package.json.')));
+        if(hosted) localDownload();
+      }
 
       if (missing.length) {
         const supply = add('button',t('Добавить package.json нужной версии с диска','Supply the target package.json from disk'));
@@ -167,7 +178,7 @@
           document.getElementById('meta-files').focus();
         };
       }
-      for(const item of notFound) {
+      for(const item of hosted ? [] : notFound) {
         const link=add('a',t('Посмотреть опубликованные версии ','See published releases of ')+item.name);
         link.href=LabRegistry.url(item.name);
         link.rel='noreferrer';
@@ -183,7 +194,9 @@
         add('p',t('Ваша цель · ','Your target · ') + change.name + ' ' + change.record.version + ' → ' + change.target);
       }
       LabCriterionPlan.showReactCheck(el('plan-output'),changes);
-      if (result.unknown.length && !notFound.length) add('p',yarn==='Yarn Classic'
+      if (result.unknown.length && !notFound.length) add('p',hosted
+        ? t('Добавьте локальный package.json нужной библиотеки, чтобы проверить её peer-требования.','Add the library’s package.json from disk to check its peer requirements.')
+        : yarn==='Yarn Classic'
         ? t('Yarn Classic хранит версии, но обычно опускает peerDependencies. Требования можно прочитать из выбранного реестра или из package.json библиотеки.', 'Yarn Classic records versions and usually omits peerDependencies. Read those requirements from the selected registry or from the library’s package.json.')
         : t('Для части пакетов не хватает требований. Добавьте манифесты библиотек или запросите версии в выбранном реестре.', 'Some requirements are missing. Supply package manifests or look up releases in the selected registry.'));
       const lines = document.createElement('ul');
@@ -205,7 +218,7 @@
         detail.append(summary,list);
       }
       const sources = new Set([selectorLesson && demo() ? t('сохранённый lock-файл этой ревизии и запись css-select@4.3.0 из lock-файла новой пары','the selected revision’s saved lockfile and the css-select@4.3.0 entry in the new pair’s lockfile') : webpackLesson && demo() ? t('прямые зависимости из lock-файла UI-ветки и сохранённые требования целевых пакетов','direct UI-branch lock entries and saved target package requirements') : demo() ? t('учебный lock-файл','sample lockfile') : t('ваши package.json и lock-файл','your package.json and lockfile')]);
-      if (confirmed.size) sources.add(t('метаданные выбранных версий из ','metadata from ')+registryAddress());
+      if (confirmed.size) sources.add(hosted ? snapshotSource : t('метаданные выбранных версий из ','metadata from ')+registryAddress());
       if (uploaded.size) sources.add(t('загруженные манифесты целевых версий','uploaded target manifests'));
       for (const {name,target,record,publicRegistry} of changes) {
         const key = name + '@' + target;
@@ -235,7 +248,7 @@
         };
       }
       const missingTargets = missing.filter(c=>!absent.has(c.name+'@'+c.target));
-      const publicHost=registryAddress()===LabRegistry.defaultBase;
+      const publicHost=!hosted && registryAddress()===LabRegistry.defaultBase;
       const defaultPick = c=>!publicHost || (yarn!=='Yarn Berry' && c.publicRegistry);
       const targets=missingTargets.filter(defaultPick);
       const withheld=missingTargets.filter(c=>!defaultPick(c));
@@ -247,7 +260,8 @@
       }
       if(targets.length || withheld.length || peers.length) {
         el('network').hidden=false;
-        el('send-host').textContent=t('При нажатии в реестр уйдут выбранные имена и версии. Адрес — ','Clicking sends the selected names and versions to ')+ (registryAddress() || t('проверьте адрес реестра выше','check the registry address above'));
+        if(hosted) el('lookup').textContent=t('Проверить по снимку Nexus','Check the Nexus snapshot');
+        el('send-host').textContent=hosted ? t('Имена и версии будут найдены на устройстве по общему снимку Nexus с этой страницы.','Names and versions are looked up on this device in the shared Nexus snapshot from this site.') : t('При нажатии в реестр уйдут выбранные имена и версии. Адрес — ','Clicking sends the selected names and versions to ')+ (registryAddress() || t('проверьте адрес реестра выше','check the registry address above'));
         el('send-list').textContent=targets.length ? t('Цели · ','Targets · ')+targets.map(c=>c.name+'@'+c.target).join(', ') : '';
         el('peer-picks').hidden=!peers.length && !withheld.length;
         el('peer-count').textContent=t('Отметить дополнительные запросы · ','Select additional lookups · ')+(peers.length+withheld.length);
@@ -271,6 +285,18 @@
 
     el('net-status').textContent=t('Запрашиваю выбранные версии…','Looking up selected releases…');
     const failures = new Set();
+    if(hosted) {
+      try {
+        const snapshot=await LabRegistry.releases(ctrl.signal);
+        if(current!==revision)return;
+        snapshotSource=t('снимок Nexus от ','Nexus snapshot dated ')+new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC';
+      } catch(err) {
+        if(current!==revision)return;
+        active=undefined;el('lookup').disabled=false;el('net-status').textContent=LabRegistry.message(err);
+        const link=document.createElement('a');link.textContent=t('Скачать локальную версию','Download the local lab');
+        link.href=Lab.urlFor('index.html#local-download');el('net-status').append(' ',link);return;
+      }
+    }
     for (const {name,target} of changes) {
         if (ctrl.signal.aborted || current!==revision) return;
         try {
@@ -281,29 +307,31 @@
         } catch (err) {
           if (current!==revision) return;
           if (err.status===404) absent.add(name+'@'+target);
-          else failures.add(LabRegistry.message(err));
+          else {
+            failures.add(LabRegistry.message(err));
+            if(!hosted && err instanceof TypeError)break;
+          }
         }
     }
     if (current !== revision) return;
     await calculate();
-    if (failures.size && current+1 === revision) add('p',[...failures].join(' '));
+    if (failures.size && current+1 === revision) {
+      add('p',[...failures].join(' '));if(hosted)localDownload();
+    }
   }
   function refreshProject(manifestChanged) {
     confirmed.clear();absent.clear();
     if(manifestChanged) el('targets').value='{}';
     choosePackages();caption();calculate();
   }
-  for(const id of ['manifest-file','lock-file']) el(id).addEventListener('change',()=>refreshProject(id==='manifest-file'));
   for(const id of ['meta-files','targets']) el(id).addEventListener('input',()=>{confirmed.clear();absent.clear();reset();caption();});
-  async function useFolder(pending) {
-    try {
-      const files=await pending;
-      if(!files)return;
-      LabRegistry.setFile(el('manifest-file'),files.manifest);LabRegistry.setFile(el('lock-file'),files.lock);
-      el('meta-files').value='';refreshProject(true);
-    } catch(err){reset();add('p',err.message);}
-  }
-  window.addEventListener('lab-project',({detail})=>useFolder(detail || {manifest:null,lock:null}));
+  window.addEventListener('lab-project',({detail})=>{
+    manifestFile=detail?.manifest || null;
+    lockFile=detail?.lock || null;
+    const manifestChanged=detail?.changedSlot!=='lock';
+    if (manifestChanged) el('meta-files').value='';
+    refreshProject(manifestChanged);
+  });
   function syncMode() {
     el('manual-goal').hidden=!manual();
     el('make-plan').hidden=!manual();
@@ -319,7 +347,7 @@
     confirmed.clear();absent.clear();reset();
   });
   el('sample').onclick = () => {
-    confirmed.clear();absent.clear();el('manifest-file').value = ''; el('lock-file').value = ''; el('meta-files').value = '';
+    confirmed.clear();absent.clear();manifestFile=null; lockFile=null; el('meta-files').value = '';
     el('targets').value = JSON.stringify(initialTargets,null,2); el('batch-goals').open=false;choosePackages();caption();calculate();
   };
   el('make-plan').onclick = calculate;

@@ -6,15 +6,16 @@
   let generation=0, project, active, report, shown=40;
   let findings=new Map(), allowed=new Set();
   const group=name=>name.startsWith('@')?name.split('/')[0]:t('Без префикса @','Unscoped names');
-  const registryMode = () => LabRegistry.base() === LabRegistry.defaultBase ? 'osv' : 'registry';
+  const registryMode = () => LabRegistry.hostedAudit ? 'snapshot' : LabRegistry.base() === LabRegistry.defaultBase ? 'osv' : 'registry';
+  const unavailable = e => e?.name==='TypeError' || e?.name==='TimeoutError' || [401,403,429,502,503,504].includes(e?.status);
   function eligible(row) {
-    return !row.localOnly && (registryMode()==='registry' || row.publicOrigin || allowed.has(group(row.name)));
+    return !row.localOnly && (registryMode()!=='osv' || row.publicOrigin || allowed.has(group(row.name)));
   }
   function rowsForRun() {return project.rows.filter(eligible);}
   function resetResults() {
     active?.abort();active=null;report=false;findings=new Map();
     if(project) {
-      project.rows=project.rows.map(row=>({...row,state:'ready',ids:[],reason:''}));
+      project.rows=project.rows.map(row=>({...row,state:'ready',lookedUp:false,ids:[],reason:''}));
       project.direct=project.direct.map(d=>({...d,freshness:null,reason:''}));
     }
     $('audit-status').textContent='';$('report-progress').hidden=true;$('stop-audit').hidden=true;
@@ -62,10 +63,12 @@
     $('age-count').textContent=report && dated.length?stale.length+' / '+dated.length+' · '+Math.round(100*stale.length/dated.length)+'%':'—';
     $('age-coverage').textContent=t('Известны даты для ','Release dates available for ')+dated.length+' / '+direct.length+t(' прямых зависимостей',' direct dependencies');
     $('vuln-count').textContent=byId.size || (report && checked===rows.length && checked>0?'0':checked>0?t('0 среди проверенных','0 among checked'):'—');
-    $('security-coverage').textContent=t('Проверено версий ','Versions checked ')+checked+' / '+rows.length+t(' · с находками ',' · affected ')+rows.filter(r=>r.ids.length).length;
+    $('security-coverage').textContent=t('Получен ответ для ','Responses received for ')+rows.filter(r=>r.lookedUp || r.state==='found'||r.state==='empty').length+' / '+rows.length+t(' · с находками ',' · affected ')+rows.filter(r=>r.ids.length).length;
     $('report-source').textContent=t('Отставание — разница дат выпуска установленной и старшей стабильной версии. Доля считается среди прямых зависимостей с известными датами. Уязвимости ищем и в зависимостях этих библиотек.','Lag compares the release dates of the installed and highest stable versions. The percentage covers direct dependencies with known dates. Security checks also cover transitive dependencies.');
     const address=LabRegistry.base();
-    $('send-summary').textContent=mode==='registry'
+    $('send-summary').textContent=mode==='snapshot'
+      ?t('Страница скачает снимок публичной базы OSV и каталог выпусков с этого сайта. Имена пакетов, версии и пути останутся в браузере.','This page downloads the public OSV snapshot and release catalog from this site. Names, versions and paths stay in your browser.')
+      :mode==='registry'
       ?t('По кнопке имена и версии будут отправлены только в ','On click, names and versions go only to ')+address+t(' за датами и в его npm Bulk Advisory API.',' for release dates and its npm Bulk Advisory API.')
       :t('По кнопке npm получит имена для проверки версий, OSV — публичные имена и версии. Пути останутся в браузере.','On click, npm receives names for release lookups and OSV receives public names and versions. Paths stay in your browser.');
     $('send-summary').textContent+=' '+t('В проверке ','Selected ')+selected.length+' / '+rows.length+'.';
@@ -96,8 +99,9 @@
     const gen=++generation;resetResults();project=null;$('inventory').hidden=true;$('parse-status').textContent='';
     $('one-advisory').href=Lab.urlFor('advisories.html');
     try {
-      const file=$('audit-manifest').files[0];let manifest=providedManifest;
-      if(file){if(file.size>maxBytes)throw Error('size');manifest=JSON.parse(await file.text());if(!manifest||typeof manifest!=='object'||Array.isArray(manifest)||manifest.lockfileVersion)throw Error('manifest');}
+      let manifest=providedManifest;
+      const file=manifest instanceof File ? manifest : null;
+      if(file){if(file.size>maxBytes)throw Error('size');manifest=JSON.parse((await file.text()).replace(/^\uFEFF/,''));if(!manifest||typeof manifest!=='object'||Array.isArray(manifest)||manifest.lockfileVersion)throw Error('manifest');}
       if(gen!==generation)return;
       if(!input){$('parse-status').textContent=manifest?t('package.json прочитан. Добавьте lock-файл, чтобы определить установленные версии.','Read package.json. Add a lockfile to identify installed versions.'):'';return;}
       if(input instanceof File && input.size>maxBytes)throw Error('size');
@@ -124,45 +128,87 @@
     $('stop-audit').hidden=false;render();
     const done=n=>{if(active===ctrl){progress.value+=n;$('audit-status').textContent=t('Обработано ','Processed ')+progress.value+' / '+progress.max;}};
     const records=new Map(), gen=generation;
-    await Promise.all([pool(direct,4,async d=>{
-      try{d.freshness=LabCriterion.freshness(await LabRegistry.packument(d.name,signal),d.version);}
-      catch(e){d.reason=LabRegistry.message(e);}done(1);
-    },signal),pool(chunks,3,async batch=>{
-      for(const row of batch)row.state='unknown';
-      try {if(mode==='registry')await LabAudit.registryAudit(batch,records,signal);else await LabAudit.check(batch,signal,true);}
-      catch(e){for(const row of batch)row.reason=LabRegistry.message(e);}done(batch.length);
-    },signal)]);
+    const issues=[];
+    let dateError, advisoryError, detailError;
+    if(mode==='snapshot') {
+      $('audit-status').textContent=t('Читаем снимок OSV и каталог выпусков…','Reading the OSV snapshot and release catalog…');
+      const [security,catalog]=await Promise.allSettled([LabHostedAudit.load(signal),LabRegistry.releases(signal)]);
+      if(active!==ctrl || gen!==generation)return;
+      if(!signal.aborted) {
+        if(security.status==='fulfilled') {
+          const index=security.value;
+          LabHostedAudit.check(index,rows,records,signal);
+          const date=new Date(index.published*1000).toISOString().slice(0,10);
+          issues.push((index.fresh?t('Снимок OSV от ','OSV snapshot dated '):t('Срок действия снимка OSV истёк. Дата снимка — ','The OSV snapshot expired. Snapshot date: '))+date+'.');
+        } else {
+          const reason=t('Не удалось загрузить снимок OSV с этой страницы.','The OSV snapshot could not be loaded from this site.');
+          issues.push(reason);for(const row of rows)row.reason=reason;
+        }
+        if(catalog.status==='fulfilled') for(const d of direct) {
+          if(Object.hasOwn(catalog.value.packages,d.name))d.freshness=LabCriterion.freshness(catalog.value.packages[d.name],d.version);
+          else d.reason=t('Даты доступны в локальной версии с полным реестром.','Use the local edition with the full registry for these dates.');
+        }
+        else issues.push(LabRegistry.message(catalog.reason));
+      }
+    } else {
+      await Promise.all([pool(direct,4,async d=>{
+        try {
+          if(dateError)throw dateError;
+          d.freshness=LabCriterion.freshness(await LabRegistry.packument(d.name,signal),d.version);
+        } catch(e) {
+          if(unavailable(e))dateError=e;
+          d.reason=LabRegistry.message(e);
+        }
+        done(1);
+      },signal),pool(chunks,3,async batch=>{
+        for(const row of batch)row.state='unknown';
+        try {
+          if(advisoryError)throw advisoryError;
+          if(mode==='registry')await LabAudit.registryAudit(batch,records,signal);
+          else {
+            const error=await LabAudit.check(batch,signal,true);
+            if(error)throw error;
+          }
+        } catch(e) {
+          if(unavailable(e))advisoryError=e;
+          for(const row of batch)row.reason=LabRegistry.message(e);
+        }
+        done(batch.length);
+      },signal)]);
+      if(dateError)issues.push(t('Нет доступа к реестру за датами выпусков.','Cannot reach the registry for release dates.'));
+      if(advisoryError)issues.push(mode==='osv'?t('Нет доступа к OSV.','OSV is unreachable.'):t('Нет доступа к базе уязвимостей реестра.','Registry advisory data is unreachable.'));
+    }
     if(active!==ctrl || gen!==generation)return;
     if(mode==='osv') {
       const ids=[...new Set(rows.flatMap(r=>r.ids))];progress.max+=ids.length;
       await pool(ids,4,async id=>{
         const href='https://osv.dev/vulnerability/'+encodeURIComponent(id);
         try {
+          if(detailError)throw detailError;
           const data=await LabRegistry.json('https://api.osv.dev/v1/vulns/'+encodeURIComponent(id),{},signal);
           if(data?.id!==id)throw Error('METADATA');
-          if(data.withdrawn) {for(const row of rows){row.ids=row.ids.filter(x=>x!==id);if(row.state==='found'&&!row.ids.length)row.state='empty';}}
+          if(data.withdrawn) {for(const row of rows){row.ids=row.ids.filter(x=>x!==id);if(row.state==='found'&&!row.ids.length)row.state=row.publicOrigin?'empty':'unknown';}}
           else records.set(id,{id,href,summary:data.summary||'',...LabSeverity.rating(data)});
-        }catch{records.set(id,{id,href,level:'Unknown',score:null,summary:t('Описание и оценка недоступны','Description and rating unavailable')});}done(1);
+        }catch(e){if(unavailable(e))detailError=e;records.set(id,{id,href,level:'Unknown',score:null,summary:t('Описание и оценка недоступны','Description and rating unavailable')});}done(1);
       },signal);
     }
     if(active!==ctrl || gen!==generation)return;
     findings=records;active=null;progress.hidden=true;$('stop-audit').hidden=true;
-    $('audit-status').textContent=signal.aborted?t('Остановлено. Сохранены полученные ответы.','Stopped. Completed responses are shown.'):
-      t('Проверка закончена. Источник уязвимостей — ','Audit finished. Advisory source: ')+(mode==='osv'?'OSV':LabRegistry.base())+'.';
+    if(detailError)issues.push(t('Часть описаний уязвимостей недоступна.','Some advisory descriptions are unavailable.'));
+    const checked=rows.filter(r=>r.state==='found'||r.state==='empty').length;
+    const dated=direct.filter(d=>['fresh','stale'].includes(d.freshness?.status)).length;
+    const complete=checked===rows.length && dated===project.direct.length && rows.length===project.rows.length && !project.skipped.length && !detailError;
+    const status=signal.aborted?t('Остановлено. Сохранены полученные ответы.','Stopped. Completed responses are shown.'):
+      complete?t('Проверка завершена.','Audit complete.'):t('Проверка неполная.','Audit incomplete.');
+    $('audit-status').textContent=[status,...issues].join(' ');
     render();
   }
-  async function folder(source) {
-    const gen=generation;
-    try {const pair=await source;if(!pair || gen!==generation)return;LabRegistry.setFile($('audit-manifest'),pair.manifest);LabRegistry.setFile($('audit-file'),pair.lock);await load(pair.lock);}
-    catch(e){if(gen===generation)$('parse-status').textContent=e.message;}
-  }
-  window.addEventListener('lab-project',({detail})=>folder(detail || {manifest:null,lock:null}));
-  for(const id of ['audit-file','audit-manifest'])$(id).onchange=()=>load($('audit-file').files[0]);
+  window.addEventListener('lab-project',({detail})=>load(detail?.lock,detail?.manifest));
   $('run-audit').onclick=run;$('stop-audit').onclick=()=>active?.abort();
   $('audit-filter').oninput=()=>{shown=40;renderVersions();};
   $('more-rows').onclick=()=>{shown+=40;renderVersions();};
   async function sample(rev,recorded=false) {
-    $('audit-file').value='';$('audit-manifest').value='';const data=SelectorLab.cases[rev];
+    const data=SelectorLab.cases[rev];
     await load(data.lock,data.manifest);if(!project)return;
     $('one-advisory').href=ReviewExample.link('advisories.html','selector',rev,data.nthPath);
     if(recorded && rev==='base') {

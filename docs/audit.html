@@ -12,15 +12,9 @@
   <header data-nav></header>
   <main>
     <h1 data-en="Project dependency audit">Аудит зависимостей проекта</h1>
-    <p data-en="Open the project folder. See which direct libraries are over a year behind and where vulnerable versions occur in the lockfile.">Выберите папку проекта, чтобы узнать, какие прямые зависимости отстают больше чем на год и по каким путям установлены уязвимые версии.</p>
-    <section class="panel" aria-label="Project">
-      <div class="audit-actions"><button type="button" id="sample" data-en="Open the css-select example">Открыть пример с css-select</button></div>
-      <details><summary data-en="Choose or drop files separately">Выбрать или перетащить файлы отдельно</summary>
-        <div class="grid"><label class="field">package.json<input id="audit-manifest" type="file" accept=".json"></label>
-        <label class="field">package-lock.json v3 / yarn.lock<input id="audit-file" type="file" accept=".json,.lock"></label></div>
-      </details>
-      <p id="parse-status" aria-live="polite"></p>
-    </section>
+    <p data-en="See which direct dependencies are over a year behind and which installed copies have known advisories.">Какие прямые зависимости отстают больше чем на год? Где в lock-файле остались версии с известными уязвимостями?</p>
+    <p><button type="button" id="sample" data-en="Try the css-select example">Попробовать на примере css-select</button></p>
+    <p id="parse-status" role="status"></p>
     <section class="panel" id="inventory" hidden>
       <h2 data-en="Project report">Отчёт по проекту</h2>
       <div class="report-metrics">
@@ -51,9 +45,8 @@
 <script src="vendor/yarn-classic.js"></script>
 <script src="vendor/js-yaml.min.js"></script>
 <script src="yarn-lock.js"></script>
-<script src="drop-files.js" defer></script>
   <script src="registry.js"></script><script src="severity.js"></script><script src="criterion.js"></script>
-  <script src="audit-model.js"></script>
+  <script src="audit-model.js"></script><script src="hosted-audit.js"></script>
   <script src="selector-data.js"></script><script src="review-example.js"></script>
   <script src="audit-capture.js"></script><script src="audit.js"></script>
 </body>

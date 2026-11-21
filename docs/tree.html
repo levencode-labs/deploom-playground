@@ -41,19 +41,14 @@
 <main>
   <h1 data-en="Dependency tree">Дерево зависимостей</h1>
   <section class="panel" id="lesson-copy" hidden><h2 data-en="Why is this version installed?">Почему установлена эта версия?</h2><p id="lesson-parent"></p><pre id="lesson-proof"></pre><button class="button" id="lesson-map" data-en="Inspect the full graph">Развернуть граф</button></section>
-  <p data-en="Open a project folder, add individual files or paste a manifest. The map is built on this device.">Выберите папку проекта, добавьте файлы по отдельности или вставьте манифест. Карта строится на вашем устройстве.</p>
-    <section class="panel project-input">
-      <h2 data-en="Project files">Файлы проекта</h2>
-      <div class="grid">
-        <label class="field">package.json<input type="file" id="tree-manifest-file" data-fill="tree-manifest" accept=".json"></label>
-        <label class="field">package-lock.json / yarn.lock<input id="tree-file" type="file" accept=".json,.lock"></label>
-      </div>
+  <p data-en="Select package.json or a lockfile in the header to build the map on this device. You can also paste a manifest below.">Выберите package.json или lock-файл в шапке, чтобы построить карту на этом устройстве. Манифест также можно вставить ниже.</p>
+  <section class="panel project-input">
       <details id="manifest-editor"><summary data-en="Paste a manifest or dependency list">Вставить манифест или список зависимостей</summary>
         <textarea aria-label="package.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
       <details class="tree-examples"><summary data-en="Try a sample project">Открыть учебный проект</summary><div class="tree-controls">
         <button type="button" id="tree-broken" data-en="Peer conflict">Конфликт версий</button><button type="button" id="tree-two-copies" data-en="Two copies">Две копии</button><button type="button" id="tree-fixed" data-en="Matching versions">Совместимая пара</button><button type="button" id="yarn-classic">Yarn Classic</button><button type="button" id="yarn-berry">Yarn Berry</button></div></details>
       <p id="tree-error" role="alert"></p>
-    </section>
+  </section>
   <section class="panel map-panel" id="network-panel" hidden>
     <div class="map-toolbar"><h2 data-en="Dependency map">Карта зависимостей</h2>
       <button id="map-fullscreen" type="button" aria-pressed="false" data-en="Full screen">На весь экран</button>
@@ -78,7 +73,8 @@
   <details class="panel tree-output" id="tree-details" hidden><summary data-en="Inspect paths and version requirements">Разобрать пути и требования к версиям</summary>
       <details class="tree-input-lock" id="tree-netbox">
         <summary data-en="Look up selected versions on npm">Сведения о выбранных версиях из npm</summary>
-        <p class="hint" data-en="Choose the names and exact versions to send to the selected npm registry. A lockfile supplies transitive versions.">Отметьте имена и точные версии, которые можно отправить в выбранный реестр npm. Для вложенных версий используйте lock-файл.</p>
+        <p id="tree-local" hidden><a href="index.html#local-download" data-en="Download the local version to look up package metadata in Nexus">Скачать локальную версию для получения метаданных пакетов из Nexus</a></p>
+        <p id="tree-source-hint" class="hint" data-en="Choose the names and exact versions to send to the selected npm registry. A lockfile supplies transitive versions.">Отметьте имена и точные версии, которые можно отправить в выбранный реестр npm. Для вложенных версий используйте lock-файл.</p>
         <div id="tree-registry-list"></div>
         <button class="button" type="button" id="tree-load-meta" data-en="Load selected metadata">Загрузить выбранные записи</button>
         <p class="hint" id="tree-network-result" role="status"></p>

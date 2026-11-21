@@ -71,6 +71,20 @@ test('only confirmed npm versions reach OSV, queries are paginated per package',
   assert.equal(seen.length,2);assert.deepEqual(seen[1],[['affected','next']]);
   assert.ok(!JSON.stringify(seen).includes('removed'));
 });
+test('explicit public selections reach OSV when npm DNS is unavailable',async()=>{
+  const calls=[];
+  const api=model(async(url,options)=>{
+    calls.push(url);
+    if(!url.includes('api.osv.dev')) throw TypeError('DNS');
+    return json({results:JSON.parse(options.body).queries.map(q=>q.package.name==='known'?{vulns:[{id:'GHSA-match'}]}:{})});
+  });
+  const checked=rows(['known','unverified','public']);
+  checked[2].publicOrigin=true;
+  await api.check(checked,new AbortController().signal,true);
+  assert.equal(calls.length,1);
+  assert.deepEqual(checked.map(r=>r.state),['found','unknown','empty']);
+  assert.ok(checked.every(r=>r.lookedUp));
+});
 test('on a later-page error, retain previously received IDs and mark coverage incomplete',async()=>{
   const packages=rows(['lib']);
   const fetch=async(url,options)=>{

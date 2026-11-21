@@ -6,7 +6,11 @@
   const presets={scheduler:['0.23.0','0.23.2','0.25.0'],react:['18.2.0','18.3.1','19.0.0']};
   const ops={caret:'^',tilde:'~',exact:''};
   const params=new URLSearchParams(location.search);
-  let releases=[], origin='manual', publicExample=null, active, request=0, reading=0, declarations=[], fromFile=false;
+  let releases=[], origin='manual', publicExample=null, active, request=0, declarations=[], fromFile=false;
+  let lastFile=null, lastText=null, reading=0, edits=0;
+  const manifestHint=el('manifest-status').textContent;
+  const hosted=LabRegistry.hostedAudit===true;
+  if(hosted) el('load-versions').textContent=t('Проверить по снимку Nexus','Check the Nexus snapshot');
 
   function sharePublicState() {
     const base=presets[publicExample]?.[0];
@@ -23,7 +27,7 @@
     }
   }
   function stopLookup() {
-    request++;active?.abort();active=null;el('lookup-status').textContent='';
+    request++;active?.abort();active=null;el('lookup-status').textContent='';el('range-local').hidden=true;
   }
   function draw() {
     const pkg=name.value.trim(), need=range.value.trim(), entered=candidate.value.trim();
@@ -34,10 +38,13 @@
     let address='', validName=false;
     try {address=LabRegistry.base();LabRegistry.url(pkg);validName=true;} catch {}
     el('load-versions').disabled=!validName || Boolean(active);
-    el('range-host').textContent=validName ? t('По кнопке имя ','Clicking sends the name ')+pkg+t(' будет отправлено в ',' to ')+address :
+    el('range-host').textContent=hosted
+      ? t('Браузер загрузит с этого сайта общую копию метаданных Nexus. Поиск имени и версий выполнится на устройстве.','The browser downloads a shared Nexus metadata snapshot from this site. Package names and versions are matched on this device.')
+      : validName ? t('По кнопке имя ','Clicking sends the name ')+pkg+t(' будет отправлено в ',' to ')+address :
       t('Для списка выпусков введите имя пакета npm, например @scope/name.','For published releases, enter an npm name such as @scope/name.');
     const source=el('range-source'), scale=el('range-scale'), reason=el('range-reason');
     source.hidden=!valid || !version;scale.replaceChildren();reason.textContent='';
+    if(origin==='snapshot') el('range-local').hidden=Boolean(version && releases.includes(version));
     if(!valid || !version) {
       source.textContent='';
       reason.textContent=!need ? t('Введите требование из package.json.','Enter the requirement from package.json.') :
@@ -49,18 +56,20 @@
     source.textContent='semver.satisfies('+JSON.stringify(entered)+', '+JSON.stringify(need)+')';
     const visible=LabRangeScale.nearby(releases,need,version);
     LabRangeScale.render(scale,{range:need,selected:version,candidates:visible,onSelect:v=>{
-      candidate.value=v;draw();sharePublicState();
+      edits++;candidate.value=v;draw();sharePublicState();
       Array.from(scale.querySelectorAll('button')).find(button=>button.textContent===v)?.focus();
     }});
-    reason.textContent=origin==='registry'
-      ? t('На шкале показаны выпуски из реестра: ','Registry releases shown: ')+visible.length+'/'+releases.length+'. '+
+    reason.textContent=origin==='snapshot'
+      ? t('Версий на шкале из снимка Nexus: ','Nexus snapshot releases on the scale: ')+visible.length+'/'+releases.length+'. '+
+        (releases.includes(version) ? t('Проверяемая версия есть в снимке.','The selected version is in the snapshot.') : t('В снимке нет проверяемой версии.','The snapshot has no entry for the selected version.'))
+      : origin==='registry' ? t('На шкале показаны выпуски из реестра: ','Registry releases shown: ')+visible.length+'/'+releases.length+'. '+
         (releases.includes(version) ? t('Выбранная версия опубликована.','The selected release is published.') : t('В ответе реестра выбранной версии нет.','The selected version is absent from the registry response.'))
       : origin==='preset' ? t('На шкале три сохранённых выпуска ','The scale shows three saved releases of ')+pkg+'. '+
         (releases.includes(version) ? '' : t('Введённая версия проверена вручную. Её нет в этом снимке.','The entered version is a manual check outside this snapshot.'))
       : t('Проверено локально по правилам npm semver. Сведения о публикации версии можно загрузить отдельно.','Checked locally with npm semver. Load published releases to check availability.');
   }
   function preset(pkg,op='caret',v=presets[pkg][1]) {
-    reading++;fromFile=false;stopLookup();publicExample=pkg;origin='preset';releases=presets[pkg];
+    edits++;fromFile=false;stopLookup();publicExample=pkg;origin='preset';releases=presets[pkg];
     name.value=pkg;range.value=ops[op]+releases[0];candidate.value=v;
     el('range-dep').value='';draw();
   }
@@ -71,28 +80,36 @@
     draw();sharePublicState();
   }
   form.addEventListener('submit',e=>e.preventDefault());
-  name.addEventListener('input',()=>{reading++;fromFile=false;el('range-dep').value='';localPackage(name.value);});
-  for(const field of [range,candidate]) field.addEventListener('input',()=>{draw();sharePublicState();});
+  name.addEventListener('input',()=>{edits++;fromFile=false;el('range-dep').value='';localPackage(name.value);});
+  for(const field of [range,candidate]) field.addEventListener('input',()=>{edits++;draw();sharePublicState();});
   for(const button of document.querySelectorAll('[data-preset]')) button.onclick=()=>{preset(button.dataset.preset);sharePublicState();};
   el('load-versions').onclick=async()=>{
     stopLookup();
     const serial=request, pkg=name.value.trim();
     active=new AbortController();releases=[];origin='manual';draw();
-    el('lookup-status').textContent=t('Загружаем выпуски ','Loading releases for ')+pkg+'…';
+    el('lookup-status').textContent=hosted ? t('Читаем снимок Nexus…','Reading the Nexus snapshot…') : t('Загружаем выпуски ','Loading releases for ')+pkg+'…';
+    let date='';
     try {
-      const doc=await LabRegistry.packument(pkg,active.signal);
+      const signal=active.signal;
+      if(hosted) {
+        const snapshot=await LabRegistry.releases(signal);
+        date=new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC';
+        if(serial!==request)return;
+      }
+      const doc=await LabRegistry.packument(pkg,signal);
       if(serial!==request)return;
       releases=Object.keys(doc.versions).filter(v=>Boolean(treeSemver.valid(v))).sort(LabRangeScale.compare);
-      origin='registry';
+      origin=hosted?'snapshot':'registry';
       if(!candidate.value.trim() && releases.length) {
         const matches=releases.filter(v=>treeSemver.satisfies(v,range.value));
         candidate.value=matches.at(-1) || releases.findLast(v=>!v.includes('-')) || releases.at(-1);
       }
-      el('lookup-status').textContent=releases.length ? t('Получено выпусков: ','Published releases received: ')+releases.length+'.' :
+      el('lookup-status').textContent=hosted ? t('Снимок Nexus от ','Nexus snapshot dated ')+date+t('. Выпусков: ','. Releases: ')+releases.length+'.' : releases.length ? t('Получено выпусков: ','Published releases received: ')+releases.length+'.' :
         t('Реестр вернул пакет без версий в формате semver.','The registry returned no semver releases for this package.');
     } catch(e) {
       if(serial!==request)return;
-      el('lookup-status').textContent=LabRegistry.message(e);
+      el('lookup-status').textContent=hosted && e.status===404 && date ? t('В снимке Nexus от ','The Nexus snapshot dated ')+date+t(' нет этого пакета.',' has no entry for this package.') : LabRegistry.message(e);
+      el('range-local').hidden=!hosted;
     } finally {
       if(serial===request){active=null;draw();}
     }
@@ -100,20 +117,27 @@
   const menu=el('range-dep');
   function selectDependency() {
     const edge=declarations[Number(menu.value)];
-    if(menu.value && edge){fromFile=true;localPackage(edge.name,edge.spec);}
+    if(menu.value && edge){edits++;fromFile=true;localPackage(edge.name,edge.spec);}
   }
   menu.addEventListener('change',selectDependency);
-  async function useManifest(file) {
-    const serial=++reading;
+  function clearManifest() {
     declarations=[];menu.replaceChildren();el('range-dep-field').hidden=true;
-    el('manifest-status').textContent='';
+    el('manifest-status').textContent=manifestHint;
     if(fromFile){fromFile=false;localPackage('','');}
-    if(!file)return;
-    stopLookup();draw();
+  }
+  async function useManifest(file) {
+    if(file===lastFile)return;
+    const serial=++reading, priorEdits=edits;
+    lastFile=file;
+    if(!file){lastText=null;clearManifest();return;}
     try {
       if(file.size>8_000_000) throw Error(t('Лимит для package.json — 8 МБ.','The package.json limit is 8 MB.'));
-      const doc=JSON.parse((await file.text()).replace(/^\uFEFF/,''));
-      if(serial!==reading)return;
+      const text=await file.text();
+      if(serial!==reading || text===lastText)return;
+      // IndexedDB and other tabs can deliver a new File for the same manifest.
+      lastText=text;
+      const doc=JSON.parse(text.replace(/^\uFEFF/,''));
+      declarations=[];
       for(const group of ['dependencies','devDependencies','optionalDependencies','peerDependencies']) {
         if(!doc?.[group] || typeof doc[group]!=='object' || Array.isArray(doc[group])) continue;
         for(const [name,spec] of Object.entries(doc[group]).sort(([a],[b])=>a.localeCompare(b))) {
@@ -123,17 +147,16 @@
       if(!declarations.length)throw Error(t('В package.json нет записей зависимостей.','The package.json contains no dependency declarations.'));
       menu.replaceChildren(new Option(t('Выберите зависимость','Choose a dependency'),''),
         ...declarations.map(({name,spec,group},i)=>new Option(name+' · '+spec+' ('+group+')',String(i))));
-      el('range-dep-field').hidden=false;el('manifest-options').open=true;
-      el('manifest-status').textContent=t('Прочитано локально: ','Read locally: ')+file.name+'.';
-      menu.value='0';selectDependency();
+      el('range-dep-field').hidden=false;
+      el('manifest-status').textContent='';
+      if(edits===priorEdits){menu.value='0';selectDependency();}
     } catch(e) {
       if(serial!==reading)return;
-      el('manifest-options').open=true;
+      lastText=null;clearManifest();
       el('manifest-status').textContent=e instanceof SyntaxError ? t('Файл не удалось прочитать как JSON.','Could not read the file as JSON.') : e.message;
     }
   }
-  el('range-file').addEventListener('change',()=>useManifest(el('range-file').files[0]));
-  window.addEventListener('lab-project',event=>useManifest(event.detail?.manifest));
+  window.addEventListener('lab-project',event=>useManifest(event.detail?.manifest || null));
   const pkg=Object.hasOwn(presets,params.get('pkg')) ? params.get('pkg') : 'scheduler';
   const op=Object.hasOwn(ops,params.get('op')) ? params.get('op') : 'caret';
   const v=presets[pkg].includes(params.get('v')) ? params.get('v') : presets[pkg][1];

@@ -2,7 +2,7 @@
 (() => {
   const {t}=Lab;
   const reads=new WeakMap();
-  const targets = document.querySelectorAll('input[type=file]:not([webkitdirectory]), #tree-manifest, #targets');
+  const targets = document.querySelectorAll('main input[type=file]:not([webkitdirectory]), #tree-manifest, #targets');
   function note(target,text) {
     let node=document.getElementById(target.id+'-file-status');
     if(!node){
@@ -21,6 +21,11 @@
       note(target,file.name);
     } catch {note(target,t('Не удалось прочитать файл.','Could not read the file.'));}
   }
+  const editor = document.getElementById('tree-manifest');
+  if (editor) window.addEventListener('lab-project', () => {
+    reads.set(editor, (reads.get(editor) || 0) + 1);
+    if (document.getElementById(editor.id + '-file-status')) note(editor, '');
+  });
   for (const target of targets) {
     const picker=target.type==='file';
     const zone=picker ? target.closest('label') || target : target;
@@ -40,7 +45,7 @@
       if(!hasFiles(event))return;
       event.preventDefault();event.stopPropagation();zone.classList.remove('drag-over');
       const files=Array.from(event.dataTransfer.files);
-      const lock=['tree-file','audit-file','before','after','lock-file'].includes(target.id);
+      const lock=['audit-file','before','after','lock-file'].includes(target.id);
       if(files.some(f=>lock ? /^package\.json$/i.test(f.name) : /^package-lock\.json$/i.test(f.name)) || !files.length || (!target.multiple && files.length!==1) || files.some(f=>!(lock ? /\.(json|lock)$/i : /\.json$/i).test(f.name))) {
         note(target,t('Проверьте число файлов и расширение для этого поля.','Check the file count and extension for this field.')); return;
       }

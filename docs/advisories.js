@@ -31,7 +31,8 @@
   const button = document.getElementById('query-button');
   const destination = document.getElementById('destination');
   const address = LabRegistry.base();
-  const useOSV = address === LabRegistry.defaultBase;
+  const hosted = LabRegistry.hostedAudit === true;
+  const useOSV = !hosted && address === LabRegistry.defaultBase;
   function needsConfirmation() {
     const name = nameField.value.trim();
     return useOSV && (name.startsWith('@') || projectRows.some(row => row.name === name) &&
@@ -40,10 +41,17 @@
   function describeSource() {
     publicScope.checked = false;
     scopeConfirmation.hidden = !needsConfirmation();
+    button.disabled = false;
+    if(hosted) {
+      document.getElementById('online-title').textContent=t('Сверить версию со снимком OSV','Check the version against the OSV snapshot');
+      document.getElementById('package-label').textContent=t('Имя пакета npm','npm package name');
+      button.textContent=t('Сверить со снимком','Check snapshot');
+      destination.textContent=t('Браузер загрузит общий снимок публичной базы OSV с этой страницы и сверит имя и версию на устройстве.','The browser loads the same public OSV snapshot from this site for everyone and matches the name and version on your device.');
+      return;
+    }
     document.getElementById('online-title').textContent = useOSV ? t('Проверить по базе OSV','Look up OSV advisories') :
       t('Проверить по базе выбранного реестра','Check the selected registry for advisories');
     document.getElementById('package-label').textContent = useOSV ? t('Публичный npm-пакет','Public npm package') : t('Имя пакета в реестре','Package name in the registry');
-    button.disabled = false;
     button.textContent = useOSV ? t('Проверить в OSV','Check with OSV') : t('Проверить в реестре','Check with registry');
     destination.textContent = useOSV ?
       t('По кнопке браузер отправит название и версию на api.osv.dev. Вводите только публичные названия пакетов.','When you submit, your browser sends the package name and version to api.osv.dev. Enter public package names only.') :
@@ -105,6 +113,23 @@
     return [...entries.values()];
   }
 
+  async function lookup(name,version,signal) {
+    if(hosted) {
+      const index=await LabHostedAudit.load(signal);
+      const publicOrigin=projectRows.some(row=>row.name===name && row.version===version && row.publicOrigin);
+      const row={name,version,publicOrigin}, records=new Map();
+      LabHostedAudit.check(index,[row],records,signal);
+      const date=seconds=>new Date(seconds*1000).toISOString().replace('T',' ').slice(0,19)+' UTC';
+      const source='OSV · '+date(index.published)+' · '+t('действителен до ','expires ')+date(index.expires);
+      const provenance=records.size && !publicOrigin ? t('Совпали имя и версия с записью для публичного npm.','The name and version match a public npm entry.') : '';
+      return {entries:[...records.values()],source,reason:[row.reason,provenance].filter(Boolean).join(' ')};
+    }
+    if(!useOSV)return {entries:await registryEntries(name,version,signal),source:address};
+    const records=await getAdvisories(name,version,signal);
+    const entries=[...records.values()].map(record=>({...record,...LabSeverity.rating(record),href:'https://osv.dev/vulnerability/'+encodeURIComponent(record.id)}));
+    return {entries,source:'OSV'};
+  }
+
   form.addEventListener('submit', async event => {
     event.preventDefault();
     resetResult();
@@ -138,18 +163,15 @@
     const timeout = setTimeout(() => controller.abort(), 60000);
     status.textContent = t('Ищу записи для ', 'Checking advisories for ') + requested + '…';
     try {
-      const entries = useOSV ?
-        [...(await getAdvisories(name, version, controller.signal)).values()].map(record => ({
-          ...record, ...LabSeverity.rating(record), href:'https://osv.dev/vulnerability/' + encodeURIComponent(record.id),
-        })) : await registryEntries(name, version, controller.signal);
+      const {entries,source,reason}=await lookup(name,version,controller.signal);
       if (controller !== activeRequest) return;
-      const source = useOSV ? 'OSV' : address;
       if (!entries.length) {
+        if(reason){status.textContent=requested+' · '+source+'. '+reason;return;}
         status.textContent = source + ' · ' + t('Известных записей для ', 'No known advisories returned for ') + requested +
           t(' не найдено. Ответ не подтверждает существование этой версии.', '. This response does not confirm that the version exists.');
         return;
       }
-      status.textContent = requested + ' · ' + source + ' · ' + t('Найдено записей — ', 'Advisories found — ') + entries.length;
+      status.textContent = requested + ' · ' + source + ' · ' + t('Найдено записей — ', 'Advisories found — ') + entries.length + (reason ? '. '+reason : '');
       for (const entry of LabSeverity.sorted(entries)) {
         const item = document.createElement('li');
         item.append(LabSeverity.badge(entry),' ');
@@ -169,7 +191,7 @@
     } catch (error) {
       if (controller !== activeRequest) return;
       status.textContent = t('Результат неизвестен для ', 'Result unknown for ') + requested +
-        ' · ' + (useOSV ? 'OSV' : address) + '. ' + LabRegistry.message(error);
+        ' · ' + (hosted ? t('Не удалось загрузить или подтвердить полный снимок OSV.','The complete OSV snapshot could not be loaded or verified.') : (useOSV ? 'OSV' : address) + '. ' + LabRegistry.message(error));
     } finally {
       clearTimeout(timeout);
       if (controller === activeRequest) activeRequest = undefined;
