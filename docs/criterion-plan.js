@@ -100,28 +100,26 @@
       const hosted=LabRegistry.hostedAudit===true;
       try {source=LabRegistry.base();} catch(e) {line(output,'p',LabRegistry.message(e));return;}
       const eligible=rows.filter(row=>row.version);
-      const names=eligible.map(row=>row.name);
       const publicHost=!hosted && source===LabRegistry.defaultBase;
-      const picks=new Set(eligible.filter(row=>!publicHost || row.publicRegistry).map(row=>row.name));
       line(output,'p',hosted ? t('Даты публикаций и peer-требования берутся из общего снимка Nexus с этой страницы. Выбранные имена проверяются на устройстве.','Release dates and peer requirements come from the shared Nexus snapshot on this site. Selected names are matched on this device.') :
         t('За датами публикаций браузер обратится в ','For publication dates the browser will contact ')+source+
         t('. Реестр получит выбранные имена пакетов.',' with the selected package names.'));
-      if(publicHost && picks.size<names.length) line(output,'p',t('Публичный источник не подтверждён у ','The public source is unconfirmed for ')+(names.length-picks.size)+
-        t(' пакетов. Они сняты с выбора. Отметьте только те имена, которые можно отправить в публичный npm.',' packages. These are unchecked. Select only names you can send to public npm.'));
-      const selectLabel=hosted ? t('Проверить в снимке · ','Look up in snapshot · ') : t('Имена для отправки · ','Names to send · ');
-      const details=line(output,'details',''), caption=line(details,'summary',selectLabel+picks.size);
-      for(const name of names) {
-        const label=line(details,'label','');label.className='field';
-        const box=document.createElement('input');box.type='checkbox';box.checked=picks.has(name);label.append(box,' '+name);
-        box.onchange=()=>{if(box.checked)picks.add(name);else picks.delete(name);caption.textContent=selectLabel+picks.size;go.disabled=!picks.size;};
-      }
-      const go=line(output,'button',hosted ? t('Рассчитать по снимку Nexus','Calculate from the Nexus snapshot') : t('Запросить даты и рассчитать план','Fetch release dates and calculate plan'));go.className='button';go.disabled=!picks.size;
+      const selection=line(output,'div','');
+      const go=line(output,'button',hosted ? t('Рассчитать по снимку Nexus','Calculate from the Nexus snapshot') : t('Запросить даты и рассчитать план','Fetch release dates and calculate plan'));
+      go.className='button';
+      const picker=LabPackagePicker.mount(selection,{
+        items:eligible.map(row=>({key:row.name,label:row.name,publicOrigin:row.publicRegistry,selected:!publicHost || row.publicRegistry})),
+        publicDestination:publicHost ? source : null,
+        onChange:ready=>{go.disabled=!ready;},
+      });
       const progress=line(output,'p','');progress.setAttribute('role','status');
       const download=hosted && line(output,'a',t('Скачать локальную версию для прямого запроса в Nexus','Download the local lab to query Nexus directly'));
       if(download){download.href=Lab.urlFor('index.html#local-download');download.hidden=true;}
       go.onclick=async()=>{
-        const selected=[...picks],queue=selected.slice(); let count=0, skipped=0;
-        go.disabled=true;details.inert=true;
+        const selected=picker.values().map(item=>item.key);
+        if(!selected.length || go.disabled || signal.aborted)return;
+        const queue=selected.slice(); let count=0, skipped=0;
+        go.disabled=true;selection.inert=true;
         errors.clear();documents.clear();summary.replaceChildren();
         const status=()=>progress.textContent=t('Обработано пакетов: ','Packages processed: ')+count+'/'+selected.length;
         status();
@@ -133,7 +131,7 @@
             source=t('снимок Nexus от ','Nexus snapshot dated ')+new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC';
           } catch(e) {
             if(signal.aborted)return;
-            progress.textContent=LabRegistry.message(e);download.hidden=false;go.disabled=false;details.inert=false;draw();return;
+            progress.textContent=LabRegistry.message(e);download.hidden=false;go.disabled=!picker.ready();selection.inert=false;draw();return;
           }
         }
         async function read() {
@@ -149,7 +147,7 @@
         }
         await Promise.all(Array.from({length:Math.min(3,selected.length)},read));
         if(signal.aborted)return;
-        const result=draw();go.disabled=false;details.inert=false;
+        const result=draw();go.disabled=!picker.ready();selection.inert=false;
         if(download)download.hidden=!errors.size && !result.unknown;
         if(hosted)progress.textContent+=' · '+source;
         if(skipped)progress.textContent+=t('. Из-за сбоя сети пропущено запросов: ','. Requests skipped after the network failure: ')+skipped+'.';
