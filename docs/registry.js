@@ -2,26 +2,15 @@
 (() => {
   const defaultBase = 'https://registry.npmjs.org/';
   const t = (ru,en) => window.Lab.t(ru,en);
-  const field = document.createElement('input');
-  const note = document.createElement('small');
-  const preference = 'deploom-lab-registry';
-  field.type = 'url'; field.id = 'registry-address'; field.spellcheck = false;
-  field.autocomplete = 'off'; field.value = defaultBase;
-  try { field.value = sessionStorage.getItem(preference) || defaultBase; } catch {}
-  const local = url => ['localhost','127.0.0.1','[::1]'].includes(url.hostname);
-  function base() {
-    let url;
-    try { url = new URL(field.value.trim()); } catch {}
-    if (!url || !(url.protocol === 'https:' || (url.protocol === 'http:' && local(url))) ||
-        url.username || url.password || url.hash || url.search) throw Error('REGISTRY_URL');
-    return url.href.replace(/\/*$/,'/');
-  }
+  const configuredBase = defaultBase;
+  // Discard registry addresses saved by earlier public releases.
+  try { sessionStorage.removeItem('deploom-lab-registry'); } catch {}
+  const base = () => configuredBase;
   function url(name, version) {
     if (!/^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/i.test(name) || name.length > 214) throw Error('PACKAGE_NAME');
     return base() + encodeURIComponent(name).replace(/^%40/,'@') + (version === undefined ? '' : '/' + encodeURIComponent(version));
   }
   function message(error) {
-    if (error?.message === 'REGISTRY_URL') return t('Введите HTTPS-адрес реестра без логина, токена и параметров.','Enter an HTTPS registry URL without credentials or query parameters.');
     if (error?.status === 401 || error?.status === 403) return 'HTTP '+error.status+' · '+t('реестр ограничил доступ. Браузер не читает учётные данные из .npmrc.','the registry denied access. The browser cannot use credentials from .npmrc.');
     if (error?.status === 404) return t('HTTP 404 · запись или API отсутствует по этому адресу.','HTTP 404 · the record or API is missing at this address.');
     if (error?.status) return 'HTTP '+error.status+' · '+t('сервер отклонил запрос.','the server rejected the request.');
@@ -57,20 +46,6 @@
     if (doc?.name !== name || doc.version !== version) throw Error('METADATA');
     return doc;
   }
-  function update(persist) {
-    try {
-      const address = base(); field.setCustomValidity('');
-      note.textContent = t('Запросы пойдут из вашего браузера. Для зеркала npm укажите полный адрес репозитория.','Requests run in your browser. For a mirror, include its full repository path.');
-      if (persist) {try {sessionStorage.setItem(preference,address);} catch {}}
-    } catch (e) {field.setCustomValidity(message(e)); note.textContent = message(e);}
-    if (persist) window.dispatchEvent(new Event('lab-registry-change'));
-  }
-  const host = document.querySelector('[data-registry]');
-  if (host) {
-    const label = document.createElement('label'); label.className = 'field';
-    label.append(t('Реестр npm','npm registry'),field,note);
-    host.append(label); field.addEventListener('change',()=>update(true)); update(false);
-  }
   function setFile(input,file) {
     const transfer = new DataTransfer(); if (file) transfer.items.add(file);
     input.files = transfer.files;
@@ -100,12 +75,5 @@
     if (!manifest && !lock) throw Error(t('В корне выбранной папки нет package.json или lock-файла.','The chosen folder has no package.json or lockfile at its root.'));
     return {manifest,lock};
   }
-  async function pickProject(input) {
-    if (typeof window.showDirectoryPicker !== 'function') {input.click();return null;}
-    let directory;
-    try {directory=await window.showDirectoryPicker({mode:'read'});}
-    catch (e) {if (e.name === 'AbortError') return null;if (e.name === 'SecurityError') {input.click();return null;}throw e;}
-    return projectFiles(directory);
-  }
-  window.LabRegistry={base,url,json,packument,manifest,message,defaultBase,projectFiles,pickProject,setFile};
+  window.LabRegistry={base,url,json,packument,manifest,message,defaultBase,projectFiles,setFile};
 })();

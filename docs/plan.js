@@ -170,6 +170,7 @@
       for(const item of notFound) {
         const link=add('a',t('Посмотреть опубликованные версии ','See published releases of ')+item.name);
         link.href=LabRegistry.url(item.name);
+        link.rel='noreferrer';
       }
       for (const change of changes) {
         for (const group of change.groups) {
@@ -181,6 +182,7 @@
         }
         add('p',t('Ваша цель · ','Your target · ') + change.name + ' ' + change.record.version + ' → ' + change.target);
       }
+      LabCriterionPlan.showReactCheck(el('plan-output'),changes);
       if (result.unknown.length && !notFound.length) add('p',yarn==='Yarn Classic'
         ? t('Yarn Classic хранит версии, но обычно опускает peerDependencies. Требования можно прочитать из выбранного реестра или из package.json библиотеки.', 'Yarn Classic records versions and usually omits peerDependencies. Read those requirements from the selected registry or from the library’s package.json.')
         : t('Для части пакетов не хватает требований. Добавьте манифесты библиотек или запросите версии в выбранном реестре.', 'Some requirements are missing. Supply package manifests or look up releases in the selected registry.'));
@@ -301,9 +303,7 @@
       el('meta-files').value='';refreshProject(true);
     } catch(err){reset();add('p',err.message);}
   }
-  el('choose-folder').onclick=()=>useFolder(LabRegistry.pickProject(el('folder-input')));
-  el('folder-input').onchange=()=>{useFolder(LabRegistry.projectFiles(el('folder-input').files));el('folder-input').value='';};
-  window.addEventListener('lab-registry-change',()=>{confirmed.clear();absent.clear();calculate();});
+  window.addEventListener('lab-project',({detail})=>useFolder(detail || {manifest:null,lock:null}));
   function syncMode() {
     el('manual-goal').hidden=!manual();
     el('make-plan').hidden=!manual();

@@ -15,19 +15,26 @@
 
     <section class="panel" aria-labelledby="online-title">
       <h2 id="online-title" data-en="Look up published advisories">Проверить по базе OSV</h2>
+      <div id="project-picker" hidden>
+        <p id="project-note" class="hint" role="status"></p>
+        <label class="field"><span data-en="Find a package in this project">Найти пакет в проекте</span>
+          <input id="project-filter" type="search" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span data-en="Use a package from the project">Подставить пакет из проекта</span>
+          <select id="project-choice"></select></label>
+      </div>
       <form id="advisory-form">
-        <label class="field" for="package"><span data-en="Public npm package">Публичный npm-пакет</span>
+        <label class="field" for="package"><span id="package-label" data-en="Public npm package">Публичный npm-пакет</span>
           <input id="package" type="text" required value="lodash" maxlength="214" autocomplete="off" autocapitalize="none" spellcheck="false">
         </label>
         <label class="field" for="version"><span data-en="Installed version">Установленная версия</span>
           <input id="version" type="text" required value="4.17.20" maxlength="256" autocomplete="off" autocapitalize="none" spellcheck="false">
         </label>
         <p id="scope-confirmation" hidden>
-          <label><input id="public-scope" type="checkbox"> <span data-en="I confirm this scoped package name is public.">Подтверждаю, что это публичное имя пакета.</span></label>
+          <label><input id="public-scope" type="checkbox"> <span data-en="I confirm this package name is public.">Подтверждаю, что это публичное имя пакета.</span></label>
         </p>
-        <p class="hint" data-en="When you submit, your browser sends the package name and version to api.osv.dev. Enter public package names only.">По кнопке браузер отправит название и версию на api.osv.dev. Вводите только публичные названия пакетов.</p>
+        <p id="destination" class="hint" data-en="When you submit, your browser sends the package name and version to api.osv.dev. Enter public package names only.">По кнопке браузер отправит название и версию на api.osv.dev. Вводите только публичные названия пакетов.</p>
         <button class="button" type="submit" id="query-button" disabled data-en="Check with OSV">Проверить в OSV</button>
-        <noscript><p>Для запроса нужен JavaScript. / Enable JavaScript to query OSV.</p></noscript>
+        <noscript><p>Для запроса нужен JavaScript. / Enable JavaScript to run the lookup.</p></noscript>
       </form>
       <p id="query-status" role="status" aria-live="polite"></p>
       <ul id="advisories" hidden></ul>
@@ -43,6 +50,9 @@
     </section>
   </main>
   <script src="nav.js"></script>
+  <script src="vendor/semver.js"></script><script src="lock-graph.js"></script>
+  <script src="vendor/yarn-classic.js"></script><script src="vendor/js-yaml.min.js"></script><script src="yarn-lock.js"></script>
+  <script src="registry.js"></script><script src="audit-model.js"></script>
   <script src="severity.js"></script><script src="selector-data.js"></script><script src="advisories.js"></script>
 </body>
 </html>

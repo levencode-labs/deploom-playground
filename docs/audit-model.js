@@ -114,9 +114,13 @@
       const records=data[row.name] ?? [];
       if (!Array.isArray(records) || records.some(r=>!isObject(r) || !r.vulnerable_versions || !treeSemver.validRange(r.vulnerable_versions) || (!r.id && !r.url))) continue;
       for (const r of records) if (treeSemver.satisfies(row.version,r.vulnerable_versions,{includePrerelease:true})) {
-        let href='';
-        try {const u=new URL(r.url); if(u.protocol==='https:' && !u.username && !u.password) href=u.href;}catch{}
-        const id=href.match(/GHSA-[\w-]+/i)?.[0] || String(r.id || href);
+        let href='', ghsa='';
+        try {
+          const url=new URL(r.url);
+          ghsa=url.pathname.match(/GHSA-[\w-]+/i)?.[0] || '';
+          if(url.origin===new URL(endpoint).origin && !url.username && !url.password) href=url.href;
+        } catch {}
+        const id=ghsa || String(r.id || r.url);
         findings.set(id,{id,summary:r.title || '',href,...LabSeverity.rating(r)});
         if(!row.ids.includes(id)) row.ids.push(id);
       }

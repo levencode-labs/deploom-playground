@@ -22,7 +22,33 @@
     const record=SelectorLab.cases[query.get('rev')];
     nameField.value='nth-check';versionField.value=record.nthVersion;
   }
-  let activeRequest;
+  const picker = document.getElementById('project-picker');
+  const filter = document.getElementById('project-filter');
+  const choice = document.getElementById('project-choice');
+  const projectNote = document.getElementById('project-note');
+  let activeRequest, generation = 0, projectRows = [], visible = [];
+  let projectLabel = '', projectIsLock = false;
+  const button = document.getElementById('query-button');
+  const destination = document.getElementById('destination');
+  const address = LabRegistry.base();
+  const useOSV = address === LabRegistry.defaultBase;
+  function needsConfirmation() {
+    const name = nameField.value.trim();
+    return useOSV && (name.startsWith('@') || projectRows.some(row => row.name === name) &&
+      !projectRows.some(row => row.name === name && row.version === versionField.value.trim() && row.publicOrigin));
+  }
+  function describeSource() {
+    publicScope.checked = false;
+    scopeConfirmation.hidden = !needsConfirmation();
+    document.getElementById('online-title').textContent = useOSV ? t('Проверить по базе OSV','Look up OSV advisories') :
+      t('Проверить по базе выбранного реестра','Check the selected registry for advisories');
+    document.getElementById('package-label').textContent = useOSV ? t('Публичный npm-пакет','Public npm package') : t('Имя пакета в реестре','Package name in the registry');
+    button.disabled = false;
+    button.textContent = useOSV ? t('Проверить в OSV','Check with OSV') : t('Проверить в реестре','Check with registry');
+    destination.textContent = useOSV ?
+      t('По кнопке браузер отправит название и версию на api.osv.dev. Вводите только публичные названия пакетов.','When you submit, your browser sends the package name and version to api.osv.dev. Enter public package names only.') :
+      t('По кнопке браузер отправит имя и версию в API аудита этого реестра: ', 'Submitting sends the name and version to this registry’s advisory API: ') + address;
+  }
 
   function resetResult() {
     activeRequest?.abort();
@@ -36,8 +62,11 @@
 
   form.addEventListener('input', event => {
     resetResult();
-    if (event.target === nameField) publicScope.checked = false;
-    scopeConfirmation.hidden = !nameField.value.trim().startsWith('@');
+    if (event.target === nameField || event.target === versionField) {
+      publicScope.checked = false;
+      choice.value = '';
+    }
+    scopeConfirmation.hidden = !needsConfirmation();
   });
 
   async function getAdvisories(name, version, signal) {
@@ -47,16 +76,11 @@
     do {
       const query = { package: { name, ecosystem: 'npm' }, version };
       if (token) query.page_token = token;
-      const response = await fetch('https://api.osv.dev/v1/query', {
+      const data = await LabRegistry.json('https://api.osv.dev/v1/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(query),
-        credentials: 'omit',
-        referrerPolicy: 'no-referrer',
-        signal,
-      });
-      if (!response.ok) throw new Error('OSV HTTP ' + response.status);
-      const data = await response.json();
+      }, signal);
       if (!data || Array.isArray(data) || typeof data !== 'object' || data.error ||
           (data.vulns !== undefined && !Array.isArray(data.vulns)) ||
           (data.next_page_token !== undefined && typeof data.next_page_token !== 'string')) {
@@ -71,6 +95,14 @@
       seenTokens.add(token);
     } while (token);
     return matches;
+  }
+
+  async function registryEntries(name, version, signal) {
+    const row = {name, version, ids:[], state:'unknown'};
+    const entries = new Map();
+    await LabAudit.registryAudit([row], entries, signal);
+    if (row.state === 'unknown') throw Error('METADATA');
+    return [...entries.values()];
   }
 
   form.addEventListener('submit', async event => {
@@ -88,7 +120,7 @@
       versionField.focus();
       return;
     }
-    if (name.startsWith('@') && !publicScope.checked) {
+    if (needsConfirmation() && !publicScope.checked) {
       scopeConfirmation.hidden = false;
       status.textContent = t('Подтвердите публичность имени перед отправкой.', 'Confirm the package name is public before submitting.');
       publicScope.focus();
@@ -96,42 +128,109 @@
     }
 
     const requested = name + '@' + version;
-    const parameters = new URLSearchParams({ ecosystem: 'npm', affects: requested, per_page: '100' });
-    githubLink.href = 'https://api.github.com/advisories?' + parameters;
-    otherSource.hidden = false;
+    if (useOSV) {
+      const parameters = new URLSearchParams({ ecosystem: 'npm', affects: requested, per_page: '100' });
+      githubLink.href = 'https://api.github.com/advisories?' + parameters;
+      otherSource.hidden = false;
+    }
     const controller = new AbortController();
     activeRequest = controller;
     const timeout = setTimeout(() => controller.abort(), 60000);
     status.textContent = t('Ищу записи для ', 'Checking advisories for ') + requested + '…';
     try {
-      const matches = await getAdvisories(name, version, controller.signal);
+      const entries = useOSV ?
+        [...(await getAdvisories(name, version, controller.signal)).values()].map(record => ({
+          ...record, ...LabSeverity.rating(record), href:'https://osv.dev/vulnerability/' + encodeURIComponent(record.id),
+        })) : await registryEntries(name, version, controller.signal);
       if (controller !== activeRequest) return;
-      if (matches.size === 0) {
-        status.textContent = t('OSV не вернула известных записей для ', 'OSV returned no known advisories for ') + requested + '. ' +
-          t('Проверьте имя и версию. OSV не подтверждает наличие пакета в npm.', 'Check the name and version. OSV does not confirm a package exists in npm.');
+      const source = useOSV ? 'OSV' : address;
+      if (!entries.length) {
+        status.textContent = source + ' · ' + t('Известных записей для ', 'No known advisories returned for ') + requested +
+          t(' не найдено. Ответ не подтверждает существование этой версии.', '. This response does not confirm that the version exists.');
         return;
       }
-      status.textContent = requested + ' · ' + t('Записей в OSV — ', 'OSV advisories — ') + matches.size;
-      for (const entry of LabSeverity.sorted([...matches.values()].map(record=>({...record,...LabSeverity.rating(record)})))) {
+      status.textContent = requested + ' · ' + source + ' · ' + t('Найдено записей — ', 'Advisories found — ') + entries.length;
+      for (const entry of LabSeverity.sorted(entries)) {
         const item = document.createElement('li');
-        const link = document.createElement('a');
-        link.href = 'https://osv.dev/vulnerability/' + encodeURIComponent(entry.id);
-        link.textContent = entry.id;
-        item.append(LabSeverity.badge(entry),' ',link);
+        item.append(LabSeverity.badge(entry),' ');
+        if (entry.href) {
+          const link = document.createElement('a');
+          link.href = entry.href;
+          link.rel = 'noreferrer';
+          link.textContent = entry.id;
+          item.append(link);
+        } else {
+          item.append(entry.id);
+        }
         if (typeof entry.summary === 'string' && entry.summary) item.append(' — ' + entry.summary);
         list.append(item);
       }
       list.hidden = false;
-    } catch {
+    } catch (error) {
       if (controller !== activeRequest) return;
-      status.textContent = t('Результат неизвестен. Не удалось получить полный ответ OSV для ', 'Result unknown. A complete OSV response was unavailable for ') +
-        requested + '. ' + t('Проверьте соединение и повторите запрос. Ниже есть сохранённый пример.', 'Check your connection and try again. A saved example is available below.');
+      status.textContent = t('Результат неизвестен для ', 'Result unknown for ') + requested +
+        ' · ' + (useOSV ? 'OSV' : address) + '. ' + LabRegistry.message(error);
     } finally {
       clearTimeout(timeout);
       if (controller === activeRequest) activeRequest = undefined;
     }
   });
 
-  document.getElementById('query-button').disabled = false;
-  scopeConfirmation.hidden = !nameField.value.trim().startsWith('@');
+  function showChoices() {
+    const term = filter.value.trim().toLowerCase();
+    const matching = projectRows.filter(row => (row.name + (row.version ? '@' + row.version : '')).includes(term));
+    visible = matching.slice(0,80);
+    choice.replaceChildren(new Option(t('Выберите пакет', 'Choose a package'), ''));
+    visible.forEach((row,i) => choice.add(new Option(row.name + (row.version ? '@' + row.version : ''), String(i))));
+    choice.disabled = !visible.length;
+    projectNote.textContent = projectLabel + ' · ' + (projectIsLock ?
+      t('Записи lock-файла с точной версией', 'Exact versions from the lockfile') :
+      t('Имена из package.json. Установленную версию укажите вручную', 'Names from package.json. Enter the installed version manually')) +
+      ' · ' + visible.length + ' / ' + matching.length;
+  }
+  filter.addEventListener('input', showChoices);
+  choice.addEventListener('change', () => {
+    if (!choice.value) return;
+    const row = visible[Number(choice.value)];
+    if (!row) return;
+    resetResult();
+    nameField.value = row.name;
+    versionField.value = row.version || '';
+    publicScope.checked = false;
+    scopeConfirmation.hidden = !needsConfirmation();
+    if (!row.version) versionField.focus();
+  });
+  window.addEventListener('lab-project', async ({detail}) => {
+    const token = ++generation;
+    resetResult();
+    projectRows = []; visible = [];
+    nameField.value = ''; versionField.value = ''; filter.value = '';
+    publicScope.checked = false; scopeConfirmation.hidden = true;
+    picker.hidden = !detail || (!detail.lock && !detail.manifest);
+    if (picker.hidden) return;
+    choice.replaceChildren(); choice.disabled = true;
+    projectLabel = detail.name || t('Проект','Project');
+    projectNote.textContent = projectLabel + ' · ' + t('Читаю локальный файл…', 'Reading local file…');
+    const file = detail.lock || detail.manifest;
+    try {
+      if (file.size > LabAudit.maxBytes) throw Error('size');
+      const content = await file.text();
+      if (token !== generation) return;
+      projectIsLock = Boolean(detail.lock);
+      if (projectIsLock) {
+        const lock = LabYarn.read(content);
+        projectRows = LabAudit.localInventory(lock).rows.filter(row => !row.localOnly);
+      } else {
+        const names = new Set([...LabLockGraph.declarations(JSON.parse(content), true)].map(edge => edge.name));
+        projectRows = [...names].sort().map(name => ({name}));
+      }
+      showChoices();
+    } catch (error) {
+      if (token !== generation) return;
+      projectNote.textContent = projectLabel + ' · ' + (error.message === 'size' ?
+        t('Файл больше 8 МиБ. Введите пакет и версию вручную.', 'File exceeds 8 MiB. Enter the package and version manually.') :
+        t('Не удалось прочитать файл. Введите пакет и версию вручную.', 'Could not read the file. Enter the package and version manually.'));
+    }
+  });
+  describeSource();
 })();

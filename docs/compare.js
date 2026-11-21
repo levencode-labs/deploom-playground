@@ -248,6 +248,14 @@
       refresh();
     }
   }
+  window.addEventListener('lab-project', ({detail}) => {
+    example=false; lesson=null; focusPath='';
+    for(const side of sides) {
+      reads[side]++; state[side]=null; sourceErrors[side]=''; byId(side).value='';
+    }
+    if(detail?.lock) LabRegistry.setFile(byId('after'),detail.lock);
+    read('after');
+  });
   for (const side of sides) byId(side).addEventListener('change',()=>read(side));
   byId('example').addEventListener('click',()=>{
     location.href=ReviewExample.link('compare.html','selector','override',SelectorLab.cases.override.nthPath);

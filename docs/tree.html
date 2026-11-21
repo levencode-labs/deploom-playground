@@ -42,10 +42,8 @@
   <h1 data-en="Dependency tree">Дерево зависимостей</h1>
   <section class="panel" id="lesson-copy" hidden><h2 data-en="Why is this version installed?">Почему установлена эта версия?</h2><p id="lesson-parent"></p><pre id="lesson-proof"></pre><button class="button" id="lesson-map" data-en="Inspect the full graph">Развернуть граф</button></section>
   <p data-en="Open a project folder, add individual files or paste a manifest. The map is built on this device.">Выберите папку проекта, добавьте файлы по отдельности или вставьте манифест. Карта строится на вашем устройстве.</p>
-  <div data-registry></div>
     <section class="panel project-input">
       <h2 data-en="Project files">Файлы проекта</h2>
-      <div class="tree-controls"><button type="button" class="button" id="choose-folder" data-en="Choose project folder">Выбрать папку проекта</button><input type="file" id="folder-input" webkitdirectory multiple hidden></div>
       <div class="grid">
         <label class="field">package.json<input type="file" id="tree-manifest-file" data-fill="tree-manifest" accept=".json"></label>
         <label class="field">package-lock.json / yarn.lock<input id="tree-file" type="file" accept=".json,.lock"></label>

@@ -6,7 +6,7 @@
   let generation=0, project, active, report, shown=40;
   let findings=new Map(), allowed=new Set();
   const group=name=>name.startsWith('@')?name.split('/')[0]:t('Без префикса @','Unscoped names');
-  function registryMode() {try{return LabRegistry.base()===LabRegistry.defaultBase?'osv':'registry';}catch{return 'invalid';}}
+  const registryMode = () => LabRegistry.base() === LabRegistry.defaultBase ? 'osv' : 'registry';
   function eligible(row) {
     return !row.localOnly && (registryMode()==='registry' || row.publicOrigin || allowed.has(group(row.name)));
   }
@@ -27,7 +27,7 @@
     $('scope-box').hidden=registryMode()!=='osv' || !groups.length;
     $('scope-box').open=registryMode()==='osv' && groups.length>0 && !project.rows.some(r=>r.publicOrigin);
     $('scope-title').textContent=t('Пакеты с зеркала или без публичного адреса','Packages from mirrors or without a public URL')+' · '+unknown.length;
-    $('scope-hint').textContent=t('Отметьте группы, для которых можно отправить имена в публичный npm и OSV. Для внутренних пакетов выберите корпоративный реестр выше.','Select groups whose names may be sent to public npm and OSV. For internal packages, select your company registry above.');
+    $('scope-hint').textContent=t('Отметьте группы, для которых можно отправить имена в публичный npm и OSV.','Select groups whose names may be sent to public npm and OSV.');
     for(const key of groups) {
       const label=el('label',''),input=document.createElement('input');input.type='checkbox';
       input.onchange=()=>{resetResults();if(input.checked)allowed.add(key);else allowed.delete(key);render();};
@@ -64,12 +64,12 @@
     $('vuln-count').textContent=byId.size || (report && checked===rows.length && checked>0?'0':checked>0?t('0 среди проверенных','0 among checked'):'—');
     $('security-coverage').textContent=t('Проверено версий ','Versions checked ')+checked+' / '+rows.length+t(' · с находками ',' · affected ')+rows.filter(r=>r.ids.length).length;
     $('report-source').textContent=t('Отставание — разница дат выпуска установленной и старшей стабильной версии. Доля считается среди прямых зависимостей с известными датами. Уязвимости ищем и в зависимостях этих библиотек.','Lag compares the release dates of the installed and highest stable versions. The percentage covers direct dependencies with known dates. Security checks also cover transitive dependencies.');
-    const address=mode==='invalid'?'':LabRegistry.base();
-    $('send-summary').textContent=mode==='invalid'?LabRegistry.message(Error('REGISTRY_URL')):mode==='registry'
+    const address=LabRegistry.base();
+    $('send-summary').textContent=mode==='registry'
       ?t('По кнопке имена и версии будут отправлены только в ','On click, names and versions go only to ')+address+t(' за датами и в его npm Bulk Advisory API.',' for release dates and its npm Bulk Advisory API.')
       :t('По кнопке npm получит имена для проверки версий, OSV — публичные имена и версии. Пути останутся в браузере.','On click, npm receives names for release lookups and OSV receives public names and versions. Paths stay in your browser.');
     $('send-summary').textContent+=' '+t('В проверке ','Selected ')+selected.length+' / '+rows.length+'.';
-    $('run-audit').disabled=!!active || !selected.length || mode==='invalid';
+    $('run-audit').disabled=!!active || !selected.length;
     for(const input of $('scope-options').querySelectorAll('input'))input.disabled=!!active;
     $('result-details').hidden=!report;
     if(!report)return;
@@ -156,13 +156,11 @@
     try {const pair=await source;if(!pair || gen!==generation)return;LabRegistry.setFile($('audit-manifest'),pair.manifest);LabRegistry.setFile($('audit-file'),pair.lock);await load(pair.lock);}
     catch(e){if(gen===generation)$('parse-status').textContent=e.message;}
   }
-  $('pick-folder').onclick=()=>folder(LabRegistry.pickProject($('audit-folder')));
-  $('audit-folder').onchange=()=>folder(LabRegistry.projectFiles($('audit-folder').files));
+  window.addEventListener('lab-project',({detail})=>folder(detail || {manifest:null,lock:null}));
   for(const id of ['audit-file','audit-manifest'])$(id).onchange=()=>load($('audit-file').files[0]);
   $('run-audit').onclick=run;$('stop-audit').onclick=()=>active?.abort();
   $('audit-filter').oninput=()=>{shown=40;renderVersions();};
   $('more-rows').onclick=()=>{shown+=40;renderVersions();};
-  window.addEventListener('lab-registry-change',configure);
   async function sample(rev,recorded=false) {
     $('audit-file').value='';$('audit-manifest').value='';const data=SelectorLab.cases[rev];
     await load(data.lock,data.manifest);if(!project)return;

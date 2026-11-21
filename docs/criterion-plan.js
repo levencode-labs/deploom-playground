@@ -41,6 +41,7 @@
       for(const v of [row.version,row.target]) if(v && doc?.versions?.[v]) metadata.set(row.name+'@'+v,doc.versions[v]);
     }
     const changes = result.targets.flatMap(row=>LabPlan.read(man,lock,{[row.name]:row.target}));
+    showReactCheck(parent,changes);
     const yarn = LabYarn.format(lock.packages);
     const peers = yarn ? LabPlan.assessYarn(man,lock,changes,new Map(),metadata,true) : LabPlan.assess(lock,changes,new Map(),metadata,true);
     line(parent,'h3',t('Совместимость предложенных версий','Compatibility of the proposed versions'));
@@ -75,6 +76,14 @@
       (documents.size ? t('Источник — ваш lock-файл и ответы реестра ','Source — your lockfile and responses from ')+source+'.' : t('Источник — выбранные локальные файлы. Даты выпусков ещё не получены.','Source — the selected local files. Release dates are still unavailable.'))).className='hint';
   }
 
+  function showReactCheck(output,changes) {
+    if (!LabPlan.crossesReact19(changes)) return;
+    const section=line(output,'section','');
+    line(section,'h3',t('Проверка из миграции на React 19','A check from a React 19 migration'));
+    line(section,'p',t('Если в приложении есть статус с подсказкой, наведите на него мышь и перейдите к нему клавишей Tab. В обоих случаях должен появиться текст. В нашем проекте обёртка потеряла ref кнопки, хотя иконка по-прежнему была видна. Эту проверку ещё предстоит выполнить в вашем приложении.',
+      'If a status in your app has a tooltip, hover it and focus it with Tab. Its explanation should appear both ways. In our migration the wrapper dropped the button ref while the icon still rendered. Run this check in your own app.'));
+    line(section,'a',t('Попробовать проверку и скопировать её для MR','Try the check and copy it for your review')).href=Lab.urlFor('runtime.html?assertion=hint');
+  }
   function open(output,{man,lock,level,sample,signal}) {
     const data = sample && example();
     if(data) {man=data.manifest;lock=data.lock;}
@@ -95,7 +104,7 @@
       line(output,'p',t('За датами публикаций браузер обратится в ','For publication dates the browser will contact ')+source+
         t('. Реестр получит выбранные имена пакетов.',' with the selected package names.'));
       if(publicHost && picks.size<names.length) line(output,'p',t('Публичный источник не подтверждён у ','The public source is unconfirmed for ')+(names.length-picks.size)+
-        t(' пакетов. Они сняты с выбора. Можно отметить их вручную или указать свой реестр.',' packages. These are unchecked. Select them explicitly or enter your own registry.'));
+        t(' пакетов. Они сняты с выбора. Отметьте только те имена, которые можно отправить в публичный npm.',' packages. These are unchecked. Select only names you can send to public npm.'));
       const details=line(output,'details',''), caption=line(details,'summary',t('Имена для отправки · ','Names to send · ')+picks.size);
       for(const name of names) {
         const label=line(details,'label','');label.className='field';
@@ -125,5 +134,5 @@
     }
     output.append(summary);draw();
   }
-  window.LabCriterionPlan={open};
+  window.LabCriterionPlan={open,showReactCheck};
 })();

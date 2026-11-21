@@ -428,11 +428,6 @@
     render(false);
   }
 
-  window.addEventListener('lab-registry-change', () => {
-    request?.abort(); request = null; registry = new Map();
-    $('tree-network-result').textContent = '';
-    if (currentManifest) render(true);
-  });
   async function useFolder(selection) {
     const revision = ++projectRevision;
     try {
@@ -459,13 +454,7 @@
       if (revision === projectRevision) $('tree-error').textContent = error.message;
     }
   }
-  const folderInput = $('folder-input');
-  $('choose-folder').onclick = () => useFolder(LabRegistry.pickProject(folderInput));
-  folderInput.addEventListener('change', () => {
-    const files = Array.from(folderInput.files);
-    folderInput.value = '';
-    if (files.length) useFolder(LabRegistry.projectFiles(files));
-  });
+  window.addEventListener('lab-project', ({detail}) => useFolder(detail || {manifest:null,lock:null}));
   $('tree-manifest-file').addEventListener('change', () => { projectRevision++; });
   manifestInput.addEventListener('input', () => {
     if (sampleOpen) {lockText='';fileInput.value='';sampleOpen=false;}

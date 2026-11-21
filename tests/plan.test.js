@@ -17,6 +17,14 @@ const lock = {lockfileVersion:3,packages:{'':man,'node_modules/ui':entry('ui'),'
   'node_modules/sub/node_modules/wrapper':{peerDependencies:{core:'^1.0.0'}},
   'node_modules/sub/node_modules/core':entry('core')}};
 const metadata = new Map([['ui@2.0.0',{peerDependencies:{core:'^2.0.0'}}],['core@2.0.0',{}]]);
+test('suggests the recorded UI check only for a React 19 migration',()=>{
+  const check=(name,from,target,alias)=>lab.LabPlan.crossesReact19([{name,record:{name:alias,version:from},target}]);
+  assert.equal(check('react','18.3.1','19.0.0'),true);
+  assert.equal(check('react-dom','18.2.0','19.1.0'),true);
+  assert.equal(check('webpack','4.47.0','5.91.0'),false);
+  assert.equal(check('react','19.0.0','19.1.0'),false);
+  assert.equal(check('react','18.2.0','19.0.0','unrelated'),false);
+});
 const plan = targets => lab.LabPlan.assess(lock,lab.LabPlan.read(man,lock,targets),metadata);
 test('detects a required companion and a held reverse peer at its actual install path',()=>{
   const first = plan({ui:'2.0.0'}); assert.equal(first.issues[0].name,'core'); assert.equal(first.issues[0].version,'1.0.0');

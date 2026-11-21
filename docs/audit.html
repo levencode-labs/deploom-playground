@@ -14,10 +14,7 @@
     <h1 data-en="Project dependency audit">Аудит зависимостей проекта</h1>
     <p data-en="Open the project folder. See which direct libraries are over a year behind and where vulnerable versions occur in the lockfile.">Выберите папку проекта, чтобы узнать, какие прямые зависимости отстают больше чем на год и по каким путям установлены уязвимые версии.</p>
     <section class="panel" aria-label="Project">
-      <div data-registry></div>
-      <div class="audit-actions"><button type="button" class="button" id="pick-folder" data-en="Choose project folder">Выбрать папку проекта</button>
-        <input type="file" id="audit-folder" webkitdirectory multiple hidden>
-        <button type="button" id="sample" data-en="Open the css-select example">Открыть пример с css-select</button></div>
+      <div class="audit-actions"><button type="button" id="sample" data-en="Open the css-select example">Открыть пример с css-select</button></div>
       <details><summary data-en="Choose or drop files separately">Выбрать или перетащить файлы отдельно</summary>
         <div class="grid"><label class="field">package.json<input id="audit-manifest" type="file" accept=".json"></label>
         <label class="field">package-lock.json v3 / yarn.lock<input id="audit-file" type="file" accept=".json,.lock"></label></div>
@@ -45,7 +42,7 @@
         <label class="field"><span data-en="Package filter">Фильтр по пакету</span><input id="audit-filter" type="search"></label>
         <ul id="audit-rows" class="report-list"></ul><button type="button" id="more-rows" hidden data-en="Show more">Показать ещё</button>
       </details>
-      <p><a id="one-advisory" href="advisories.html" data-en="Look up one public version in OSV">Проверить одну публичную версию в OSV</a></p>
+      <p><a id="one-advisory" href="advisories.html" data-en="Check one package version">Проверить одну версию пакета</a></p>
     </section>
   </main>
   <script src="nav.js"></script>

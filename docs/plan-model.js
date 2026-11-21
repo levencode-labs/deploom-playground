@@ -84,5 +84,10 @@
     }
     return {checks, issues, unknown};
   }
-  window.LabPlan = {read, assess, assessYarn};
+  function crossesReact19(changes) {
+    return changes.some(({name,record,target}) =>
+      ['react','react-dom'].includes(name) && (!record.name || record.name===name) &&
+      treeSemver.satisfies(record.version,'<19') && treeSemver.satisfies(target,'19.x'));
+  }
+  window.LabPlan = {read, assess, assessYarn, crossesReact19};
 })();

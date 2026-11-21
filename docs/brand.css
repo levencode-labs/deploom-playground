@@ -15,3 +15,7 @@
 .hint-demo{position:relative;display:inline-flex;align-items:center;gap:.75rem;min-height:4rem;flex-wrap:wrap}.hint-demo button{background:#e7f1ff;border:1px solid #83a4cd;color:#163d74;padding:.6rem 1rem;border-radius:2rem;font-weight:650}.hint-demo [role=tooltip]{padding:.43rem .75rem;background:#142f54;color:white;border-radius:.42rem}.lesson-step[data-status=fail]{border-color:#ac512f;background:#fff4ed}#sources li{overflow-wrap:anywhere}.panel table th,.panel table td{padding:.35rem .6rem;text-align:left}#ssr-case>summary{font-weight:650}
 .lesson-step p{margin:.55rem 0}.lesson-step code{background:white;padding:.15rem .3rem}.step-enter{animation:step-in .26s ease-out}@keyframes step-in{from{opacity:.4;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.step-enter{animation:none}.drop-zone{transition:none}}
+.project-bar{display:flex;align-items:center;gap:.4rem .8rem;flex-wrap:wrap;max-width:76rem;margin:auto;padding:.45rem clamp(1rem,4vw,3rem) .7rem;border-top:1px solid #345075}
+.project-bar button{background:#163754;color:#f3fbfc;border:1px solid #7596b2;border-radius:.35rem;padding:.22rem .65rem;font-size:.9rem}
+.project-bar a{color:#b8defe}.project-bar strong,.project-bar small{overflow-wrap:anywhere;max-width:100%}.project-bar small{color:#c5d9e9}
+.project-bar small:empty{display:none}

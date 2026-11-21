@@ -13,13 +13,11 @@
 <h1 data-en="Upgrade plan">План обновления</h1>
 <p data-en="Open a project folder and choose a goal. See which libraries need attention and which neighbours constrain the upgrade.">Откройте папку проекта и выберите цель. Посмотрите, какие библиотеки пора обновить и кто из соседей ограничивает выбор версии.</p>
 <section class="panel plan-input"><h2 data-en="Project and targets">Проект и цель</h2>
-<div class="actions"><button type="button" id="choose-folder" class="button" data-en="Open project folder">Открыть папку проекта</button><input type="file" id="folder-input" webkitdirectory multiple hidden></div>
 <details id="file-fields"><summary data-en="Choose individual files instead">Выбрать файлы по отдельности</summary>
 <div class="grid"><label class="field">package.json<input id="manifest-file" type="file" accept=".json,application/json"></label><label class="field">yarn.lock / package-lock.json v3<input id="lock-file" type="file" accept=".json,.lock"></label></div>
 </details><p id="project" class="hint"></p>
 <label class="field"><span data-en="Goal">Цель</span><select id="plan-mode">
 <option value="yellow" data-en="Reach Yellow">Достичь Yellow</option><option value="green" data-en="Reach Green">Достичь Green</option><option value="manual" data-en="Update specific packages">Обновить конкретные пакеты</option></select></label>
-<div data-registry></div>
 <div id="manual-goal" hidden>
 <details id="local-metadata"><summary data-en="Use package metadata from disk">Добавить package.json библиотек для офлайн-проверки</summary>
 <p class="hint" data-en="Use the package.json of a target release or of a direct dependency already installed in node_modules. Its peerDependencies field lists its requirements.">Подойдёт package.json целевой версии или уже установленной прямой зависимости из node_modules. В нём перечислены требования к соседним пакетам.</p>

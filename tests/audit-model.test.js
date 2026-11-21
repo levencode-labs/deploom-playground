@@ -37,7 +37,7 @@ test('custom registry audit filters each exact version and preserves an incomple
   const calls=[];
   const api=model(async(url,options)=>{
     calls.push([url,JSON.parse(options.body)]);
-    return json({lib:[{id:42,vulnerable_versions:'<2',severity:'high',title:'Review package'}],bad:[{id:43}]});
+    return json({lib:[{id:42,url:'https://another.example/package/secret',vulnerable_versions:'<2',severity:'high',title:'Review package'}],bad:[{id:43}]});
   });
   const inputs=rows(['lib','lib','bad','empty']).map((r,i)=>({...r,version:i===1?'2.0.0':'1.0.0',state:'unknown'}));
   const findings=new Map();
@@ -46,6 +46,7 @@ test('custom registry audit filters each exact version and preserves an incomple
   assert.equal(new URL(calls[0][0]).pathname,'/-/npm/v1/security/advisories/bulk');
   assert.deepEqual(inputs.map(r=>r.state),['found','empty','unknown','empty']);
   assert.equal(findings.get('42').level,'High');
+  assert.equal(findings.get('42').href,'');
 });
 
 const json=(data,status=200)=>({ok:status===200,status,json:async()=>data});

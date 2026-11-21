@@ -10,6 +10,21 @@
     output.textContent = '';
     delete output.dataset.status;
   }
+  document.getElementById('copy-note').onclick = async () => {
+    const note = document.getElementById('migration-note');
+    let message;
+    try {
+      await navigator.clipboard.writeText(note.textContent);
+      message = t('Проверка скопирована.', 'Check copied.');
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(note);
+      const selection = getSelection();
+      selection.removeAllRanges(); selection.addRange(range);
+      message = t('Текст выделен. Скопируйте его.', 'Text selected. Use Copy.');
+    }
+    document.getElementById('copy-status').textContent = message;
+  };
   const prior = new URLSearchParams(location.search).get('assertion');
   if (prior === 'status' || prior === 'hint') choice.elements.assertion.value = prior;
   choice.addEventListener('change', () => {

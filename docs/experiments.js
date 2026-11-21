@@ -5,42 +5,6 @@
   const el = id => document.getElementById(id);
   const peer = !!document.querySelector('[data-experiment="peer"]');
   const publicState = new URLSearchParams(location.search);
-  const rangeForm = el('range-form');
-  if (rangeForm) {
-    const fields = rangeForm.elements;
-    const cases = {
-      scheduler: { section: 'dependencies', versions: ['0.23.0','0.23.2','0.25.0'] },
-      react: { section: 'peerDependencies', versions: ['18.2.0','18.3.1','19.0.0'] },
-    };
-    const operators = { caret: '^', tilde: '~', exact: '' };
-    if (Object.hasOwn(cases, publicState.get('pkg'))) fields.pkg.value = publicState.get('pkg');
-    if (Object.hasOwn(operators, publicState.get('op'))) fields.op.value = publicState.get('op');
-    function refill(candidate) {
-      const { versions } = cases[fields.pkg.value];
-      fields.v.replaceChildren(...versions.map(v => new Option(v, v)));
-      fields.v.value = versions.includes(candidate) ? candidate : versions[1];
-    }
-    function draw(save) {
-      const pkg = fields.pkg.value;
-      const { versions, section } = cases[pkg];
-      const base = versions[0];
-      const op = fields.op.value;
-      const range = operators[op] + base;
-      el('range-source').textContent = 'react-dom@18.2.0\n' + section + '.' + pkg + ' = "^' + base + '"';
-      LabRangeScale.render(el('range-scale'), {range, selected:fields.v.value, candidates:versions});
-      const max = (op === 'caret' && pkg === 'react') ? '19.0.0' : (pkg === 'react' ? '18.3.0' : '0.24.0');
-      el('range-reason').textContent = op === 'exact' ? t('При точной записи подходит только ', 'An exact pin only accepts ') + base + '.' :
-        t('Для стабильных версий ', 'For stable versions, ') + range + ' = >=' + base + ' <' + max + '.';
-      if (save) setExampleState({pkg,op,v:fields.v.value});
-    }
-    rangeForm.addEventListener('change', event => {
-      if (event.target === fields.pkg) refill();
-      draw(true);
-    });
-    refill(publicState.get('v'));
-    draw(false);
-    return;
-  }
   for (const radio of form.querySelectorAll('input[type="radio"]')) {
     if (radio.value === publicState.get(radio.name)) radio.checked = true;
   }

@@ -45,7 +45,7 @@
     ]],
     [t('Визуализации','Visualizations'), [
       ['tree.html', t('Дерево зависимостей','Dependency tree')],
-      ['ranges.html', t('Диапазоны версий npm','npm version ranges')],
+      ['ranges.html', t('Проверить диапазон','Check a version range')],
     ]],
     [t('Примеры','Examples'), [
       [null, t('Установка и CI','Installation and CI')],
@@ -54,7 +54,6 @@
       ['ci.html', t('Rollup на Linux после сборки на Mac','Rollup on Linux after a Mac build')],
       [null, t('Запуск кода','Running the code')],
       ['override.html', t('CSS-селектор после override','CSS selector after an override')],
-      ['runtime.html#ssr-case', t('Кнопка при серверном рендеринге','Server-rendered button')],
       [null, t('Работа с интерфейсом','Using the interface')],
       ['runtime.html', t('Подсказка после перехода на React 19','A missing hint after upgrading to React 19')],
     ]],
@@ -136,6 +135,9 @@
   bar.append(skip, brand, nav, language);
   window.Lab = { lang, t, urlFor, setExampleState };
   document.querySelector('[data-nav]').append(bar);
+  const projectScript = document.createElement('script');
+  projectScript.src = 'project.js';
+  document.head.append(projectScript);
   if (lang === 'en') for (const element of main.querySelectorAll('[data-en]')) element.textContent = element.dataset.en;
   for (const anchor of main.querySelectorAll('a[href]')) {
     if (/^[\w-]+\.html(?:[?#]|$)/.test(anchor.getAttribute('href'))) anchor.href = urlFor(anchor.getAttribute('href'));

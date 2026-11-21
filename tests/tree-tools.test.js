@@ -50,3 +50,16 @@ test('range examples respect stable boundaries and exclude prereleases by defaul
   assert.equal(satisfies('1.3.0-beta.1', '^1.2.3'), false);
   assert.equal(satisfies('2.0.0', '^1.2.3'), false);
 });
+
+test('the scale includes real neighbours and range boundaries without inventing a release', () => {
+  lab.window.Lab = {t:ru=>ru};
+  vm.runInContext(source('range-scale.js'),lab);
+  const {nearby,compare}=lab.window.LabRangeScale;
+  const releases=['0.9.0','1.0.0','1.1.0','1.2.0','1.3.0','1.4.0','1.5.0','2.0.0','3.0.0'];
+  const result=[...nearby(releases,'^1.0.0','1.2.1')];
+  assert.ok(result.length<=6);
+  for(const version of ['1.0.0','1.2.0','1.3.0','1.5.0','2.0.0']) assert.ok(result.includes(version));
+  assert.ok(!result.includes('1.2.1'));
+  assert.ok(compare('1.2.0-beta.1','1.2.0')<0);
+  assert.deepEqual([...nearby([], '^1', '1.0.0')],[]);
+});
