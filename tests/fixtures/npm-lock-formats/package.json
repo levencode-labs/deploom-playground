@@ -1,0 +1,9 @@
+{
+  "name": "selector-check",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "css-select": "4.3.0",
+    "css-what": "3.4.2"
+  }
+}
