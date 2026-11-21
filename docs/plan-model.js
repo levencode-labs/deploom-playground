@@ -21,7 +21,7 @@
     });
   }
 
-  function assessYarn(manifest,lock,changes,metadata,local) {
+  function assessYarn(manifest,lock,changes,metadata,local,allPeers = false) {
     const checks=[],issues=[],unknown=[];
     const roots=new Map();
     for (const edge of LabLockGraph.declarations(manifest,true)) {
@@ -43,7 +43,7 @@
         unknown.push(hit.key); continue;
       }
       for(const edge of LabLockGraph.declarations(record,false)) {
-        if(edge.group!=='peerDependencies' || (!updating && !targets.has(edge.name))) continue;
+        if(edge.group!=='peerDependencies' || (!allPeers && !updating && !targets.has(edge.name))) continue;
         const version=targets.get(edge.name)?.target || roots.get(edge.name)?.record.version;
         if(!version || !treeSemver.validRange(edge.range)) {
           if(!edge.optional) unknown.push(hit.key+' → '+edge.name);
@@ -55,7 +55,7 @@
     }
     return {checks,issues,unknown};
   }
-  function assess(lock, changes, metadata, local = new Map()) {
+  function assess(lock, changes, metadata, local = new Map(), allPeers = false) {
     const packages = lock.packages;
     const byName = new Map(changes.map(change => [change.name, change]));
     const issues = [], unknown = [], checks = [];
@@ -72,7 +72,7 @@
       for (const [name, range] of Object.entries(spec.peerDependencies || {})) {
         const hit = lockedPackage(packages, path, {name, group:'peerDependencies'});
         const provider = hit?.key.startsWith(prefix) && byName.get(hit.key.slice(prefix.length));
-        if (!updating && !(provider && provider.record.version !== provider.target)) continue;
+        if (!allPeers && !updating && !(provider && provider.record.version !== provider.target)) continue;
         if (!usableName(name) || typeof range !== 'string' || !treeSemver.validRange(range) || hit?.record?.link) {
           unknown.push((path || '.') + ' → ' + name); continue;
         }

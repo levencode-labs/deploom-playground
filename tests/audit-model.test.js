@@ -6,8 +6,10 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 function model(fetch) {
-  const ctx=vm.createContext({window:{}, URL, fetch});
-  for(const file of ['vendor/semver.js','lock-graph.js','audit-model.js']) {
+  const ctx=vm.createContext({URL,fetch,AbortController,DOMException,setTimeout,clearTimeout,
+    document:{createElement:()=>({}),querySelector:()=>null},Lab:{t:(_,en)=>en}});
+  ctx.window=ctx;
+  for(const file of ['vendor/semver.js','registry.js','severity.js','lock-graph.js','audit-model.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs',file),'utf8'),ctx,{filename:file});
   }
   return ctx.window.LabAudit;
@@ -31,6 +33,21 @@ test('inventory deduplicates physical copies and retains the original name for a
   assert.equal(rows.length,1);assert.equal(rows[0].name,'lib');assert.equal(rows[0].paths.length,3);assert.equal(skipped.length,7);
   assert.throws(()=>api.inventory({lockfileVersion:2,packages:{}}),/format/);
 });
+test('custom registry audit filters each exact version and preserves an incomplete response',async()=>{
+  const calls=[];
+  const api=model(async(url,options)=>{
+    calls.push([url,JSON.parse(options.body)]);
+    return json({lib:[{id:42,vulnerable_versions:'<2',severity:'high',title:'Review package'}],bad:[{id:43}]});
+  });
+  const inputs=rows(['lib','lib','bad','empty']).map((r,i)=>({...r,version:i===1?'2.0.0':'1.0.0',state:'unknown'}));
+  const findings=new Map();
+  await api.registryAudit(inputs,findings,new AbortController().signal);
+  assert.equal(calls.length,1);
+  assert.equal(new URL(calls[0][0]).pathname,'/-/npm/v1/security/advisories/bulk');
+  assert.deepEqual(inputs.map(r=>r.state),['found','empty','unknown','empty']);
+  assert.equal(findings.get('42').level,'High');
+});
+
 const json=(data,status=200)=>({ok:status===200,status,json:async()=>data});
 const rows=names=>names.map(name=>({name,version:'1.0.0',state:'ready',ids:[]}));
 test('only confirmed npm versions reach OSV, queries are paginated per package',async()=>{

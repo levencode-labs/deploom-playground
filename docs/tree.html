@@ -6,6 +6,7 @@
   <title>Дерево зависимостей · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
   <link rel="stylesheet" href="range-scale.css">
+  <link rel="stylesheet" href="map.css">
   <style>
     .tree-controls { display:flex; flex-wrap:wrap; gap:.55rem; margin:.8rem 0 }
     .project-input textarea { width:100%; min-width:0; box-sizing:border-box; padding:.8rem; border:1px solid #a3afc1; border-radius:.45rem; background:#fff; color:#152c44; font: .92rem/1.45 "IBM Plex Mono", Consolas, monospace; resize:vertical }
@@ -40,30 +41,46 @@
 <main>
   <h1 data-en="Dependency tree">Дерево зависимостей</h1>
   <section class="panel" id="lesson-copy" hidden><h2 data-en="Why is this version installed?">Почему установлена эта версия?</h2><p id="lesson-parent"></p><pre id="lesson-proof"></pre><button class="button" id="lesson-map" data-en="Inspect the full graph">Развернуть граф</button></section>
-  <p data-en="Choose package.json, a lockfile, or both. The map updates here as soon as you add a file. Your files stay on this device.">Выберите package.json, lock-файл или оба файла. Ниже сразу появится карта. Файлы остаются на вашем устройстве.</p>
+  <p data-en="Open a project folder, add individual files or paste a manifest. The map is built on this device.">Выберите папку проекта, добавьте файлы по отдельности или вставьте манифест. Карта строится на вашем устройстве.</p>
+  <div data-registry></div>
     <section class="panel project-input">
       <h2 data-en="Project files">Файлы проекта</h2>
+      <div class="tree-controls"><button type="button" class="button" id="choose-folder" data-en="Choose project folder">Выбрать папку проекта</button><input type="file" id="folder-input" webkitdirectory multiple hidden></div>
       <div class="grid">
         <label class="field">package.json<input type="file" id="tree-manifest-file" data-fill="tree-manifest" accept=".json"></label>
         <label class="field">package-lock.json / yarn.lock<input id="tree-file" type="file" accept=".json,.lock"></label>
       </div>
       <details id="manifest-editor"><summary data-en="Paste a manifest or dependency list">Вставить манифест или список зависимостей</summary>
         <textarea aria-label="package.json" id="tree-manifest" rows="5" spellcheck="false" autocapitalize="off"></textarea></details>
-      <label id="lock-entry-field" hidden><span data-en="Start the graph at this lockfile entry">Начать карту с этой записи lock-файла</span><select id="lock-entry"></select></label>
       <details class="tree-examples"><summary data-en="Try a sample project">Открыть учебный проект</summary><div class="tree-controls">
         <button type="button" id="tree-broken" data-en="Peer conflict">Конфликт версий</button><button type="button" id="tree-two-copies" data-en="Two copies">Две копии</button><button type="button" id="tree-fixed" data-en="Matching versions">Совместимая пара</button><button type="button" id="yarn-classic">Yarn Classic</button><button type="button" id="yarn-berry">Yarn Berry</button></div></details>
       <p id="tree-error" role="alert"></p>
     </section>
   <section class="panel map-panel" id="network-panel" hidden>
-    <div class="map-toolbar"><h2 data-en="Dependency map">Карта зависимостей</h2><div><button id="zoom-out" type="button" aria-label="Zoom out">−</button> <output id="network-zoom">100%</output> <button id="zoom-in" type="button" aria-label="Zoom in">+</button></div></div>
-    <p class="hint" data-en="Select a package to see who requested it. Dashed arrows mark peer requirements. An orange arrow marks a conflict.">Выберите пакет, чтобы увидеть, кто его запросил. Пунктиром показаны peer-требования, оранжевой стрелкой — конфликт.</p>
-    <div class="map-scroll" tabindex="0"><svg id="network-map" role="group" aria-label="Dependency graph"></svg></div>
-    <div id="network-info" aria-live="polite"></div><small id="map-limit" data-en="The map shows a bounded selection of up to 42 nodes. Explore more entries below.">На карте выборка до 42 узлов. Остальные записи можно исследовать ниже.</small>
+    <div class="map-toolbar"><h2 data-en="Dependency map">Карта зависимостей</h2>
+      <button id="map-fullscreen" type="button" aria-pressed="false" data-en="Full screen">На весь экран</button>
+    </div>
+    <form id="map-focus-form" class="map-controls">
+      <label class="field"><span data-en="Find a package, version or path">Найти пакет, версию или путь</span><input type="search" id="map-search" spellcheck="false" autocomplete="off"></label>
+      <label class="field map-copy-field"><span data-en="Starting node">Начальный узел</span><select id="map-start"></select></label>
+      <button type="submit" id="map-apply" data-en="Explore from here">Построить отсюда</button>
+      <small id="map-search-count" role="status"></small>
+    </form>
+    <div class="map-controls">
+      <label class="field"><span data-en="Trace">Что показать</span><select id="map-direction"><option value="out" data-en="Dependencies">Зависимости узла</option><option value="in" data-en="Dependents">Кто зависит от узла</option></select></label>
+      <label class="field"><span data-en="Depth">Глубина</span><select id="map-depth"><option>1</option><option selected>2</option><option>3</option><option value="all" data-en="All levels">Все уровни</option></select></label>
+      <button type="button" id="map-flip" aria-pressed="false" data-en="Mirror layout">Развернуть схему</button>
+      <div class="map-zoom"><button id="zoom-out" type="button">−</button><output id="network-zoom">100%</output><button id="zoom-in" type="button">+</button><button type="button" id="map-fit" data-en="Fit to view">Вписать</button></div>
+    </div>
+    <p class="hint map-guide" id="map-guide" data-en="Arrows point from a consumer to its dependency. Dashed edges are peers. Select a node for its connections. Drag to pan, scroll to zoom. Use arrow keys to pan, +/− to zoom and 0 to fit.">Стрелка идёт от потребителя к зависимости. Пунктир обозначает peer-требование. Выберите узел, чтобы увидеть связи. Перетаскивайте карту и меняйте масштаб колёсиком. С клавиатуры — стрелки, +/− и 0, чтобы вписать схему.</p>
+    <div class="map-scroll" id="map-viewport" tabindex="0" aria-describedby="map-guide"><svg id="network-map" role="group"></svg></div>
+    <div class="map-counts"><small id="map-limit" role="status"></small><button id="map-more" type="button" hidden data-en="Show more nodes">Показать ещё узлы</button></div>
+    <div id="network-info" aria-live="polite"></div>
   </section>
   <details class="panel tree-output" id="tree-details" hidden><summary data-en="Inspect paths and version requirements">Разобрать пути и требования к версиям</summary>
       <details class="tree-input-lock" id="tree-netbox">
         <summary data-en="Look up selected versions on npm">Сведения о выбранных версиях из npm</summary>
-        <p class="hint" data-en="Select public packages to send their names and exact versions to registry.npmjs.org. Only unscoped packages are offered. Use the lockfile for scoped packages and transitive versions.">Отметьте публичные пакеты, имена и точные версии которых можно отправить в registry.npmjs.org. Для пакетов со scope и вложенных версий используйте lock-файл.</p>
+        <p class="hint" data-en="Choose the names and exact versions to send to the selected npm registry. A lockfile supplies transitive versions.">Отметьте имена и точные версии, которые можно отправить в выбранный реестр npm. Для вложенных версий используйте lock-файл.</p>
         <div id="tree-registry-list"></div>
         <button class="button" type="button" id="tree-load-meta" data-en="Load selected metadata">Загрузить выбранные записи</button>
         <p class="hint" id="tree-network-result" role="status"></p>
@@ -102,8 +119,10 @@
 <script src="yarn-lock.js"></script>
 <script src="drop-files.js" defer></script>
 <script src="lock-samples.js"></script>
+<script src="dep-map-model.js"></script>
 <script src="dep-map.js"></script>
 <script src="selector-data.js"></script><script src="review-example.js"></script>
+<script src="registry.js"></script>
 <script src="tree.js"></script>
 </body>
 </html>

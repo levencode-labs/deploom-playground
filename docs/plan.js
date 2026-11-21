@@ -23,6 +23,10 @@
   const lesson = webpackLesson || selectorLesson;
   const initialTargets = webpackLesson?.targets || (selectorLesson ? {'css-select':'4.3.0'} : {'react-dom':'18.3.1'});
   let active, revision = 0;
+  const manual = () => el('plan-mode').value==='manual';
+  function registryAddress() {
+    try { return LabRegistry.base(); } catch { return ''; }
+  }
 
   function reset() {
     revision++;
@@ -35,6 +39,12 @@
   const lockFile = () => el('lock-file').files[0];
   const demo = () => !manifestFile() && !lockFile();
   function caption() {
+    if (!manual()) {
+      el('project').textContent = demo()
+        ? t('Открыта UI-ветка из примера про webpack. Даты выпусков сохранены на 1 июля 2024 года.','The UI branch from the webpack lesson is open. Release dates are saved as of 1 July 2024.')
+        : [manifestFile()?.name,lockFile()?.name].filter(Boolean).join(' + ')+t(' · чтение в браузере.',' · read locally.');
+      return;
+    }
     if (selectorLesson && demo()) {
       el('project').textContent = t('Версии в выбранной ревизии · ','Versions in this revision · ')+
         'css-select@'+selectorLesson.cssVersion+' → nth-check@'+selectorLesson.nthVersion+
@@ -100,9 +110,14 @@
         [man,lock] = await Promise.all([files[0].text().then(JSON.parse), files[1].text().then(LabYarn.read)]);
       }
       if (current !== revision) return;
+      if (!manual()) {
+        active = new AbortController();
+        LabCriterionPlan.open(el('plan-output'),{man,lock,level:el('plan-mode').value,sample:demo(),signal:active.signal});
+        return;
+      }
       const yarn = LabYarn.format(lock.packages);
       const changes = LabPlan.read(man,lock,JSON.parse(el('targets').value));
-      const evidence = new Map(webpackLesson && demo() ? LabWebpack.records : metadata);
+      const evidence = new Map(demo() ? (webpackLesson ? LabWebpack.records : metadata) : []);
       if (selectorLesson && demo()) {
         const target = SelectorLab.cases.parent;
         evidence.set('css-select@'+target.cssVersion,target.lock.packages[target.cssPath]);
@@ -137,12 +152,12 @@
       const result = yarn ? LabPlan.assessYarn(man,lock,changes,evidence,local) : LabPlan.assess(lock,changes,evidence,local);
       const missing = changes.filter(c => c.record.version !== c.target && !local.has(c.name+'@'+c.target) && (!c.publicRegistry || !evidence.has(c.name+'@'+c.target)));
       const notFound = missing.filter(c=>absent.has(c.name+'@'+c.target));
-      add('h2',notFound.length ? t('Такой версии нет в публичном npm','Release not found in public npm') :
+      add('h2',notFound.length ? t('Выбранный реестр не нашёл запись версии','The selected registry did not find the version record') :
         result.issues.length ? t('Для обновления нужна ещё одна правка','Another change is needed') :
         missing.length ? t('У цели пока неизвестны требования','Target requirements are unknown') :
         result.unknown.length ? t('Цель проверена частично','Target partially checked') :
         t('В проверенных требованиях конфликтов нет','No conflicts in the checked requirements'));
-      if(notFound.length) add('p',notFound.map(c=>c.name+'@'+c.target).join(', ')+t(' · npmjs вернул 404. Уточните версию в цели. Для внутренней сборки загрузите её package.json.',' · npmjs returned 404. Edit the target version, or supply its package.json for an internal build.'));
+      if(notFound.length) add('p',notFound.map(c=>c.name+'@'+c.target).join(', ')+' · '+registryAddress()+t(' вернул 404. Уточните версию или загрузите её package.json.',' returned 404. Edit the target or supply its package.json.'));
 
       if (missing.length) {
         const supply = add('button',t('Добавить package.json нужной версии с диска','Supply the target package.json from disk'));
@@ -154,7 +169,7 @@
       }
       for(const item of notFound) {
         const link=add('a',t('Посмотреть опубликованные версии ','See published releases of ')+item.name);
-        link.href='https://www.npmjs.com/package/'+item.name+'?activeTab=versions';
+        link.href=LabRegistry.url(item.name);
       }
       for (const change of changes) {
         for (const group of change.groups) {
@@ -167,8 +182,8 @@
         add('p',t('Ваша цель · ','Your target · ') + change.name + ' ' + change.record.version + ' → ' + change.target);
       }
       if (result.unknown.length && !notFound.length) add('p',yarn==='Yarn Classic'
-        ? t('Yarn Classic хранит версии, но обычно опускает peerDependencies. Требования можно прочитать из npmjs или из package.json библиотеки.', 'Yarn Classic records versions and usually omits peerDependencies. Read those requirements from npmjs or from the library’s package.json.')
-        : t('Для части пакетов не хватает требований. Добавьте манифесты библиотек или запросите выбранные версии в npmjs.', 'Some requirements are missing. Supply package manifests or look up selected versions in npmjs.'));
+        ? t('Yarn Classic хранит версии, но обычно опускает peerDependencies. Требования можно прочитать из выбранного реестра или из package.json библиотеки.', 'Yarn Classic records versions and usually omits peerDependencies. Read those requirements from the selected registry or from the library’s package.json.')
+        : t('Для части пакетов не хватает требований. Добавьте манифесты библиотек или запросите версии в выбранном реестре.', 'Some requirements are missing. Supply package manifests or look up releases in the selected registry.'));
       const lines = document.createElement('ul');
       for (const [rows,mark] of [[result.issues,'✗'],[result.checks,'✓']]) {
         for (const row of rows.slice(0,100)) {
@@ -188,7 +203,7 @@
         detail.append(summary,list);
       }
       const sources = new Set([selectorLesson && demo() ? t('сохранённый lock-файл этой ревизии и запись css-select@4.3.0 из lock-файла новой пары','the selected revision’s saved lockfile and the css-select@4.3.0 entry in the new pair’s lockfile') : webpackLesson && demo() ? t('прямые зависимости из lock-файла UI-ветки и сохранённые требования целевых пакетов','direct UI-branch lock entries and saved target package requirements') : demo() ? t('учебный lock-файл','sample lockfile') : t('ваши package.json и lock-файл','your package.json and lockfile')]);
-      if (confirmed.size) sources.add(t('метаданные выбранных версий из npmjs','npmjs metadata for selected releases'));
+      if (confirmed.size) sources.add(t('метаданные выбранных версий из ','metadata from ')+registryAddress());
       if (uploaded.size) sources.add(t('загруженные манифесты целевых версий','uploaded target manifests'));
       for (const {name,target,record,publicRegistry} of changes) {
         const key = name + '@' + target;
@@ -217,21 +232,27 @@
           syncGoal();el('batch-goals').open=true;calculate();
         };
       }
-      const targets = missing.filter(c=>!absent.has(c.name+'@'+c.target));
+      const missingTargets = missing.filter(c=>!absent.has(c.name+'@'+c.target));
+      const publicHost=registryAddress()===LabRegistry.defaultBase;
+      const defaultPick = c=>!publicHost || (yarn!=='Yarn Berry' && c.publicRegistry);
+      const targets=missingTargets.filter(defaultPick);
+      const withheld=missingTargets.filter(c=>!defaultPick(c));
       const peers = [];
       const unknownNames = new Set(result.unknown.map(path=>LabYarn.parts(path)?.name));
       if (yarn==='Yarn Classic') for (const [name,target] of installed) {
         if(changes.some(c=>c.name===name) || local.has(name+'@'+target) || absent.has(name+'@'+target)) continue;
         if(unknownNames.has(name)) peers.push({name,target});
       }
-      if(targets.length || peers.length) {
+      if(targets.length || withheld.length || peers.length) {
         el('network').hidden=false;
+        el('send-host').textContent=t('При нажатии в реестр уйдут выбранные имена и версии. Адрес — ','Clicking sends the selected names and versions to ')+ (registryAddress() || t('проверьте адрес реестра выше','check the registry address above'));
         el('send-list').textContent=targets.length ? t('Цели · ','Targets · ')+targets.map(c=>c.name+'@'+c.target).join(', ') : '';
-        el('peer-picks').hidden=!peers.length;
-        el('peer-count').textContent=t('Добавить требования других прямых зависимостей · ','Include requirements of other direct dependencies · ')+peers.length;
+        el('peer-picks').hidden=!peers.length && !withheld.length;
+        el('peer-count').textContent=t('Отметить дополнительные запросы · ','Select additional lookups · ')+(peers.length+withheld.length);
+        if(withheld.length) el('send-list').textContent+=' '+t('Без подтверждённого публичного источника · ','Without confirmed public provenance · ')+withheld.length;
         el('peer-options').replaceChildren();
         const selected=new Set();
-        for(const peer of peers) {
+        for(const peer of [...withheld,...peers]) {
           const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';
           label.append(box,' '+peer.name+'@'+peer.target);el('peer-options').append(label);
           box.onchange=()=>{if(box.checked)selected.add(peer);else selected.delete(peer);el('lookup').disabled=!!active || !targets.length && !selected.size;};
@@ -245,32 +266,52 @@
     if (!changes.length || active || current !== revision) return;
     el('lookup').disabled = true;
     const ctrl = new AbortController(); active = ctrl;
-    const timer = setTimeout(()=>ctrl.abort(),25000);
+
     el('net-status').textContent=t('Запрашиваю выбранные версии…','Looking up selected releases…');
-    let failures = 0;
-    try {
-      for (const {name,target} of changes) {
+    const failures = new Set();
+    for (const {name,target} of changes) {
+        if (ctrl.signal.aborted || current!==revision) return;
         try {
-          const url = 'https://registry.npmjs.org/' + encodeURIComponent(name) + '/' + encodeURIComponent(target);
-          const response = await fetch(url,{signal:ctrl.signal,credentials:'omit',referrerPolicy:'no-referrer',redirect:'error'});
-          if (current !== revision) return;
-          if (response.status===404) {absent.add(name+'@'+target);continue;}
-          if (!response.ok) throw Error('registry');
-          const data = await response.json();
+          const data = await LabRegistry.manifest(name,target,ctrl.signal);
           if (data?.name !== name || data.version !== target) throw Error('metadata');
           if (current !== revision) return;
           confirmed.set(name + '@' + target,data);
-        } catch { failures++; }
-      }
-    } finally { clearTimeout(timer); }
+        } catch (err) {
+          if (current!==revision) return;
+          if (err.status===404) absent.add(name+'@'+target);
+          else failures.add(LabRegistry.message(err));
+        }
+    }
     if (current !== revision) return;
     await calculate();
-    if (failures && current+1 === revision) add('p',t('npm не вернул метаданные для части целей. Они остаются непроверенными.','npm did not return metadata for some targets. They remain unverified.'));
+    if (failures.size && current+1 === revision) add('p',[...failures].join(' '));
   }
-  for (const id of ['manifest-file','lock-file','meta-files','targets']) el(id).addEventListener('input',()=>{confirmed.clear();absent.clear();reset();caption();});
-  el('manifest-file').addEventListener('change',()=>{
-    el('targets').value='{}';choosePackages();
-  });
+  function refreshProject(manifestChanged) {
+    confirmed.clear();absent.clear();
+    if(manifestChanged) el('targets').value='{}';
+    choosePackages();caption();calculate();
+  }
+  for(const id of ['manifest-file','lock-file']) el(id).addEventListener('change',()=>refreshProject(id==='manifest-file'));
+  for(const id of ['meta-files','targets']) el(id).addEventListener('input',()=>{confirmed.clear();absent.clear();reset();caption();});
+  async function useFolder(pending) {
+    try {
+      const files=await pending;
+      if(!files)return;
+      LabRegistry.setFile(el('manifest-file'),files.manifest);LabRegistry.setFile(el('lock-file'),files.lock);
+      el('meta-files').value='';refreshProject(true);
+    } catch(err){reset();add('p',err.message);}
+  }
+  el('choose-folder').onclick=()=>useFolder(LabRegistry.pickProject(el('folder-input')));
+  el('folder-input').onchange=()=>{useFolder(LabRegistry.projectFiles(el('folder-input').files));el('folder-input').value='';};
+  window.addEventListener('lab-registry-change',()=>{confirmed.clear();absent.clear();calculate();});
+  function syncMode() {
+    el('manual-goal').hidden=!manual();
+    el('make-plan').hidden=!manual();
+    el('sample').textContent = manual() && lesson ? t('Вернуть учебную ревизию','Restore the example revision') :
+      manual() ? t('Вернуть пример React','Restore React example') : t('Открыть учебный проект','Open the example project');
+    caption();calculate();
+  }
+  el('plan-mode').onchange=syncMode;
   el('targets').addEventListener('input',syncGoal);
   for(const id of ['goal-package','goal-version']) el(id).addEventListener('input',()=>{
     const name=el('goal-package').value,version=el('goal-version').value.trim();
@@ -286,5 +327,6 @@
     el('targets').value=JSON.stringify(initialTargets,null,2);
     el('sample').textContent=t('Вернуть учебную ревизию','Restore the example revision');
   }
-  choosePackages();caption();calculate();
+  el('plan-mode').value=lesson || params.get('example')==='react' ? 'manual' : 'yellow';
+  choosePackages();syncMode();
 })();

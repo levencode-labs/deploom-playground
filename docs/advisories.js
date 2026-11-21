@@ -112,12 +112,12 @@
         return;
       }
       status.textContent = requested + ' · ' + t('Записей в OSV — ', 'OSV advisories — ') + matches.size;
-      for (const entry of matches.values()) {
+      for (const entry of LabSeverity.sorted([...matches.values()].map(record=>({...record,...LabSeverity.rating(record)})))) {
         const item = document.createElement('li');
         const link = document.createElement('a');
         link.href = 'https://osv.dev/vulnerability/' + encodeURIComponent(entry.id);
         link.textContent = entry.id;
-        item.append(link);
+        item.append(LabSeverity.badge(entry),' ',link);
         if (typeof entry.summary === 'string' && entry.summary) item.append(' — ' + entry.summary);
         list.append(item);
       }

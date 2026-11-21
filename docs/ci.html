@@ -9,8 +9,27 @@
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="I changed one package. Why did CI stop before the tests?">Обновил строку в package.json. Почему сборка упала ещё до тестов?</h1>
-    <p data-en="A teammate asks for version 2 in package.json and commits just that file. The build server runs npm ci, which installs the exact versions recorded in package-lock.json. Change the first file and see what happens while the second still says 1.2.3.">Коллега указал в package.json, что приложению нужна библиотека второй версии, и отправил этот файл на ревью. На сервере сборки команда npm ci ставит точные версии из package-lock.json. Поменяйте первую строку и посмотрите, что произойдёт, пока во втором файле стоит 1.2.3.</p>
+    <section class="panel" id="rollup" aria-labelledby="rollup-title">
+      <h1 id="rollup-title" data-en="It builds on a Mac. Why did Linux CI lose a package?">На Mac собирается. Почему Linux CI потерял пакет?</h1>
+      <p data-en="You are reviewing a lockfile change. Rollup is still at the same version. Why did the diff remove Linux packages that your Mac never used? Rollup loads a native library built for the machine running the build. Your Linux runner and your teammate’s Mac need different files.">На ревью принесли правку lock-файла. Версия Rollup прежняя. Почему из diff исчезли пакеты для Linux, которых на Mac и так не было? При запуске Rollup загружает библиотеку, собранную под конкретную систему. Макбуку коллеги и серверу сборки нужны разные файлы.</p>
+      <p data-en="In npm issue #7961 the reporter installed Rollup on an M1 Mac with macOS 14.5 and npm 10.9.2. They then recreated package-lock.json while keeping node_modules. The first lock listed 18 platform packages. The second kept only the Mac arm64 one.">В тикете npm №7961 разработчик установил Rollup на Mac с M1, macOS 14.5 и npm 10.9.2. Затем он пересоздал package-lock.json поверх уже установленной папки node_modules. Сначала в lock-файле было 18 платформенных пакетов. Во второй раз остался один — для Mac на ARM64.</p>
+      <fieldset class="choice" id="platforms"><legend data-en="Which machine will run Rollup?">На какой машине запустится Rollup?</legend>
+        <label><input type="radio" name="platform" value="darwin-arm64"> macOS · Apple Silicon</label>
+        <label><input type="radio" name="platform" value="linux-x64-gnu" checked> Debian / Ubuntu · x64 glibc</label>
+        <label><input type="radio" name="platform" value="linux-x64-musl"> Alpine · x64 musl</label>
+      </fieldset>
+      <div aria-live="polite"><pre id="platform-row"></pre><p id="platform-why"></p></div>
+      <p><a id="platform-diff" href="compare.html?example=rollup" data-en="Inspect the two captured lockfiles">Посмотреть изменения в двух записанных lock-файлах</a></p>
+      <details><summary data-en="Where did this pair come from, and what did npm fix?">Откуда взялась эта пара файлов и что исправили в npm?</summary>
+        <p data-en="We generated both lockfiles with Rollup 4.28.0, npm 10.9.2 and Node 24.18.0 on Windows x64, selecting darwin/arm64 via npm’s --os and --cpu flags. Repeating the install with the package folder in place reproduced the change from 18 entries to one. These captures cover lockfile generation.">Для лаборатории мы зафиксировали Rollup 4.28.0 и записали два lock-файла с npm 10.9.2 и Node 24.18.0 на Windows x64. Параметры npm --os и --cpu задали целевую платформу darwin/arm64. Повторная установка с сохранённой папкой node_modules дала те же 18 и одну запись. В опыте проверялось содержимое lock-файлов.</p>
+        <p data-en="When npm rebuilt the lock from the installed tree it lost the optional packages for other systems. PR #8184 keeps those packages in npm’s dependency tree even when they are skipped on the current machine. The fix shipped in Arborist 9.0.2 with npm 11.3.0.">При восстановлении lock-файла по установленному дереву npm терял необязательные пакеты для других систем. Исправление №8184 сохраняет эти варианты в дереве npm, даже если на текущей машине их установку пропустили. Оно вошло в Arborist 9.0.2 и npm 11.3.0.</p>
+        <p><a href="https://github.com/npm/cli/issues/7961" data-en="Original report">Отчёт разработчика</a> · <a href="https://github.com/npm/cli/pull/8184" data-en="The npm fix">Исправление npm</a> · <a href="https://github.com/npm/cli/releases/tag/v11.3.0" data-en="npm 11.3.0 release">Релиз npm 11.3.0</a></p>
+      </details>
+      <p data-en="A DepLoom plan can select a Rollup release. Here the release stayed at 4.28.0 in both files. Compare the optional platform entries, read the npm fix linked above, and exercise the build on the runner.">DepLoom помогает подобрать версию Rollup. Здесь версия в обоих файлах одна — 4.28.0. На ревью важно сравнить записи для разных платформ, свериться с исправлением в npm и проверить сборку на целевом сервере.</p>
+      <p data-en="In your PR, start a clean job on the same Linux image as CI, run npm ci, then run the build that loads Rollup. That last step checks whether the selected native library actually loads.">В своём MR запустите чистую задачу на том же образе Linux, что и в CI. Выполните npm ci, затем сборку с Rollup. На втором шаге выяснится, загружается ли библиотека для этого образа.</p>
+    </section>
+    <details class="panel" id="manifest-case"><summary data-en="A separate npm ci failure: the PR changed only package.json">Другая ошибка npm ci — в PR поменяли только package.json</summary>
+    <p data-en="The app pins React 18.3.1. A teammate edits that pin to 19.0.0. Follow one recorded install per revision and see which step requires a lockfile update.">В приложении зафиксирован React 18.3.1. Коллега заменил его на 19.0.0 одной строкой. Посмотрите три записи установки и найдите шаг, на котором потребуется обновить lock-файл.</p>
     <div class="lesson-nav"><button id="ci-next" type="button"></button></div>
     <details><summary data-en="Jump to a revision">Перейти к конкретной ревизии</summary><fieldset class="choice">
       <legend data-en="PR revision">Ревизия PR</legend>
@@ -23,7 +42,7 @@
         <h2 data-en="The two lines npm compares">Две строки, которые сравнивает npm</h2>
         <h3>package.json</h3><pre><code id="manifest-line"></code></pre>
         <h3>package-lock.json</h3>
-        <p class="hint"><code>packages["node_modules/demo-lib"]</code></p>
+        <p class="hint"><code>packages["node_modules/react"]</code></p>
         <pre><code id="lock-line"></code></pre>
       </section>
       <section class="panel verdict" id="ci-result" aria-live="polite" aria-atomic="true">
@@ -33,33 +52,14 @@
         <p class="hint" data-en="Source — recorded npm ci run in the isolated fixture.">Источник — запись запуска npm ci в изолированном учебном проекте.</p>
       </section>
     </div>
-    <section class="panel">
-      <p data-en="DepLoom can plan the version change. This CI failure is about agreement between two files. Regenerate the lock with your project’s package manager, then repeat the frozen install on the merged revision.">DepLoom может предложить версию. Здесь сборка остановилась раньше тестов: в репозитории записаны два разных ответа на вопрос «что ставить?». После применения плана обновите lock-файл и повторите чистую установку на той ревизии, которую собираетесь вливать.</p>
-      <h2 data-en="What to check in your own PR">Что проверить в своём PR</h2>
-      <p data-en="Run npm install --package-lock-only with your project's npm version and registry settings. Review the lockfile diff, then run npm ci and the project checks with the same settings as CI.">Выполните npm install --package-lock-only с версией npm и настройками реестра вашего проекта. Посмотрите diff lock-файла, затем запустите npm ci и проверки проекта с настройками CI.</p>
-      <p class="hint" data-en="Recorded on Node 24.18.0 and npm 11.16.0. The isolated exercise registry offers exactly demo-lib 1.2.3 and 2.0.0. The page displays recorded results and runs offline.">Записано на Node 24.18.0 и npm 11.16.0. В изолированном учебном реестре доступны ровно две версии demo-lib — 1.2.3 и 2.0.0. Страница показывает результаты прогонов и работает без сети.</p>
-      <a href="https://docs.npmjs.com/cli/v11/commands/npm-ci/" data-en="npm ci documentation">Документация npm ci</a> ·
-      <a href="https://github.com/levencode-labs/deploom-playground/blob/main/tests/npm-pr-fixture.cjs" data-en="Reproduce the npm runs">Воспроизвести прогоны npm</a>
-    </section>
-    <section class="panel" id="rollup" aria-labelledby="rollup-title">
-      <h2 id="rollup-title" data-en="It builds on a Mac. Why did Linux CI lose a package?">На Mac собирается. Почему Linux CI потерял пакет?</h2>
-      <p data-en="You are reviewing a lockfile change. Rollup is still at the same version. Why did the diff remove Linux packages that your Mac never used? Rollup loads a native library built for the machine running the build. Your Linux runner and your teammate’s Mac need different files.">На ревью принесли правку lock-файла. Версия Rollup прежняя. Почему из diff исчезли пакеты для Linux, которых на Mac и так не было? При запуске Rollup загружает библиотеку, собранную под конкретную систему. Макбуку коллеги и серверу сборки нужны разные файлы.</p>
-      <p data-en="In npm issue #7961 the reporter installed Rollup on an M1 Mac with macOS 14.5 and npm 10.9.2. They then recreated package-lock.json while keeping node_modules. The first lock listed 18 platform packages. The second kept only the Mac arm64 one.">В тикете npm №7961 разработчик установил Rollup на Mac с M1, macOS 14.5 и npm 10.9.2. Затем он пересоздал package-lock.json поверх уже установленной папки node_modules. Сначала в lock-файле было 18 платформенных пакетов. Во второй раз остался один — для Mac на ARM64.</p>
-      <p><strong data-en="Which Linux runner will build your PR?">На каком Linux будет собираться ваш MR?</strong>
-      <span data-en="Both runners below use x64. Their C libraries differ. Open the diff at the package your runner needs.">Оба варианта ниже работают на x64, но используют разные системные библиотеки C. Откройте diff на записи, которая нужна вашему серверу.</span></p>
-      <div class="lesson-nav">
-        <a class="button" href="compare.html?example=rollup&amp;focus=linux-gnu" data-en="Debian / Ubuntu · glibc">Debian / Ubuntu · glibc</a>
-        <a class="button" href="compare.html?example=rollup&amp;focus=linux-musl" data-en="Alpine · musl">Alpine · musl</a>
-      </div>
-      <details><summary data-en="Where did this pair come from, and what did npm fix?">Откуда взялась эта пара файлов и что исправили в npm?</summary>
-        <p data-en="We generated both lockfiles with Rollup 4.28.0, npm 10.9.2 and Node 24.18.0 on Windows x64, selecting darwin/arm64 via npm’s --os and --cpu flags. Repeating the install with the package folder in place reproduced the change from 18 entries to one. These captures cover lockfile generation.">Для лаборатории мы зафиксировали Rollup 4.28.0 и записали два lock-файла с npm 10.9.2 и Node 24.18.0 на Windows x64. Параметры npm --os и --cpu задали целевую платформу darwin/arm64. Повторная установка с сохранённой папкой node_modules дала те же 18 и одну запись. В опыте проверялось содержимое lock-файлов.</p>
-        <p data-en="When npm rebuilt the lock from the installed tree it lost the optional packages for other systems. PR #8184 keeps those packages in npm’s dependency tree even when they are skipped on the current machine. The fix shipped in Arborist 9.0.2 with npm 11.3.0.">При восстановлении lock-файла по установленному дереву npm терял необязательные пакеты для других систем. Исправление №8184 сохраняет эти варианты в дереве npm, даже если на текущей машине их установку пропустили. Оно вошло в Arborist 9.0.2 и npm 11.3.0.</p>
-        <p><a href="https://github.com/npm/cli/issues/7961" data-en="Original report">Отчёт разработчика</a> · <a href="https://github.com/npm/cli/pull/8184" data-en="The npm fix">Исправление npm</a> · <a href="https://github.com/npm/cli/releases/tag/v11.3.0" data-en="npm 11.3.0 release">Релиз npm 11.3.0</a></p>
-      </details>
-      <p data-en="In your PR, start a clean job on the same Linux image as CI, run npm ci, then run the build that loads Rollup. That last step checks whether the selected native library actually loads.">В своём MR запустите чистую задачу на том же образе Linux, что и в CI. Выполните npm ci, затем сборку с Rollup. На втором шаге выяснится, загружается ли библиотека для этого образа.</p>
-    </section>
+    <p data-en="After applying the planned version, regenerate the lock with the project’s npm, review the diff, then run npm ci on the commit you will merge.">После применения плана обновите lock-файл той версией npm, которую использует проект. Проверьте diff и повторите npm ci на ревизии, которую собираетесь вливать.</p>
+    <details><summary data-en="How these commands were checked">Как проверяли команды</summary><p data-en="In an empty directory with Node 24.18.0 and npm 11.16.0, we created a private package.json with the exact React pin shown above. We used the public React packages in the local npm cache, with lifecycle scripts disabled. After the first clean install we changed the pin and repeated npm ci. We then regenerated the lock and installed again.">В пустой папке на Node 24.18.0 и npm 11.16.0 создали приватный package.json с точной версией React. Ставили публичные пакеты из локального npm-кэша, отключив установочные скрипты. После первой чистой установки изменили версию в манифесте и повторили npm ci. Затем пересобрали lock-файл и запустили установку ещё раз.</p>
+    <pre>npm install --package-lock-only --ignore-scripts
+npm ci --ignore-scripts
+node -p "require('react').version"</pre><a href="https://docs.npmjs.com/cli/v11/commands/npm-ci/" data-en="npm ci documentation">Документация npm ci</a></details></details>
   </main>
   <script src="nav.js"></script>
+  <script src="rollup-data.js"></script>
   <script src="pr-cases.js"></script>
 </body>
 </html>

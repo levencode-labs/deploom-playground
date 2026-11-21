@@ -7,10 +7,6 @@
   <link rel="stylesheet" href="lab.css">
   <style>
     pre {white-space:pre-wrap;overflow-wrap:anywhere}
-    .branches {list-style:none;padding:0}
-    .branches li {border-left:2px solid var(--line);padding:.4rem .65rem;margin:.4rem 0}
-    .branches button {display:block;margin-top:.3rem;background:none;border:1px solid var(--line);color:var(--accent);border-radius:.3rem;padding:.25rem .5rem;text-align:left}
-    .branches button[aria-pressed="true"] {border-color:var(--sea);background:#deeeef}
   </style>
 </head>
 <body>
@@ -24,7 +20,7 @@
       <p data-en="A commenter suggested forcing nth-check to 2.1.1 across the project. We try a narrower override under css-select@2.1.0. The lab installs the final pair and its dependencies.">В комментарии предложили закрепить nth-check на 2.1.1 во всём проекте. В лаборатории проверяем более узкую правку — только для css-select@2.1.0. Ставим последние два пакета цепочки и их зависимости.</p>
       <a href="https://github.com/react/create-react-app/issues/13062" data-en="Original report">Исходный отчёт</a> · <a href="https://github.com/react/create-react-app/issues/13062#issuecomment-1472333611" data-en="Comment proposing 2.1.1">Совет из комментария</a> · <a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides" data-en="npm override rules">Как npm применяет overrides</a>
     </details>
-    <section class="panel selector-lab">
+    <section class="panel selector-lab" id="selector-review">
       <fieldset class="choice"><legend data-en="Which revision are you reviewing?">Какую правку смотрим?</legend>
         <label><input type="radio" name="revision" value="base"><span data-en="Original pair">Исходная пара</span></label>
         <label><input type="radio" name="revision" value="override" checked><span data-en="Override nth-check">Закрепить nth-check</span></label>
@@ -51,36 +47,11 @@
         <p data-en="Run npm explain for this copy. Check what its parent calls, then exercise that operation on a real input. For CRA, find a compatible SVG tool higher up the chain and build one of the app’s SVGs. This fixture covers the library pair only.">Запустите npm explain для этой копии. Посмотрите, какую функцию вызывает родитель, и проверьте её на настоящем входе. Для CRA предстоит подобрать совместимый инструмент выше по цепочке и собрать SVG приложения. Здесь проверена только пара библиотек.</p><pre id="selector-command"></pre>
       </section>
     </section>
-    <details id="copies-case" class="panel"><summary data-en="What if there are two copies?">А если копий две?</summary>
-    <p data-en="A dependency check flags shared-utils 1.2.3. Your team never added it directly. The UI components and the build tool each installed their own copy. Update the copy used by the components, then click the remaining 1.2.3 to find out who still needs it. The packages in this exercise are fictional.">В отчёте сборки попросили обновить shared-utils 1.2.3 из-за уязвимости. Вы её вообще не добавляли. Оказывается, библиотека кнопок (ui-kit) и инструмент сборки (build-tool) установили по своей копии. Обновите ту, которой пользуются кнопки. Затем нажмите на оставшуюся 1.2.3 и найдите, откуда она взялась. Пакеты в примере учебные.</p>
-    <div class="lesson-nav"><button id="override-next" type="button"></button></div>
-    <details><summary data-en="Choose a revision">Выбрать ревизию</summary><fieldset class="choice">
-      <legend data-en="Root package.json">Корневой package.json</legend>
-      <label><input type="radio" name="scope" value="before" checked><span data-en="Without override">Без overrides</span></label>
-      <label><input type="radio" name="scope" value="after"><span data-en="Override under ui-kit">Замена под ui-kit</span></label>
-    </fieldset></details>
-    <details><summary data-en="See the rule in package.json">Посмотреть правило в package.json</summary><pre><code id="override-rule"></code></pre></details>
-    <section class="panel"><h2 id="copies-title"></h2><p id="copies-hint"></p><ul id="after-tree" class="branches"></ul>
-      <details id="compare-old" hidden><summary data-en="Compare with the original two copies">Сравнить с исходными копиями</summary><ul id="before-tree" class="branches"></ul></details>
-    </section>
-    <section class="panel verdict" id="who-brought-it" aria-live="polite" aria-atomic="true">
-      <h2 id="parent-title"></h2><p id="parent-reason"></p><pre id="copy-path"></pre>
-      <p><a id="nested-tree" data-en="Who brought in this copy?">Кто привёл эту копию?</a> · <a id="nested-compare" data-en="What changed?">Что поменялось?</a></p>
-      <p class="hint" data-en="Source — teaching packages and the recorded nested npm install.">Источник — учебные пакеты и запись установки npm в режиме nested.</p>
-    </section>
-    <section class="panel">
-      <h2 data-en="Check the path in your project">Как проверить путь у себя</h2>
-      <p data-en="Run npm ls shared-utils --all to see all copies. Pass the exact path from your lockfile to npm explain to identify the parent. Tests for one parent do not exercise the other.">Вызовите npm ls shared-utils --all, чтобы увидеть все копии. Передайте точный путь из своего lock-файла в npm explain и посмотрите, какой пакет её установил. У каждого родителя свои проверки.</p>
-      <p class="hint" data-en="The fixture uses npm's nested install strategy so both physical paths stay visible. With default hoisting the layout may differ. The version numbers and package names are teaching examples.">В учебном проекте выбран режим установки npm nested, поэтому видны оба физических пути. При стандартном подъёме пакетов пути могут отличаться. Имена и версии здесь учебные.</p>
-      <a href="https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides" data-en="npm overrides documentation">Документация npm overrides</a> ·
-      <a href="https://docs.npmjs.com/cli/v11/commands/npm-explain/">npm explain</a> ·
-      <a href="https://github.com/levencode-labs/deploom-playground/blob/main/tests/npm-pr-fixture.cjs" data-en="Reproduce these trees">Воспроизвести эти деревья</a>
-    </section>
-    </details>
+    <section class="notes" id="copies-case"><h2 data-en="What can DepLoom check here?">Что здесь может проверить DepLoom?</h2>
+    <p data-en="Ask for an update plan for the package that brings in nth-check. Inspect its declared requirements and the parent's release notes. In this example a forced version installed successfully; only running rect:nth-child(2) exposed the changed export. Keep that selector in the build test.">Попросите план обновления пакета, который привёл nth-check. Посмотрите его требования к зависимостям и изменения API в релизе. Здесь принудительная версия установилась успешно. Смена экспорта стала заметна при вызове rect:nth-child(2). Этот селектор стоит оставить в тесте сборки SVG.</p>
+    <a href="https://github.com/fb55/nth-check/releases/tag/v2.0.0" data-en="nth-check 2.0.0 release">Релиз nth-check 2.0.0</a></section>
   </main>
   <script src="nav.js"></script>
-  <script src="lock-samples.js"></script>
   <script src="vendor/semver.js"></script><script src="selector-data.js"></script><script src="review-example.js"></script><script src="selector-lesson.js"></script>
-  <script src="pr-cases.js"></script>
 </body>
 </html>

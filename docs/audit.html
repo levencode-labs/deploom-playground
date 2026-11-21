@@ -4,51 +4,49 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>Аудит lock-файла · DepLoom</title>
+  <title>Аудит проекта · DepLoom</title>
   <link rel="stylesheet" href="lab.css">
-  <style>
-    .audit-actions {display:flex;align-items:center;flex-wrap:wrap;gap:.55rem;margin:.75rem 0}
-    .audit-items {padding:0;list-style:none}
-    .audit-items>li {border-top:1px solid var(--line);padding:.6rem 0;overflow-wrap:anywhere}
-    .audit-items label {font-weight:650}.audit-items details {margin:.15rem 0}.audit-items ul {padding-left:1.35rem}
-    #skip-list {max-height:16rem;overflow:auto;overflow-wrap:anywhere}
-  </style>
+  <link rel="stylesheet" href="report.css">
 </head>
 <body>
   <header data-nav></header>
   <main>
-    <h1 data-en="Which library versions does this project use?">Какие версии библиотек использует проект?</h1>
-    <p data-en="Open a lockfile to see the versions recorded for the build. Add package.json to compare them with the versions your project asked for.">Откройте lock-файл, чтобы увидеть точные версии библиотек в сборке. Добавьте package.json, чтобы сравнить их с тем, что запросил проект.</p>
-    <section class="panel">
-      <div class="grid">
-        <label class="field">package.json<input id="audit-manifest" type="file" accept=".json"></label>
-        <label class="field">package-lock.json v3 / yarn.lock<input id="audit-file" type="file" accept=".json,.lock"></label>
-      </div>
-      <div class="audit-actions"><button type="button" class="button" id="sample" data-en="Load example lockfile">Загрузить учебный lock-файл</button></div>
-      <p><a id="one-advisory" href="advisories.html" data-en="Look up one package in OSV">Посмотреть одну версию в OSV</a></p>
-      <p id="parse-status" role="status"></p>
+    <h1 data-en="Project dependency audit">Аудит зависимостей проекта</h1>
+    <p data-en="Open the project folder. See which direct libraries are over a year behind and where vulnerable versions occur in the lockfile.">Выберите папку проекта, чтобы узнать, какие прямые зависимости отстают больше чем на год и по каким путям установлены уязвимые версии.</p>
+    <section class="panel" aria-label="Project">
+      <div data-registry></div>
+      <div class="audit-actions"><button type="button" class="button" id="pick-folder" data-en="Choose project folder">Выбрать папку проекта</button>
+        <input type="file" id="audit-folder" webkitdirectory multiple hidden>
+        <button type="button" id="sample" data-en="Open the css-select example">Открыть пример с css-select</button></div>
+      <details><summary data-en="Choose or drop files separately">Выбрать или перетащить файлы отдельно</summary>
+        <div class="grid"><label class="field">package.json<input id="audit-manifest" type="file" accept=".json"></label>
+        <label class="field">package-lock.json v3 / yarn.lock<input id="audit-file" type="file" accept=".json,.lock"></label></div>
+      </details>
+      <p id="parse-status" aria-live="polite"></p>
     </section>
     <section class="panel" id="inventory" hidden>
-      <h2 data-en="Installed package versions">Установленные версии</h2>
-      <details id="direct-report" hidden><summary id="direct-count"></summary><ul id="direct-rows"></ul></details>
-      <p id="coverage" role="status" hidden></p>
-      <details id="skips" hidden><summary data-en="Entries without an exact version">Записи без точной версии</summary><ul id="skip-list"></ul><button type="button" id="more-skips" hidden data-en="Show more paths">Показать ещё пути</button></details>
-      <label class="field"><span data-en="Filter by package name">Фильтр по названию пакета</span><input type="search" id="audit-filter" autocomplete="off"></label>
-      <p class="hint" data-en="Select public packages to compare by name and version, including packages installed through a company registry. Only your selection is sent.">Выберите публичные пакеты. Их можно сверить по имени и версии с npmjs, даже если в lock-файле указан корпоративный реестр. Отправляются только выбранные строки.</p>
-      <div class="audit-actions">
-        <button class="button" type="button" id="latest" disabled data-en="Compare with npm latest">Сравнить с npm latest</button>
-        <button type="button" id="run-audit" disabled data-en="Check advisories in OSV">Проверить уязвимости в OSV</button>
-        <span id="pick-count"></span>
+      <h2 data-en="Project report">Отчёт по проекту</h2>
+      <div class="report-metrics">
+        <div><span data-en="Over a year behind">Отстают больше чем на год</span><strong id="age-count"></strong><small id="age-coverage"></small></div>
+        <div><span data-en="Known advisories">Известные уязвимости</span><strong id="vuln-count"></strong><small id="security-coverage"></small></div>
       </div>
-      <p id="audit-status" role="status"></p>
-      <ul class="audit-items" id="audit-rows"></ul>
-      <button type="button" id="more-rows" hidden data-en="Show more versions">Показать ещё версии</button>
+      <p class="hint" id="report-source"></p>
+      <details id="scope-box"><summary id="scope-title"></summary><p class="hint" id="scope-hint"></p><div id="scope-options" class="project-scopes"></div></details>
+      <p id="send-summary" class="hint"></p>
+      <div class="audit-actions"><button class="button" type="button" id="run-audit" data-en="Run project audit">Проверить проект</button>
+        <button type="button" id="stop-audit" hidden data-en="Stop">Остановить</button></div>
+      <progress id="report-progress" hidden></progress><p id="audit-status" role="status"></p>
+      <div id="result-details" hidden>
+        <h3 data-en="What needs attention">Что требует внимания</h3><ul id="findings" class="report-list"></ul>
+        <details id="age-details"><summary id="age-heading"></summary><ul id="age-rows" class="report-list"></ul></details>
+        <details id="unknown-details"><summary id="unknown-heading"></summary><ul id="unknown-rows" class="report-list"></ul></details>
+      </div>
+      <details id="version-details"><summary data-en="Find a version and its lockfile paths">Найти версию и её пути в lock-файле</summary>
+        <label class="field"><span data-en="Package filter">Фильтр по пакету</span><input id="audit-filter" type="search"></label>
+        <ul id="audit-rows" class="report-list"></ul><button type="button" id="more-rows" hidden data-en="Show more">Показать ещё</button>
+      </details>
+      <p><a id="one-advisory" href="advisories.html" data-en="Look up one public version in OSV">Проверить одну публичную версию в OSV</a></p>
     </section>
-    <details class="panel"><summary data-en="Example of an OSV finding">Пример ответа OSV</summary>
-      <p data-en="A saved example checked on November 21, 2026. The OSV record below includes lodash 4.17.20; the first fix for this particular issue was 4.17.21. Two paths in the lockfile that contain the same version produce one package-version query.">Сохранённый пример проверен 21 ноября 2026 года. В карточке OSV ниже указана lodash 4.17.20. Эта конкретная проблема исправлена в 4.17.21. Если одна версия установлена по двум путям, для неё достаточно одного запроса.</p>
-      <p data-en="An empty response means the source returned no known advisories for that version. Excluded paths and incomplete requests remain outside confirmed coverage.">Пустой ответ означает, что источник не вернул известных записей для этой версии. Исключённые пути и незавершённые запросы остаются за пределами подтверждённой проверки.</p>
-      <a href="https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm">GHSA-35jh-r3h4-6jhm</a> · <a href="https://google.github.io/osv.dev/post-v1-querybatch/">OSV QueryBatch API</a>
-    </details>
   </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>
@@ -57,8 +55,9 @@
 <script src="vendor/js-yaml.min.js"></script>
 <script src="yarn-lock.js"></script>
 <script src="drop-files.js" defer></script>
+  <script src="registry.js"></script><script src="severity.js"></script><script src="criterion.js"></script>
   <script src="audit-model.js"></script>
   <script src="selector-data.js"></script><script src="review-example.js"></script>
-  <script src="audit.js"></script>
+  <script src="audit-capture.js"></script><script src="audit.js"></script>
 </body>
 </html>

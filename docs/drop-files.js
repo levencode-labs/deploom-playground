@@ -2,7 +2,7 @@
 (() => {
   const {t}=Lab;
   const reads=new WeakMap();
-  const targets = document.querySelectorAll('input[type=file], #tree-manifest, #targets');
+  const targets = document.querySelectorAll('input[type=file]:not([webkitdirectory]), #tree-manifest, #targets');
   function note(target,text) {
     let node=document.getElementById(target.id+'-file-status');
     if(!node){

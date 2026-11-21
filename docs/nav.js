@@ -1,6 +1,23 @@
 'use strict';
 (() => {
   const currentURL = new URL(location.href);
+  const page = currentURL.pathname.split('/').pop() || 'index.html';
+  if (page === 'override.html' && currentURL.hash.startsWith('#scope=')) {
+    const old = new URLSearchParams(currentURL.hash.slice(1));
+    currentURL.searchParams.set('rev', old.get('scope') === 'before' ? 'base' : 'override');
+    currentURL.hash = '#selector-review';
+    history.replaceState(null, '', currentURL);
+  }
+  if (['peers.html', 'tree.html'].includes(page)) {
+    const followOldRangeLink = () => {
+      if (location.hash !== '#ranges') return;
+      const target = new URL('ranges.html', location.href);
+      target.search = location.search;
+      location.replace(target);
+    };
+    addEventListener('hashchange', followOldRangeLink);
+    followOldRangeLink();
+  }
   let saved;
   try { saved = localStorage.getItem('deploom-lab-language'); } catch {}
   const lang = (currentURL.searchParams.get('lang') || saved) === 'en' ? 'en' : 'ru';
@@ -21,21 +38,25 @@
   }
   const sections = [
     [t('Инструменты','Tools'), [
-      ['audit.html', t('Аудит зависимостей','Dependency audit')],
-      ['plan.html', t('План обновления','Upgrade plan')],
+      ['audit.html', t('Аудит проекта по папке','Audit a project folder')],
+      ['plan.html', t('План для Yellow, Green или пакета','Plan for Yellow, Green, or a package')],
       ['compare.html', t('Сравнить lock-файлы','Compare lockfiles')],
       ['advisories.html', t('Уязвимости','Vulnerabilities')],
     ]],
     [t('Визуализации','Visualizations'), [
       ['tree.html', t('Дерево зависимостей','Dependency tree')],
+      ['ranges.html', t('Диапазоны версий npm','npm version ranges')],
     ]],
     [t('Примеры','Examples'), [
-      ['peers.html', t('Почему npm не даёт обновить только React DOM?','Why won’t npm let me update just React DOM?')],
-      ['peers.html#ranges', t('Почему не установилась версия 0.3.0?', 'Why did the update skip 0.3.0?')],
-      ['runtime.html', t('Куда после обновления пропала подсказка?','Where did the hint go after upgrading?')],
-      ['combinations.html', t('Почему совместимые ветки ломаются при слиянии?','Why do working branches break when merged?')],
-      ['ci.html', t('Почему сборка упала после правки package.json?','Why did npm ci fail after a manifest edit?')],
-      ['override.html', t('Почему после override сломался CSS-селектор?','Why did the CSS selector break after an override?')],
+      [null, t('Установка и CI','Installation and CI')],
+      ['peers.html', t('Конфликт React и React DOM','React and React DOM conflict')],
+      ['combinations.html', t('Слияние веток с webpack','Merging webpack branches')],
+      ['ci.html', t('Rollup на Linux после сборки на Mac','Rollup on Linux after a Mac build')],
+      [null, t('Запуск кода','Running the code')],
+      ['override.html', t('CSS-селектор после override','CSS selector after an override')],
+      ['runtime.html#ssr-case', t('Кнопка при серверном рендеринге','Server-rendered button')],
+      [null, t('Работа с интерфейсом','Using the interface')],
+      ['runtime.html', t('Подсказка после перехода на React 19','A missing hint after upgrading to React 19')],
     ]],
   ];
   const main = document.querySelector('main');
@@ -54,7 +75,6 @@
   nav.setAttribute('aria-label', t('Разделы лаборатории','Lab sections'));
   const home = link(t('Обзор','Overview'), 'index.html');
   nav.append(home);
-  const page = currentURL.pathname.split('/').pop() || 'index.html';
   if (page === 'index.html') home.setAttribute('aria-current','page');
   for (const [label, items] of sections) {
     const group = document.createElement('details');
@@ -64,6 +84,12 @@
     const list = document.createElement('div');
     list.className = 'nav-links';
     for (const [path, title] of items) {
+      if (!path) {
+        const heading = document.createElement('strong');
+        heading.textContent = title;
+        list.append(heading);
+        continue;
+      }
       const anchor = link(title, path);
       const target = new URL(anchor.href);
       if (target.pathname.endsWith('/' + page) && target.hash === currentURL.hash &&
@@ -82,7 +108,7 @@
     group.addEventListener('keydown', event => {
       if (event.key === 'Escape') { group.open = false; summary.focus(); }
       if (event.key === 'ArrowDown' && event.target === summary) {
-        event.preventDefault(); group.open = true; list.firstElementChild.focus();
+        event.preventDefault(); group.open = true; list.querySelector('a').focus();
       }
     });
     group.addEventListener('focusout', event => {

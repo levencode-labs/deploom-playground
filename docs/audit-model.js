@@ -32,6 +32,13 @@
   function localInventory(lock) {
     const yarn = window.LabYarn?.format(lock?.packages);
     const data = yarn ? window.LabYarn.inventory(lock) : inventory(lock);
+    for (const row of data.rows) {
+      row.publicOrigin = row.paths.some(p => {
+        const record=lock.packages[p];
+        if (!yarn) return LabLockGraph.publicTarball(record,row.name);
+        try {return ['https://registry.npmjs.org','https://registry.yarnpkg.com'].includes(new URL(record.resolved).origin) && LabYarn.identity(lock.packages,p)===row.name;} catch {return false;}
+      });
+    }
     const rows = new Map(data.rows.map(row => [row.key,row]));
     const skipped = [];
     for (const item of data.skipped) {
@@ -53,61 +60,78 @@
     return {rows:[...rows.values()].sort((a,b)=>a.key.localeCompare(b.key)),skipped};
   }
 
-  async function jsonFrom(url, options, signal) {
-    const response = await fetch(url, {...options,credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal});
-    if (!response.ok) throw Error(response.status === 404 ? 'missing' : 'network');
-    return response.json();
+  async function pool(items, concurrency, work, signal) {
+    let next=0;
+    async function worker() {
+      while (next < items.length && !signal.aborted) await work(items[next++]);
+    }
+    await Promise.all(Array.from({length:Math.min(concurrency,items.length)},worker));
   }
 
-  async function check(selected, signal) {
+  async function check(selected, signal, trusted = false) {
     if (selected.length > limit) throw Error('size');
     for (const row of selected) {
       row.state = 'unknown'; row.note = 'registry'; row.ids = [];
     }
     const registered = [];
-    let cursor = 0;
-    async function worker() {
-      while (cursor < selected.length && !signal.aborted) {
-        const row = selected[cursor++];
-        try {
-          const metadata = await jsonFrom('https://registry.npmjs.org/' + encodeURIComponent(row.name) + '/' + encodeURIComponent(row.version), {}, signal);
-          if (metadata.name === row.name && metadata.version === row.version && metadata.private !== true) {
-            registered.push(row); row.note = 'osv';
-          } else row.note = 'missing';
-        } catch (error) { if(error.message === 'missing') row.note = 'missing'; }
-      }
-    }
-    await Promise.all(Array.from({length:Math.min(selected.length,4)},worker));
-
-    let requests = registered.map(row=>({row,token:null,seen:new Set(),ids:new Set()}));
-    // OSV may return a different token for each query. Keep its original row on every page.
-    while(requests.length && !signal.aborted) {
-      const current = requests;
-      requests = [];
+    await pool(selected,4,async row=>{
       try {
-        const queries = current.map(({row,token}) => ({
-          package:{name:row.name,ecosystem:'npm'}, version:row.version, ...(token ? {page_token:token} : {}),
-        }));
-        const data = await jsonFrom('https://api.osv.dev/v1/querybatch',{
-          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({queries}),
-        },signal);
-        if(!Array.isArray(data.results) || data.results.length !== current.length) break;
-        current.forEach((context,i) => {
-          const {row,ids,seen}=context;
-          const page = data.results[i];
-          if(!isObject(page) || page.error || (page.vulns !== undefined && !Array.isArray(page.vulns)) ||
-             (page.next_page_token !== undefined && typeof page.next_page_token !== 'string')) return;
-          const findings = page.vulns ?? [];
-          if(findings.some(entry=>typeof entry?.id !== 'string' || !entry.id)) return;
-          for(const entry of findings) ids.add(entry.id);
-          row.ids = [...ids];
-          const token = page.next_page_token;
-          if(!token) {row.state = ids.size ? 'found' : 'empty'; delete row.note; return;}
-          if(seen.has(token) || seen.size >= 10) return;
-          seen.add(token); context.token=token; requests.push(context);
+        if (!trusted || !row.publicOrigin) {
+          const doc=await LabRegistry.manifest(row.name,row.version,signal);
+          if (doc.private === true) {row.note='missing';return;}
+        }
+        registered.push(row); row.note='osv';
+      } catch (e) {row.note=e.status===404?'missing':'registry'; row.reason=LabRegistry.message(e);}
+    },signal);
+    let requests = registered.map(row=>({row,token:null,seen:new Set(),ids:new Set()}));
+    while(requests.length && !signal.aborted) {
+      const current=requests; requests=[];
+      try {
+        const queries=current.map(({row,token})=>({package:{name:row.name,ecosystem:'npm'},version:row.version,...(token?{page_token:token}:{})}));
+        const data=await LabRegistry.json('https://api.osv.dev/v1/querybatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({queries})},signal);
+        if (!Array.isArray(data?.results) || data.results.length!==current.length) throw Error('METADATA');
+        current.forEach(({row,seen,ids},i)=>{
+          const page=data.results[i], vulns=page?.vulns ?? [];
+          if(!isObject(page) || page.error || !Array.isArray(vulns) || vulns.some(entry=>typeof entry?.id!=='string' || !entry.id)) return;
+          for(const entry of vulns) ids.add(entry.id);
+          row.ids=[...ids];
+          const token=page.next_page_token;
+          if (token===undefined || token==='') {row.state=ids.size?'found':'empty'; delete row.note;return;}
+          if(typeof token!=='string' || seen.has(token) || seen.size>=20) return;
+          seen.add(token); requests.push({row,token,seen,ids});
         });
-      } catch { break; }
+      } catch(e) {for(const {row} of current) row.reason=LabRegistry.message(e);}
     }
   }
-  window.LabAudit={inventory,localInventory,check,limit,maxBytes};
+
+  async function registryAudit(rows,findings,signal) {
+    const payload=Object.create(null);
+    for(const row of rows) (payload[row.name]??=[]).push(row.version);
+    const endpoint=LabRegistry.base()+'-/npm/v1/security/advisories/bulk';
+    const data=await LabRegistry.json(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},signal);
+    if (!isObject(data) || data.error || Object.keys(data).some(name=>!Object.hasOwn(payload,name))) throw Error('METADATA');
+    for(const row of rows) {
+      const records=data[row.name] ?? [];
+      if (!Array.isArray(records) || records.some(r=>!isObject(r) || !r.vulnerable_versions || !treeSemver.validRange(r.vulnerable_versions) || (!r.id && !r.url))) continue;
+      for (const r of records) if (treeSemver.satisfies(row.version,r.vulnerable_versions,{includePrerelease:true})) {
+        let href='';
+        try {const u=new URL(r.url); if(u.protocol==='https:' && !u.username && !u.password) href=u.href;}catch{}
+        const id=href.match(/GHSA-[\w-]+/i)?.[0] || String(r.id || href);
+        findings.set(id,{id,summary:r.title || '',href,...LabSeverity.rating(r)});
+        if(!row.ids.includes(id)) row.ids.push(id);
+      }
+      row.state=row.ids.length?'found':'empty';delete row.note;
+    }
+  }
+
+  function directVersions(manifest,lock) {
+    const roots=new Map();
+    for (const edge of LabLockGraph.declarations(manifest || {},true)) {
+      if(edge.group==='peerDependencies' || roots.has(edge.name)) continue;
+      const hit=LabLockGraph.lockedPackage(lock.packages,'',edge);
+      roots.set(edge.name,{name:edge.name,range:edge.range,version:hit?.record.version || null,path:hit?.key});
+    }
+    return [...roots.values()];
+  }
+  window.LabAudit={inventory,localInventory,check,registryAudit,directVersions,pool,limit,maxBytes};
 })();

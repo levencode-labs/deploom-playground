@@ -11,10 +11,16 @@
   <header data-nav></header>
   <main>
 <h1 data-en="Upgrade plan">План обновления</h1>
-<p data-en="Choose exact targets for your direct dependencies. Find out which neighbour needs another edit before changing your branch.">Выберите, до каких версий хотите поднять прямые зависимости. Узнайте, какой пакет потребует ещё одной правки, до того как менять ветку.</p>
+<p data-en="Open a project folder and choose a goal. See which libraries need attention and which neighbours constrain the upgrade.">Откройте папку проекта и выберите цель. Посмотрите, какие библиотеки пора обновить и кто из соседей ограничивает выбор версии.</p>
 <section class="panel plan-input"><h2 data-en="Project and targets">Проект и цель</h2>
+<div class="actions"><button type="button" id="choose-folder" class="button" data-en="Open project folder">Открыть папку проекта</button><input type="file" id="folder-input" webkitdirectory multiple hidden></div>
+<details id="file-fields"><summary data-en="Choose individual files instead">Выбрать файлы по отдельности</summary>
 <div class="grid"><label class="field">package.json<input id="manifest-file" type="file" accept=".json,application/json"></label><label class="field">yarn.lock / package-lock.json v3<input id="lock-file" type="file" accept=".json,.lock"></label></div>
-<p id="project" class="hint"></p>
+</details><p id="project" class="hint"></p>
+<label class="field"><span data-en="Goal">Цель</span><select id="plan-mode">
+<option value="yellow" data-en="Reach Yellow">Достичь Yellow</option><option value="green" data-en="Reach Green">Достичь Green</option><option value="manual" data-en="Update specific packages">Обновить конкретные пакеты</option></select></label>
+<div data-registry></div>
+<div id="manual-goal" hidden>
 <details id="local-metadata"><summary data-en="Use package metadata from disk">Добавить package.json библиотек для офлайн-проверки</summary>
 <p class="hint" data-en="Use the package.json of a target release or of a direct dependency already installed in node_modules. Its peerDependencies field lists its requirements.">Подойдёт package.json целевой версии или уже установленной прямой зависимости из node_modules. В нём перечислены требования к соседним пакетам.</p>
 <label class="field"><span data-en="Target package manifests">Манифесты целевых пакетов</span><input type="file" multiple id="meta-files" accept=".json,application/json"></label></details>
@@ -24,15 +30,16 @@
 </div>
 <details id="batch-goals"><summary data-en="Set several targets in JSON">Задать несколько целей в JSON</summary>
 <textarea id="targets" aria-label="JSON" rows="3" spellcheck="false">{"react-dom": "18.3.1"}</textarea></details>
+</div>
 <div class="actions"><button type="button" class="button" id="make-plan"><span data-en="Calculate locally">Рассчитать локально</span></button><button type="button" id="sample"><span data-en="Restore React example">Вернуть пример React</span></button></div>
 </section>
 <section class="panel" id="plan-output" aria-live="polite" aria-atomic="true"></section>
 <section class="panel" id="network" hidden>
-<h2 data-en="Check missing requirements with npmjs">Уточнить требования в npmjs</h2>
+<h2 data-en="Look up missing requirements">Уточнить недостающие требования</h2>
 <p id="send-list"></p>
 <details id="peer-picks" hidden><summary id="peer-count"></summary><div id="peer-options"></div></details>
-<p class="hint" data-en="Only the selected public names and exact versions are sent to registry.npmjs.org. For internal packages use a package.json from disk.">В registry.npmjs.org уйдут только выбранные публичные имена и точные версии. Для внутренних пакетов подойдёт package.json с диска.</p>
-<button type="button" id="lookup" class="button" data-en="Check selected releases in npmjs">Проверить выбранные версии в npmjs</button><p id="net-status" role="status"></p></section>
+<p class="hint" id="send-host"></p>
+<button type="button" id="lookup" class="button" data-en="Look up selected releases">Запросить выбранные версии</button><p id="net-status" role="status"></p></section>
 <p data-en="Review the lockfile diff, run a frozen install with your package manager, then run application tests." class="hint">После правок проверьте diff lock-файла, запустите установку с зафиксированными версиями и тесты приложения.</p>
   </main>
   <script src="nav.js"></script>
@@ -46,6 +53,10 @@
   <script src="webpack-data.js"></script>
   <script src="selector-data.js"></script>
   <script src="review-example.js"></script>
+  <script src="registry.js"></script>
+  <script src="criterion.js"></script>
+  <script src="webpack-releases.js"></script>
+  <script src="criterion-plan.js"></script>
   <script src="plan.js"></script>
 </body>
 </html>

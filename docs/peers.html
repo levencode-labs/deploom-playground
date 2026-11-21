@@ -26,12 +26,8 @@
 </div></div><div class="actions"><a class="primary" id="inspect-tree" href="tree.html"><span data-en="Inspect in the tree">Разобрать в дереве</span></a> <a href="tree.html?own=1"><span data-en="Open your own project">Открыть свой проект</span></a></div>
 <p data-en="In your project, find peer … from … in the npm log and compare it with the version from npm explain react." class="hint">В своём проекте найдите в логе строку peer … from … и сравните её с версией из npm explain react.</p></section>
     <p data-en="Ask DepLoom for an upgrade plan with React held at its current version, then allow React to move. Compare the dependency that appears in the second plan.">Попросите DepLoom построить план с зафиксированным React, затем разрешите обновить его. Сравните, почему во втором плане появилась ещё одна строка.</p>
-    <a href="plan.html" data-en="Try both plans">Сравнить два плана</a>
-    <section class="panel" id="ranges">
-    <h2 data-en="Why did an update skip 0.3.0?">Почему при обновлении не установилась 0.3.0?</h2>
-    <p data-en="Your package.json requests ^0.2.3. A colleague published 0.3.0, but your lockfile stayed on 0.2.4. Select each release to see where the allowed range ends.">В package.json стоит ^0.2.3. Коллега выпустил 0.3.0, а в lock-файле осталась 0.2.4. Выберите обе версии на шкале и посмотрите, где заканчивается разрешённый диапазон.</p>
-    <div data-range-practice></div>
-  </section>
+    <a href="plan.html?example=react" data-en="Try both plans">Сравнить два плана</a>
+    <p><a href="ranges.html" data-en="Explore version ranges using the react-dom manifest">Разобрать диапазоны версий на манифесте react-dom</a> · <a href="https://registry.npmjs.org/react-dom/18.3.1" data-en="Published react-dom 18.3.1 manifest">Манифест react-dom 18.3.1 в npm</a></p>
 </main>
   <script src="nav.js"></script>
   <script src="vendor/semver.js"></script>

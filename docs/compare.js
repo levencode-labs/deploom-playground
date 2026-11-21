@@ -191,7 +191,7 @@
   }
   function useExample(fromLink=false) {
     example = true;lesson=null;focusPath='';
-    let pair=LabSamples, names=null;
+    let pair={before:SelectorLab.cases.base.lock,after:SelectorLab.cases.override.lock}, names=['css-select · nth-check 1.0.2','css-select · override 2.1.1'];
     if (fromLink===true) {
       const {kind,revision,fixture}=ReviewExample, sample=fixture();
       if(sample) {
@@ -203,10 +203,15 @@
         focusPath=params.get('path') || (kind==='selector'?sample.nthPath:'');
       } else if(kind==='rollup') {
         pair=RollupLab;names=['Rollup · 18','Rollup · 1'];
-        focusPath='node_modules/@rollup/rollup-linux-x64-'+(params.get('focus')==='linux-musl'?'musl':'gnu');
+        const platform=params.get('focus');
+        focusPath='node_modules/@rollup/rollup-'+(platform==='darwin-arm64'?platform:platform==='linux-musl'?'linux-x64-musl':'linux-x64-gnu');
       } else if(kind==='root-range') {
+        names=['package.json · ^1.0.0','package.json · ~1.2.0'];
         const sample=range=>({lockfileVersion:3,packages:{'':{dependencies:{lib:range}},'node_modules/lib':{version:'1.2.3'}}});
         pair={before:sample('^1.0.0'),after:sample('~1.2.0')};
+      } else {
+        lesson={kind:'selector',before:'base',after:'override'};
+        focusPath=SelectorLab.cases.override.nthPath;
       }
     }
     for (const side of sides) {
@@ -244,7 +249,9 @@
     }
   }
   for (const side of sides) byId(side).addEventListener('change',()=>read(side));
-  byId('example').addEventListener('click',useExample);
+  byId('example').addEventListener('click',()=>{
+    location.href=ReviewExample.link('compare.html','selector','override',SelectorLab.cases.override.nthPath);
+  });
   byId('prev').addEventListener('click',()=>{page--; renderList();});
   byId('next').addEventListener('click',()=>{page++; renderList();});
   for (const [id,event] of [['query','input'],['kind','change']]) byId(id).addEventListener(event,()=>{page=0; renderList();});
