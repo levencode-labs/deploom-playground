@@ -1,0 +1,12 @@
+.finding-package { min-width:0; overflow-wrap:anywhere }
+.finding-package select { max-width:100% }
+.finding-package code { white-space:normal; overflow-wrap:anywhere }
+.finding-diagram { overflow-x:auto; max-width:100%; margin-block:.65rem; border:1px solid var(--line,#b8c9dd); border-radius:8px; background:var(--paper,#fff) }
+.finding-diagram svg { display:block; max-width:none; margin:auto }
+.finding-edge { fill:none; stroke:#627d99; stroke-width:1.6 }
+.finding-node rect { fill:#f3f7fd; stroke:#8097b4 }
+.finding-node text { fill:#172f4c; font:13px system-ui,sans-serif }
+.finding-node.is-target rect { fill:#ffefd8; stroke:#9b600d; stroke-width:1.5 }
+.finding-route-list { padding-inline-start:1.8rem }
+.finding-route-list li>span { display:block; margin:.25em 0 }
+.finding-route-list small { font:inherit; color:var(--muted,#536883); font-size:.9em }
