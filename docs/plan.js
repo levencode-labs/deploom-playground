@@ -37,6 +37,7 @@
     revision++;
     active?.abort(); active = undefined;
     el('network').hidden = true; el('lookup').disabled = true;
+    el('lookup').onclick=null;el('lookup-packages').inert=false;
     el('net-status').textContent = '';
     el('plan-output').replaceChildren();
   }
@@ -101,7 +102,9 @@
     return messages[err.message] || t('Не удалось прочитать пакетные данные.','Could not read package data.');
   }
   function add(tag,text) {
-    const node = document.createElement(tag); node.textContent = text; el('plan-output').append(node); return node;
+    const node = document.createElement(tag); node.textContent = text;
+    if (tag==='h2') node.setAttribute('aria-live','polite');
+    el('plan-output').append(node); return node;
   }
   async function calculate() {
     reset(); const current = revision;
@@ -139,10 +142,13 @@
         const key = name + '@' + record.version;
         evidence.set(key,record); fromLock.add(key);
       }
-      const installed = new Map();
+      const installed = new Map(), publicClassicPeers = new Set();
       for (const edge of LabLockGraph.declarations(man,true)) {
         const hit=LabLockGraph.lockedPackage(lock.packages,'',edge);
-        if(hit && !hit.record.link && treeSemver.valid(hit.record.version)) installed.set(edge.name,hit.record.version);
+        if(hit && !hit.record.link && treeSemver.valid(hit.record.version)) {
+          installed.set(edge.name,hit.record.version);
+          if(yarn==='Yarn Classic' && LabYarn.identity(lock.packages,hit.key)===edge.name) publicClassicPeers.add(edge.name);
+        }
       }
       const local = new Map(confirmed);
       const uploaded = new Set();
@@ -249,32 +255,32 @@
       }
       const missingTargets = missing.filter(c=>!absent.has(c.name+'@'+c.target));
       const publicHost=!hosted && registryAddress()===LabRegistry.defaultBase;
-      const defaultPick = c=>!publicHost || (yarn!=='Yarn Berry' && c.publicRegistry);
-      const targets=missingTargets.filter(defaultPick);
-      const withheld=missingTargets.filter(c=>!defaultPick(c));
-      const peers = [];
+      const options=missingTargets.map(change=>{
+        const publicOrigin=yarn!=='Yarn Berry' && change.publicRegistry;
+        const key=change.name+'@'+change.target;
+        return {key,label:key,publicOrigin,selected:!publicHost || publicOrigin,change};
+      });
       const unknownNames = new Set(result.unknown.map(path=>LabYarn.parts(path)?.name));
       if (yarn==='Yarn Classic') for (const [name,target] of installed) {
-        if(changes.some(c=>c.name===name) || local.has(name+'@'+target) || absent.has(name+'@'+target)) continue;
-        if(unknownNames.has(name)) peers.push({name,target});
+        const key=name+'@'+target;
+        if(!unknownNames.has(name) || changes.some(c=>c.name===name) || local.has(key) || absent.has(key)) continue;
+        options.push({key,label:key,publicOrigin:publicClassicPeers.has(name),selected:false,change:{name,target}});
       }
-      if(targets.length || withheld.length || peers.length) {
+      if(options.length) {
         el('network').hidden=false;
         if(hosted) el('lookup').textContent=t('Проверить по снимку Nexus','Check the Nexus snapshot');
-        el('send-host').textContent=hosted ? t('Имена и версии будут найдены на устройстве по общему снимку Nexus с этой страницы.','Names and versions are looked up on this device in the shared Nexus snapshot from this site.') : t('При нажатии в реестр уйдут выбранные имена и версии. Адрес — ','Clicking sends the selected names and versions to ')+ (registryAddress() || t('проверьте адрес реестра выше','check the registry address above'));
-        el('send-list').textContent=targets.length ? t('Цели · ','Targets · ')+targets.map(c=>c.name+'@'+c.target).join(', ') : '';
-        el('peer-picks').hidden=!peers.length && !withheld.length;
-        el('peer-count').textContent=t('Отметить дополнительные запросы · ','Select additional lookups · ')+(peers.length+withheld.length);
-        if(withheld.length) el('send-list').textContent+=' '+t('Без подтверждённого публичного источника · ','Without confirmed public provenance · ')+withheld.length;
-        el('peer-options').replaceChildren();
-        const selected=new Set();
-        for(const peer of [...withheld,...peers]) {
-          const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';
-          label.append(box,' '+peer.name+'@'+peer.target);el('peer-options').append(label);
-          box.onchange=()=>{if(box.checked)selected.add(peer);else selected.delete(peer);el('lookup').disabled=!!active || !targets.length && !selected.size;};
-        }
-        el('lookup').disabled=!targets.length;
-        el('lookup').onclick=()=>lookup([...targets,...selected],current);
+        el('send-host').textContent=hosted ? t('Имена и версии будут найдены на устройстве по общему снимку Nexus с этой страницы.','Names and versions are matched on this device in the shared Nexus snapshot from this site.') :
+          t('При нажатии в реестр уйдут выбранные имена и версии. Адрес — ','Clicking sends selected names and versions to ')+(registryAddress() || t('проверьте адрес реестра','check the registry address'));
+        const picker=LabPackagePicker.mount(el('lookup-packages'),{
+          items:options,publicDestination:publicHost ? registryAddress() : null,
+          onChange:ready=>{el('lookup').disabled=!!active || !ready;},
+        });
+        el('lookup').onclick=()=>{
+          const selected=picker.values();
+          if(!selected.length || active || current!==revision)return;
+          el('lookup-packages').inert=true;
+          lookup(selected.map(item=>item.change),current);
+        };
       }
     } catch (err) { if (current === revision) add('p',errorText(err)); }
   }
@@ -292,7 +298,7 @@
         snapshotSource=t('снимок Nexus от ','Nexus snapshot dated ')+new Date(snapshot.published*1000).toISOString().slice(0,10)+' UTC';
       } catch(err) {
         if(current!==revision)return;
-        active=undefined;el('lookup').disabled=false;el('net-status').textContent=LabRegistry.message(err);
+        active=undefined;el('lookup-packages').inert=false;el('lookup').disabled=false;el('net-status').textContent=LabRegistry.message(err);
         const link=document.createElement('a');link.textContent=t('Скачать локальную версию','Download the local lab');
         link.href=Lab.urlFor('index.html#local-download');el('net-status').append(' ',link);return;
       }
