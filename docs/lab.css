@@ -13,3 +13,46 @@ main{max-width:76rem;margin:0 auto;padding:clamp(1.2rem,3.5vw,3rem) clamp(1rem,4
 .package-combo [role=option]:hover,.package-combo [role=option][aria-selected=true]{background:#e7f1ff;color:#12396f}
 .package-combo [role=option] small,.package-combo-note{font-size:.84rem;color:var(--muted)}
 .package-combo-note{display:block;padding:.4rem .7rem}
+
+/* The three strands share a hem on small screens and cross in the spare desktop navigation space. */
+header[data-nav] {
+  border-image:linear-gradient(90deg,#5b9ddd 0 37%,#58c6bc 56%,#9394e5 76%,#5597cf 100%) 1;
+}
+.bar :focus-visible {outline-color:#a2e9fd}
+@media (min-width:60rem) {
+  .bar nav::after {
+    content:"";
+    flex:1 1 0;
+    min-width:0;
+    height:2rem;
+    margin-inline:.5rem;
+    pointer-events:none;
+    background:center / 100% 100% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 340 32' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-width='1.35'%3E%3Cpath stroke='%2366aaf0' d='M0 10H92C120 10 125 24 152 24H177C205 24 212 8 238 8H340'/%3E%3Cpath stroke='%2369c9bc' d='M0 17H108C132 17 141 8 163 8H184C209 8 219 24 245 24H340'/%3E%3Cpath stroke='%23a2a1eb' d='M0 24H91C124 24 131 15 157 15H340'/%3E%3C/g%3E%3C/svg%3E");
+    mask-image:linear-gradient(90deg,transparent,#000a 21%,#000 58%,#000a 85%,transparent);
+  }
+}
+@media (prefers-reduced-motion:no-preference) {
+  @view-transition {navigation:auto}
+  ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) {
+    animation-duration:140ms;
+    animation-timing-function:ease-out;
+  }
+  .bar nav :is(a,summary), .language, .project-zone, .link-card, .audit-modes a, .button, .primary {
+    transition:background-color 120ms ease-out,border-color 120ms ease-out,filter 120ms ease-out;
+  }
+  .nav-links, .audit-result, #plan-output, #report {
+    transition:opacity 125ms ease-out;
+  }
+  @starting-style {
+    .nav-group[open] > .nav-links, .audit-result:not([hidden]), #plan-output:not([hidden]), #report:not([hidden]) {opacity:.65}
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  @view-transition {navigation:none}
+  *, *::before, *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+@media (forced-colors:active) {
+  header[data-nav] {border-image:none;border-bottom-color:CanvasText}
+  .bar nav::after {display:none}
+  .bar :focus-visible {outline-color:Highlight}
+}
