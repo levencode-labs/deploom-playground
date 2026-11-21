@@ -1,0 +1,69 @@
+name: Refresh OSV npm snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/osv-snapshot.yml'
+      - 'tools/build_hosted_osv.py'
+  schedule:
+    - cron: '27 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-osv-npm-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish the complete npm advisory catalog on the data branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/build_hosted_osv.py "$RUNNER_TEMP/build_hosted_osv.py"
+          if git ls-remote --exit-code --heads origin refs/heads/osv-data; then
+            git fetch --no-tags --depth=1 origin refs/heads/osv-data
+            git switch --detach FETCH_HEAD
+          else
+            status=$?
+            [[ $status == 2 ]] || exit "$status"
+            git switch --orphan osv-data
+          fi
+
+          file=osv-npm-v1.json.gz
+          published() {
+            python3 -c 'import gzip,json,sys; print(json.load(gzip.open(sys.argv[1],"rt"))["published"])' "$1"
+          }
+          previous=0
+          if [[ -f "$file" ]]; then
+            previous=$(published "$file")
+            if (( previous > $(date +%s) - 3*86400 )); then
+              echo 'The published OSV export is less than three days old.'
+              exit 0
+            fi
+          fi
+
+          python3 "$RUNNER_TEMP/build_hosted_osv.py" "$RUNNER_TEMP/$file"
+          next=$(published "$RUNNER_TEMP/$file")
+          now=$(date +%s)
+          if (( next <= now-7*86400 || next > now || next < previous )); then
+            echo 'The upstream OSV export is expired, future-dated, or older than the current snapshot.' >&2
+            exit 1
+          fi
+          if (( next == previous )); then
+            echo 'OSV has not published a newer npm export yet.'
+            exit 0
+          fi
+          mv "$RUNNER_TEMP/$file" "$file"
+          git add -- "$file"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Refresh npm advisories from $(date -u -d "@$next" +%F)"
+          git push origin HEAD:refs/heads/osv-data
