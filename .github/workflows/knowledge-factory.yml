@@ -1,0 +1,72 @@
+name: Knowledge factory contracts
+on:
+  pull_request:
+    paths:
+      - 'knowledge-factory/**'
+      - '.github/workflows/knowledge-factory.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'knowledge-factory/**'
+      - '.github/workflows/knowledge-factory.yml'
+  workflow_dispatch:
+    inputs:
+      paid_execute:
+        description: 'Explicitly allow billable OpenAI Agent sessions'
+        type: boolean
+        default: false
+      max_sessions:
+        description: 'Maximum session count'
+        type: choice
+        options: ['1', '2']
+        default: '1'
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline corpus and budget regression tests
+        run: |
+          python -m unittest discover -s knowledge-factory/tests -v
+          python knowledge-factory/run_batch.py plan --max-sessions 2 --reserve-usd 2 > "$RUNNER_TEMP/factory-plan.json"
+          python -m json.tool "$RUNNER_TEMP/factory-plan.json" > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-factory-plan
+          path: \${{ runner.temp }}/factory-plan.json
+          if-no-files-found: error
+  paid-pilot:
+    if: github.event_name == 'workflow_dispatch' && inputs.paid_execute == true
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: knowledge-lab-paid
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Manually authorized API sessions; no public publication
+        env:
+          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+          COUNT: \${{ inputs.max_sessions }}
+        run: |
+          set -euo pipefail
+          test -n "$OPENAI_API_KEY"
+          python knowledge-factory/run_batch.py run --execute --max-sessions "$COUNT" --budget-usd 4 --reserve-usd 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: knowledge-factory-receipts
+          path: knowledge-factory/.runs/**/*
+          if-no-files-found: warn
