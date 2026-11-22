@@ -140,7 +140,7 @@ def safe_transport_diagnostics(exc):
                              ("param", "apiErrorParam")):
             value = error.get(field)
             if (isinstance(value, str) and
-                    re.fullmatch(r"[A-Za-z0-9_.\\[\\]-]{1,128}", value)):
+                    re.fullmatch(r"[A-Za-z0-9_.\x5b\x5d-]{1,128}", value)):
                 result[label] = value
         message = error.get("message")
         if isinstance(message, str):
