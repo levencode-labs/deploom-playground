@@ -152,6 +152,79 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn(secret, json.dumps(row))
 
 
+    def test_staged_cap_applied_before_any_input(self):
+        from urllib.error import HTTPError
+        from io import BytesIO
+        bad = json.dumps({"error": {"type": "invalid_request_error",
+                                   "code": "unknown_parameter",
+                                   "param": "spend_control"}}).encode()
+        observed = []
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            observed.append((method, path, payload))
+            if path == "/v1/agents/sessions":
+                self.assertNotIn("input", payload)
+                self.assertNotIn("spend_control", payload)
+                return {"id": "sess_staged_1", "status": "idle"}
+            if path == "/v1/agents/sessions/sess_staged_1":
+                self.assertEqual({"spend_control": {"limit": 200}}, payload)
+                return {"id": "sess_staged_1", "status": "idle",
+                        "spend_control": {"limit": 200, "consumed": 0}}
+            if path.endswith("/events"):
+                self.assertIsNotNone(idempotency_key)
+                self.assertEqual("agent.session.input.message", payload["events"][0]["type"])
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"has_more": False, "data": [
+                    {"id": "turn_staged_1", "subagent_id": None, "status": "completed"}]}
+            self.fail("Unexpected API request")
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "agent_session", side_effect=HTTPError(
+                     "https://api.openai.com/v1/agents/sessions", 400, "safe",
+                     {}, BytesIO(bad))), patch.object(lab, "api_json", side_effect=fake_api):
+            receipt = lab.agent_session_with_staged_cap(payload, "synthetic", timeout=5)
+        self.assertEqual("completed", receipt["turnOutcome"])
+        self.assertEqual("confirmed", receipt["spendControlStatus"])
+        self.assertEqual("sess_staged_1", receipt["sessionId"])
+        self.assertEqual(["/v1/agents/sessions",
+                          "/v1/agents/sessions/sess_staged_1",
+                          "/v1/agents/sessions/sess_staged_1/events",
+                          "/v1/agents/sessions/sess_staged_1/turns?limit=100&order=desc"],
+                         [path for _method, path, _body in observed])
+
+    def test_staged_cap_rejection_never_submits_agent_input(self):
+        calls = []
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            calls.append(path)
+            if path == "/v1/agents/sessions":
+                return {"id": "sess_staged_2", "status": "idle"}
+            if path == "/v1/agents/sessions/sess_staged_2":
+                return {"id": "sess_staged_2", "status": "idle",
+                        "spend_control": {"limit": None}}
+            self.fail("Input must not be submitted without proven cap")
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "api_json", side_effect=fake_api):
+            receipt = lab.staged_session_with_confirmed_cap(payload, "synthetic", 1)
+        self.assertEqual("unknown", receipt["turnOutcome"])
+        self.assertEqual("not-confirmed", receipt["spendControlStatus"])
+        self.assertEqual("sess_staged_2", receipt["sessionId"])
+        self.assertEqual("spending-limit-not-acknowledged", receipt["stagedFailurePhase"])
+        self.assertEqual(2, len(calls))
+
+    def test_non_budget_http_400_does_not_enable_unbounded_fallback(self):
+        from urllib.error import HTTPError
+        from io import BytesIO
+        bad = json.dumps({"error": {"type": "invalid_request_error",
+                                   "code": "unknown_parameter",
+                                   "param": "agent.model"}}).encode()
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "agent_session", side_effect=HTTPError(
+                     "https://api.openai.com/v1/agents/sessions", 400, "safe",
+                     {}, BytesIO(bad))), patch.object(lab, "api_json") as remote:
+            with self.assertRaises(HTTPError):
+                lab.agent_session_with_staged_cap(payload, "synthetic", timeout=5)
+        remote.assert_not_called()
+
+
     def test_plan_deterministic_and_offline(self):
         task = self.data["tasks"][0]
         self.assertEqual(lab.sha(lab.prompt(task).encode()), lab.sha(lab.prompt(task).encode()))
