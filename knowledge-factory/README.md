@@ -240,6 +240,34 @@ Use the workflow artifact for review, then commit **sanitized** reports into
 a long-lived evidence branch to survive ephemeral sandbox/CI retention.
 No receipt is marked VERIFIED by this runner.
 
+## Verify and download the first completed agent's evidence
+
+After the controller reports `turnOutcome=completed` and
+`artifactStatus=complete`, that means the **root turn** and expected
+published JSON artifacts are available, **not** that any migration passed.
+
+Use the local controller's exact immutable receipt to retrieve and compare
+the provider's source session/turn IDs, names, byte sizes and SHA-256 digests.
+This uses **read-only API GETs**, does not create a new paid agent,
+and refuses to overwrite previously exported files:
+
+```powershell
+python .\knowledge-factory\download_artifacts.py .\knowledge-factory\.runs\research-balanced-001\antfu-eslint-config-bb201369.json
+```
+
+Files are saved privately to
+`knowledge-factory/.runs/research-balanced-001/downloaded/antfu-eslint-config-bb201369/`:
+`migration-report.json`, `commands.json`, and `review-manifest.json`.
+Keep these out of public GitHub. The tool checks that both bytes match the
+*original* receipt; its `independentVerification=NOT_RUN` is deliberate.
+No agent-authored claims are trusted or executed by this download step.
+
+Inspect these files before deciding which exact source checkout,
+upgrade/install/build/test and negative controls can be repeated on an
+independent runner. Do **not** turn agent completion into verified knowledge
+or automatically sign the cache; the signed publisher requires independent
+pinned-source fixtures.
+
 ## Still required for production acceptance
 
 - Download immutable /workspace/outputs artifacts and verify exact project
