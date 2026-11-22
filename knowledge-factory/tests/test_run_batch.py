@@ -225,28 +225,148 @@ class RunnerTests(unittest.TestCase):
         remote.assert_not_called()
 
 
-    def test_uncapped_opt_in_omits_field_and_is_never_automatic(self):
-        sent = []
-        def fake_agent(payload, key, timeout=1800):
-            self.assertEqual("synthetic-key", key)
-            sent.append(payload)
-            return {"turnOutcome": "failed", "sessionId": "sess_uncapped_1",
-                    "turnId": "turn_uncapped_1"}
+    def test_uncapped_opt_in_persists_session_before_input_and_no_spend_control(self):
+        recorded = []
+        checkpoints = []
         capped = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
-        with patch.object(lab, "agent_session", side_effect=fake_agent):
-            direct = lab.agent_session_uncapped_opt_in(capped, "synthetic-key")
-            self.assertEqual("unlimited-explicit-opt-in", direct["spendControlStatus"])
-            self.assertNotIn("spend_control", sent[0])
-            self.assertEqual(capped["spend_control"], {"limit": 200})
-            with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic-key"}):
-                self.args.allow_uncapped_session = True
-                receipt = lab.run(self.data, self.args,
-                                  send=lab.agent_session_uncapped_opt_in)[0]
-        self.assertEqual(2, len(sent))
-        self.assertNotIn("spend_control", sent[1])
-        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", receipt["apiSpendControlMode"])
-        self.assertTrue(receipt["localBudgetIsNotApiSpendCap"])
-        self.assertEqual("UNKNOWN", receipt["migrationVerdict"])
+
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            self.assertEqual("synthetic-key", key)
+            recorded.append((method, path, payload))
+            if path == "/v1/agents/sessions":
+                self.assertNotIn("input", payload)
+                self.assertNotIn("spend_control", payload)
+                return {"id": "sess_uncapped_1", "status": "idle"}
+            if path.endswith("/events"):
+                self.assertIn(("sess_uncapped_1", "input-submit-attempted"), checkpoints)
+                self.assertNotIn("spend_control", payload)
+                self.assertEqual(202, expected[0])
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"has_more": False, "data": [
+                    {"id": "turn_uncapped_1", "subagent_id": None, "status": "failed"}]}
+            self.fail("Unexpected API call " + path)
+        with patch.object(lab, "api_json", side_effect=fake_api):
+            direct = lab.agent_session_uncapped_opt_in(
+                capped, "synthetic-key", timeout=60,
+                checkpoint=lambda session, phase: checkpoints.append((session, phase)))
+        self.assertEqual("failed", direct["turnOutcome"])
+        self.assertEqual("unlimited-explicit-opt-in", direct["spendControlStatus"])
+        self.assertEqual("not-required", direct["cancelDelivery"])
+        self.assertEqual([("sess_uncapped_1", "session-created-idle"),
+                          ("sess_uncapped_1", "input-submit-attempted"),
+                          ("sess_uncapped_1", "turn-terminal")], checkpoints)
+        self.assertEqual(capped["spend_control"], {"limit": 200})
+
+    def test_uncapped_run_checkpoint_is_durable_before_billable_input(self):
+        receipt = self.output / self.data["batch"] / (
+            self.data["tasks"][0]["id"] + ".json")
+        seen = []
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            if path == "/v1/agents/sessions":
+                return {"id": "sess_checkpoint_1", "status": "idle"}
+            if path.endswith("/events"):
+                prior = json.loads(receipt.read_bytes())
+                self.assertEqual("input-submit-attempted", prior["state"])
+                self.assertEqual("sess_checkpoint_1", prior["sessionId"])
+                seen.append("input-after-persistent-id")
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"has_more": False, "data": [
+                    {"id": "turn_checkpoint_1", "subagent_id": None, "status": "failed"}]}
+            self.fail("Unexpected API path")
+        self.args.allow_uncapped_session = True
+        self.args.timeout = 60
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic-key"}):
+            with patch.object(lab, "api_json", side_effect=fake_api):
+                row = lab.run(self.data, self.args,
+                              send=lab.agent_session_uncapped_opt_in)[0]
+        self.assertEqual(["input-after-persistent-id"], seen)
+        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", row["apiSpendControlMode"])
+        self.assertTrue(row["localBudgetIsNotApiSpendCap"])
+        self.assertEqual("UNKNOWN", row["migrationVerdict"])
+
+    def test_agent_deadline_sends_server_cancel_and_requires_terminal(self):
+        time_now = [0.]
+        actions = []
+        def clock():
+            return time_now[0]
+        def sleeper(seconds):
+            time_now[0] += seconds
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            actions.append((path, payload))
+            if path == "/v1/agents/sessions":
+                return {"id": "sess_deadline_1", "status": "idle"}
+            if path.endswith("/events"):
+                if payload["events"][0]["type"] == "agent.session.input.cancel":
+                    self.assertGreaterEqual(clock(), 60)
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                status = ("cancelled" if any(
+                    item and item["events"][0]["type"] == "agent.session.input.cancel"
+                    for _path, item in actions if _path.endswith("/events"))
+                    else "in_progress")
+                return {"has_more": False, "data": [
+                    {"id": "turn_deadline_1", "subagent_id": None, "status": status}]}
+            self.fail("unexpected path")
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "api_json", side_effect=fake_api):
+            answer = lab.agent_session_uncapped_opt_in(
+                payload, "synthetic-key", timeout=60,
+                checkpoint=lambda *_args: None, clock=clock, sleep=sleeper)
+        self.assertEqual("cancelled", answer["turnOutcome"])
+        self.assertEqual("accepted", answer["cancelDelivery"])
+        self.assertTrue(answer["cancelConfirmed"])
+        self.assertEqual("uncapped-agent-wall-clock-timeout", answer["failurePhase"])
+        self.assertEqual(1, sum(1 for _path, body in actions if body and
+                               body.get("events", [{}])[0].get("type") ==
+                               "agent.session.input.cancel"))
+
+    def test_transport_failure_after_input_attempt_still_cancels(self):
+        from urllib.error import URLError
+        seen = []
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            if path == "/v1/agents/sessions":
+                return {"id": "sess_uncertain_1", "status": "idle"}
+            if path.endswith("/events"):
+                kind = payload["events"][0]["type"]
+                seen.append(kind)
+                if kind == "agent.session.input.message":
+                    raise URLError(ConnectionResetError(10054, "private-token"))
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"has_more": False, "data": [
+                    {"id": "turn_uncertain_1", "subagent_id": None, "status": "cancelled"}]}
+            self.fail("unexpected path")
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "api_json", side_effect=fake_api):
+            answer = lab.agent_session_uncapped_opt_in(
+                payload, "synthetic-key", timeout=60,
+                checkpoint=lambda *_args: None)
+        self.assertEqual(["agent.session.input.message", "agent.session.input.cancel"], seen)
+        self.assertEqual("cancelled", answer["turnOutcome"])
+        self.assertTrue(answer["cancelConfirmed"])
+        self.assertEqual("uncapped-input-submit-uncertain", answer["failurePhase"])
+        self.assertNotIn("private-token", json.dumps(answer))
+
+    def test_cancel_request_accepted_without_terminal_is_still_unknown(self):
+        time_now = [0.]
+        def fake_api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            if path.endswith("/events"):
+                return {}
+            return {"has_more": False, "data": [
+                {"id": "turn_running_1", "subagent_id": None, "status": "in_progress"}]}
+        with patch.object(lab, "api_json", side_effect=fake_api):
+            result = lab.cancel_active_agent_turn(
+                "sess_running_1", "synthetic-key",
+                clock=lambda: time_now[0],
+                sleep=lambda seconds: time_now.__setitem__(0, time_now[0] + seconds),
+                grace_seconds=6)
+        self.assertEqual("accepted", result["cancelDelivery"])
+        self.assertFalse(result["cancelConfirmed"])
+        self.assertEqual("grace-expired", result["cancelPollStatus"])
+        self.assertEqual("UNKNOWN", result["cancelRootTurnStatus"])
+
 
     def test_uncapped_mode_rejects_multiple_sessions_before_api(self):
         self.args.allow_uncapped_session = True
