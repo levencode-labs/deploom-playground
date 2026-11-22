@@ -25,6 +25,10 @@ on:
         type: choice
         options: ['1', '2', '4', '8']
         default: '4'
+      start_offset:
+        description: 'Zero-based task offset for a subsequent distinct wave'
+        type: number
+        default: 0
       lane:
         description: 'Balanced across eight dependency ecosystems, or one specific stack'
         type: choice
@@ -54,7 +58,7 @@ jobs:
           python knowledge-factory/research/validate_catalog.py > "$RUNNER_TEMP/catalog-report.json"
           python knowledge-factory/research/prepare_batches.py --output-dir "$RUNNER_TEMP/source-exact-batches"
           python knowledge-factory/research/combine_batches.py --out "$RUNNER_TEMP/balanced.json"
-          python knowledge-factory/parallel_batch.py plan --corpus "$RUNNER_TEMP/balanced.json" --max-sessions 8 --workers 4 --budget-usd 16 --reserve-usd 2 > "$RUNNER_TEMP/parallel-plan.json"
+          python knowledge-factory/parallel_batch.py plan --corpus "$RUNNER_TEMP/balanced.json" --max-sessions 8 --workers 4 --offset 0 --budget-usd 16 --reserve-usd 2 > "$RUNNER_TEMP/parallel-plan.json"
           python -m json.tool "$RUNNER_TEMP/catalog-report.json" > /dev/null
           python -m json.tool "$RUNNER_TEMP/parallel-plan.json" > /dev/null
       - uses: actions/upload-artifact@v4
@@ -85,6 +89,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COUNT: ${{ inputs.max_sessions }}
           WORKERS: ${{ inputs.workers }}
+          OFFSET: ${{ inputs.start_offset }}
           LANE: ${{ inputs.lane }}
         run: |
           set -euo pipefail
@@ -100,7 +105,7 @@ jobs:
               CORPUS="$RUNNER_TEMP/source-exact-batches/research-$LANE.json" ;;
             *) echo "Unapproved source lane" >&2; exit 2 ;;
           esac
-          python knowledge-factory/parallel_batch.py run --execute --corpus "$CORPUS" --max-sessions "$COUNT" --workers "$WORKERS" --budget-usd "$((COUNT*2))" --reserve-usd 2
+          python knowledge-factory/parallel_batch.py run --execute --corpus "$CORPUS" --max-sessions "$COUNT" --workers "$WORKERS" --offset "$OFFSET" --budget-usd "$((COUNT*2))" --reserve-usd 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:
