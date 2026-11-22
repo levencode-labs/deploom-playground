@@ -23,6 +23,61 @@ restricted egress to named GitHub/GitLab/npm/PyPI hosts; restricted
 downloads may fail and must be recorded as UNKNOWN, never as PASS. No
 GitHub/GitLab token, API key or Ed25519 signing key enters the sandbox.
 
+## 🚀 Start the first real cloud-agent wave (Windows, no GitHub merge required)
+
+The parallel implementation is in **PR #8's source branch**, which is not
+deployed to the default branch. GitHub's manual workflow_dispatch UI is only
+available for workflows on the repository's default branch. Therefore the
+fastest safe first run uses a **small local PowerShell controller** to launch
+**OpenAI-hosted** cloud agents; your local PC only dispatches and reads events.
+The agents themselves research in separate OpenAI-managed Linux sandboxes.
+
+On a machine with Python 3.12+ and Git, fetch this feature branch and switch
+to it in your existing local checkout (without changing global settings):
+
+```powershell
+git fetch origin feat/collective-knowledge-factory
+git switch --track origin/feat/collective-knowledge-factory
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 8 -Workers 4
+```
+
+After reviewing the offline plan, **explicitly** launch the first paid pilot:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Run -Count 8 -Workers 4 -Offset 0
+```
+
+The script prompts for a masked OpenAI Platform API key when the environment
+does not already contain `OPENAI_API_KEY`. The key stays in the controller
+and is never included in any agent sandbox request. **Do not paste it into a
+chat, Git repository or action log.** Required project permissions:
+`api.agents.read`, `api.agents.write`, `api.responses.write`.
+
+This launch is **eight parallel, pinned public GitHub tasks drawn from eight
+dependency ecosystems**, with up to four concurrent sessions and at most two
+subagents per session. Each session has an **OpenAI Agents API spend_control
+limit of 200 USD cents**, with aggregate launch reservations of $16. This is
+**not a guaranteed billing cap**: check actual project usage in OpenAI
+Platform, and do not start a large batch until the first wave's outputs and
+cost are inspected. The initial `Plan` step costs zero API credits.
+
+Receipts and session IDs are written locally to
+`knowledge-factory/.runs/research-balanced-001/`. They have no confidential
+raw model output. On an incomplete turn, transport error, missing artifact or
+quota error, the dispatcher **stops submitting additional tasks** and retains
+the prior receipts. It never retries ambiguous paid calls automatically.
+
+To run the next *nonoverlapping* wave after reviewing the first and configuring
+proper source/evaluation separation, use `-Offset 8 -Count 8`; then 16, 24
+and so on. A different offset has a different persistent summary, and already
+reserved tasks cannot silently be rerun. Before extending to all 80, set up a
+genuinely private blind holdout or select **new unseen projects** for later
+acceptance. The publicly committed 80-project list is not itself a blind holdout.
+
+The complete hosted task results remain **DRAFT/UNKNOWN** until independently
+reproduced against pinned source and negative controls. The signed v2
+publisher is never automatically fed results from this run.
+
 ## Validate safely without tokens
 
 From the repository root, with Python 3.12+:
