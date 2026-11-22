@@ -100,12 +100,14 @@ def prompt(task):
         sort_keys=True) + "\nDo not push, release, or change the authorized scope.\n"
 
 
-def request_payload(task, model, spend_limit_cents):
+def request_payload(task, model, spend_limit_cents, *, use_subagents=True):
     if type(spend_limit_cents) is not int or spend_limit_cents < 1:
         raise ValueError('Invalid Agents API session spending limit')
     return {
         "agent": {"model": model,
-                  "multi_agent": {"enabled": True, "max_concurrent_subagents": 2},
+                  "multi_agent": ({"enabled": True, "max_concurrent_subagents": 2}
+                                  if use_subagents and model != "gpt-6-luna"
+                                  else {"enabled": False}),
                   "instructions": (
                       "Investigate exact public Git SHA only. Use official changelogs, "
                       "migration guides and verified codemod sources through web_search, "
@@ -697,7 +699,9 @@ def run(data, args, send=agent_session_with_staged_cap):
         except FileExistsError as exc:
             raise ValueError("Concurrent controller owns the task; no second API launch") from exc
         try:
-            request = request_payload(task, args.model, int(unit * 100))
+            request = request_payload(
+                task, args.model, int(unit * 100),
+                use_subagents=not getattr(args, "disable_subagents", False))
             if send is agent_session_uncapped_opt_in:
                 def persist_session(session_id, phase):
                     atomic(receipt, dict(row, sessionId=session_id, state=phase,
@@ -735,7 +739,8 @@ def main(argv=None):
     ap.add_argument("command", choices=["plan", "run"])
     ap.add_argument("--corpus", default=str(ROOT / "corpus/projects.lock.json"))
     ap.add_argument("--output", default=str(ROOT / ".runs"))
-    ap.add_argument("--model", default="gpt-6-astra")
+    ap.add_argument("--model", default="gpt-6.2-sol")
+    ap.add_argument("--disable-subagents", action="store_true")
     ap.add_argument("--max-sessions", type=int, default=1)
     ap.add_argument("--budget-usd", default="0")
     ap.add_argument("--reserve-usd", default="2")
