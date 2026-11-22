@@ -466,7 +466,8 @@ def cancel_active_agent_turn(session_id, key, *, clock=None, sleep=None,
                 if isinstance(ident, str) and SAFE_REF.fullmatch(ident):
                     result["turnId"] = ident
                     if status in ("cancelled", "completed", "failed"):
-                        result["cancelConfirmed"] = True
+                        result["cancelConfirmed"] = (status == "cancelled")
+                        result["turnTerminalAfterCancelObserved"] = True
                         result["cancelRootTurnStatus"] = status
                         result["turnOutcome"] = status
                         break
