@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -296,7 +297,139 @@ def agent_session(payload, key, timeout=1800):
             "eventStreamSha256": events.hexdigest(), "eventCount": count}
 
 
-def run(data, args, send=agent_session):
+def api_json(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+    """Bounded JSON control request: only OpenAI Agents API, no redirects."""
+    if not path.startswith("/v1/agents/sessions"):
+        raise ValueError("Unapproved Agents API control path")
+    headers = {"Authorization": "Bearer " + key, "OpenAI-Beta": "agents=v1",
+               "Content-Type": "application/json"}
+    if idempotency_key is not None:
+        headers["Idempotency-Key"] = idempotency_key
+    request = Request("https://api.openai.com" + path,
+                      data=encode(payload) if payload is not None else None,
+                      headers=headers, method=method)
+    with build_opener(NoRedirect()).open(request, timeout=45) as response:
+        if response.status not in expected:
+            raise ValueError("Unexpected Agents API control response")
+        body = response.read(100_001)
+    if len(body) > 100_000:
+        raise ValueError("Oversized Agents API control response")
+    if not body:
+        return {}
+    value = json.loads(body)
+    if not isinstance(value, dict):
+        raise ValueError("Invalid Agents API control JSON")
+    return value
+
+
+def staged_session_with_confirmed_cap(payload, key, timeout):
+    """Handle older gateways rejecting the documented create spend_control field.
+
+    Never submit agent input until the separate session update acknowledges
+    exactly the requested positive spending limit. A failure keeps the
+    session unstarted and the task UNKNOWN. No automatic paid retries.
+    """
+    limit = payload.get("spend_control", {}).get("limit")
+    if type(limit) is not int or limit < 1:
+        raise ValueError("Unsafe missing session spending limit")
+    result = {"turnOutcome": "unknown", "sessionId": None, "turnId": None,
+              "executionProtocol": "staged-verified-spend-control",
+              "spendControlStatus": "not-confirmed", "eventCount": 0}
+
+    def stop(stage, exc=None):
+        row = dict(result, stagedFailurePhase=stage)
+        if exc is not None:
+            row["stagedError"] = safe_transport_diagnostics(exc)
+        return row
+
+    # Creating an empty non-streaming hosted session is explicitly supported.
+    # It must have no initial input and no spend_control; without input it
+    # must not start an agent turn.
+    initial = {"agent": payload["agent"], "environment": payload["environment"],
+               "stream": False}
+    try:
+        session = api_json("POST", "/v1/agents/sessions", key, payload=initial,
+                           expected=(200, 201))
+    except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+        return stop("empty-session-create", exc)
+
+    session_id = session.get("id")
+    if not isinstance(session_id, str) or not SAFE_REF.fullmatch(session_id):
+        return stop("untrusted-created-session-id")
+    result["sessionId"] = session_id
+    if session.get("status") != "idle":
+        return stop("created-session-not-idle")
+
+    path = "/v1/agents/sessions/" + session_id
+    try:
+        updated = api_json("POST", path, key,
+                           payload={"spend_control": {"limit": limit}})
+    except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+        return stop("spending-limit-update", exc)
+
+    verified = updated.get("spend_control")
+    if (updated.get("id") != session_id or updated.get("status") != "idle"
+            or not isinstance(verified, dict)
+            or type(verified.get("limit")) is not int
+            or verified["limit"] != limit):
+        return stop("spending-limit-not-acknowledged")
+    result["spendControlStatus"] = "confirmed"
+    result["verifiedSpendLimitCents"] = limit
+
+    # No input is ever sent if the server rejects or cannot confirm the cap.
+    event = {"events": [{"type": "agent.session.input.message",
+                         "input": [{"role": "user", "content": [
+                             {"type": "input_text", "text": payload["input"]}
+                         ]}]}]}
+    idem = "deploom-knowledge-" + sha(payload["input"].encode("utf-8"))[:48]
+    try:
+        api_json("POST", path + "/events", key, payload=event, expected=(202,),
+                 idempotency_key=idem)
+    except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+        return stop("turn-input-submission-unknown", exc)
+    result["inputAccepted"] = True
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            turns = api_json("GET", path + "/turns?limit=100&order=desc", key)
+        except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+            return stop("turn-status-unavailable", exc)
+        if not isinstance(turns.get("data"), list):
+            return stop("invalid-turn-list")
+        roots = [t for t in turns["data"] if isinstance(t, dict)
+                 and t.get("subagent_id") is None]
+        if roots:
+            latest = roots[0]
+            turn_id = latest.get("id")
+            if isinstance(turn_id, str) and SAFE_REF.fullmatch(turn_id):
+                result["turnId"] = turn_id
+            status = latest.get("status")
+            if status in ("completed", "failed", "cancelled"):
+                if not result["turnId"]:
+                    return stop("invalid-terminal-turn-id")
+                result["turnOutcome"] = status
+                result["turnPollChecks"] = result.get("turnPollChecks", 0) + 1
+                return result
+        result["turnPollChecks"] = result.get("turnPollChecks", 0) + 1
+        time.sleep(min(4, max(0, deadline - time.monotonic())))
+    return stop("turn-not-terminal-before-timeout")
+
+
+def agent_session_with_staged_cap(payload, key, timeout=1800):
+    """Try the documented atomic capped create; fall back ONLY on exact 400."""
+    try:
+        return agent_session(payload, key, timeout=timeout)
+    except HTTPError as exc:
+        diagnostic = safe_transport_diagnostics(exc)
+        if (diagnostic.get("httpStatus") == 400
+                and diagnostic.get("apiErrorCode") == "unknown_parameter"
+                and diagnostic.get("apiErrorParam") == "spend_control"):
+            return staged_session_with_confirmed_cap(payload, key, timeout)
+        raise
+
+
+def run(data, args, send=agent_session_with_staged_cap):
     unit = reserve(args.budget_usd, args.reserve_usd, args.max_sessions)
     if not args.execute:
         raise ValueError("Paid run requires --execute")
@@ -332,7 +465,9 @@ def run(data, args, send=agent_session):
         try:
             row.update(send(request_payload(task, args.model, int(unit * 100)),
                             key, timeout=args.timeout))
-            row["state"] = "agent-turn-reported"
+            row["state"] = ("agent-turn-reported"
+                            if row.get("turnOutcome") in ("completed", "failed", "cancelled")
+                            else "unknown-api-outcome")
             if (row.get("turnOutcome") == "completed"
                     and row.get("sessionId") and row.get("turnId")):
                 try:
