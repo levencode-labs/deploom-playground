@@ -99,6 +99,74 @@ class ReconcileResumeTests(unittest.TestCase):
         self.assertEqual(1, attest.call_count)
         self.assertEqual("turn-terminal", json.loads(old.read_bytes())["state"])
 
+    def test_recovered_terminal_sidecar_preserves_original_and_enables_export(self):
+        original = self.receipt(0, state="turn-terminal", artifacts=False)
+        old = json.loads(original.read_bytes())
+        old.pop("turnId")
+        old.pop("turnOutcome")
+        original.write_text(json.dumps(old))
+        exact_bytes = {
+            "/workspace/outputs/migration-report.json": (b'{"result":"UNKNOWN"}', "art_a_001"),
+            "/workspace/outputs/commands.json": (b'[{"command":"npm test","exitCode":1}]', "art_b_001"),
+        }
+        import hashlib
+        def fake_get(method, path, key):
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"data": [{"id": "turn_recovered_001",
+                                  "subagent_id": None, "status": "completed"}],
+                        "has_more": False}
+            return {"id": "sess_receipt_0", "status": "idle"}
+        def read(path, key, limit):
+            if path.endswith("?limit=100"):
+                return json.dumps({"has_more": False, "data": [
+                    {"id": ident, "path": name, "session_id": "sess_receipt_0",
+                     "turn_id": "turn_recovered_001", "size_bytes": len(data)}
+                    for name, (data, ident) in exact_bytes.items()]}).encode()
+            for data, ident in exact_bytes.values():
+                if path.endswith("/" + ident + "/content"):
+                    return data
+            self.fail("unexpected source-exact read")
+        def attest(session, turn, key):
+            return agent.artifact_receipts(session, turn, key, get=read)
+        snapshot = rec.census(self.data, self.output, online=True,
+                              key="synthetic", get=fake_get, attest=attest)
+        self.assertEqual("COMPLETED_WITH_ARTIFACTS", snapshot["rows"][0]["status"])
+        created = rec.write_recovery_sidecars(snapshot, self.output)
+        self.assertEqual(["recovered/" + self.tasks[0]["id"] + ".json"], created)
+        recovered = self.output / created[0]
+        patched = json.loads(recovered.read_bytes())
+        self.assertEqual("completed", patched["turnOutcome"])
+        self.assertEqual("turn_recovered_001", patched["turnId"])
+        self.assertEqual("complete", patched["artifactEvidence"]["status"])
+        self.assertEqual("READ_ONLY_AGENTS_API", patched["recoveryAuthority"])
+        self.assertEqual(old, json.loads(original.read_bytes()))
+        again = rec.census(self.data, self.output)
+        self.assertEqual("COMPLETED_WITH_ARTIFACTS", again["rows"][0]["status"])
+        self.assertEqual(1, again["recoveredReceiptCount"])
+        self.assertEqual([], rec.write_recovery_sidecars(snapshot, self.output))
+        import download_artifacts as export
+        manifest, exported_dir = export.download_attested(
+            recovered, "synthetic", output_dir=self.output / "safe-export",
+            read=read)
+        self.assertEqual("NOT_RUN", manifest["independentVerification"])
+        self.assertTrue((exported_dir / "migration-report.json").exists())
+
+    def test_forged_recovered_receipt_fails_closed(self):
+        original = self.receipt(0, state="turn-terminal", artifacts=False)
+        rec_path = self.output / "recovered" / (self.tasks[0]["id"] + ".json")
+        rec_path.parent.mkdir(parents=True)
+        fake = json.loads(original.read_bytes())
+        fake.update({"state": "agent-turn-reported", "turnOutcome": "completed",
+                     "turnId": "turn_for_elsewhere", "sessionId": "sess_other",
+                     "recoveryAuthority": "READ_ONLY_AGENTS_API",
+                     "originalReceiptPath": "research-balanced-001/" + self.tasks[0]["id"] + ".json",
+                     "artifactEvidence": {"status": "complete", "artifacts": []}})
+        rec_path.write_text(json.dumps(fake))
+        scan = rec.census(self.data, self.output)
+        self.assertEqual("UNKNOWN_CONFLICT", scan["rows"][0]["status"])
+        chosen, _ = resume.eligible_queue(self.data, output=self.output)
+        self.assertNotIn(self.tasks[0]["id"], [x["id"] for x in chosen["tasks"]])
+
     def test_duplicate_modelled_receipt_conflict_remains_unknown(self):
         self.receipt(0)
         self.receipt(0, batch="research-resume-old-001")
