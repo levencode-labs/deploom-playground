@@ -42,6 +42,8 @@ def projects(folder=ROOT / "corpus"):
             }, "source fields")
             require(item["provider"] == "github" and isinstance(item["repository"], str)
                     and REPO.fullmatch(item["repository"])
+                    and all(part not in (".", "..") and not part.startswith(".")
+                            and not part.endswith(".") for part in item["repository"].split("/"))
                     and isinstance(item["sourceRef"], str) and 1 <= len(item["sourceRef"]) <= 32
                     and isinstance(item["sourceCommit"], str) and SHA.fullmatch(item["sourceCommit"])
                     and isinstance(item["sourceTree"], str) and SHA.fullmatch(item["sourceTree"])
