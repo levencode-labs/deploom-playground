@@ -380,6 +380,51 @@ class RunnerTests(unittest.TestCase):
                 network.assert_not_called()
 
 
+    def test_progress_heartbeat_is_redacted_and_reports_monotonic_elapsed(self):
+        from io import StringIO
+        stream = StringIO()
+        logger = lab.make_progress_logger("safe-task-123", stream=stream)
+        logger("polling", 18, 3582, "in_progress", 6)
+        logger("private-api-key", 25, 3575, "Bearer secret-token", 8)
+        lines = stream.getvalue().splitlines()
+        self.assertEqual(2, len(lines))
+        self.assertIn("elapsed=00:18", lines[0])
+        self.assertIn("remaining=59:42", lines[0])
+        self.assertIn("status=in_progress", lines[0])
+        self.assertIn("polls=6", lines[0])
+        self.assertIn("unknown", lines[1])
+        self.assertNotIn("private-api-key", stream.getvalue())
+        self.assertNotIn("secret-token", stream.getvalue())
+
+    def test_uncapped_progress_reports_poll_then_terminal_without_raw_output(self):
+        from io import StringIO
+        stream = StringIO()
+        log = lab.make_progress_logger("safe-task-123", stream=stream)
+        calls = []
+        def api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            if path == "/v1/agents/sessions":
+                return {"id": "sess_progress_1", "status": "idle"}
+            if path.endswith("/events"):
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                calls.append(path)
+                return {"data": [{"id": "turn_progress_1", "subagent_id": None,
+                                  "status": "completed"}], "has_more": False}
+            self.fail("Unexpected API call")
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "api_json", side_effect=api):
+            outcome = lab.agent_session_uncapped_opt_in(
+                payload, "synthetic-key", timeout=60,
+                checkpoint=lambda *_args: None, progress=log)
+        self.assertEqual("completed", outcome["turnOutcome"])
+        self.assertEqual(1, len(calls))
+        output = stream.getvalue()
+        for event in ("creating-session", "session-id-saved", "submitting-input",
+                      "input-accepted", "polling", "turn-terminal"):
+            self.assertIn(event, output)
+        self.assertNotIn("synthetic-key", output)
+        self.assertNotIn(payload["input"], output)
+
     def test_plan_deterministic_and_offline(self):
         task = self.data["tasks"][0]
         self.assertEqual(lab.sha(lab.prompt(task).encode()), lab.sha(lab.prompt(task).encode()))
