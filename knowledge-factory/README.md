@@ -149,6 +149,29 @@ automatically retry them. On unexpected HTTP response, transport disconnect,
 or incomplete artifacts, stop and reconcile before attempting another offset.
 Do not use the uncapped flag for the multi-agent/CI paid workflow.
 
+### Live status in the next PowerShell run
+
+A newly started `-AllowUncappedSession` run now emits redacted progress
+to **stderr**, so the final JSON printed on stdout keeps its original schema.
+The controller polls the root turn every ~3 seconds and prints a heartbeat
+every **15 seconds**, or immediately when the observed status changes.
+Each line contains a UTC timestamp, task ID, lifecycle phase, time elapsed,
+time remaining before the server-side cancellation deadline, root-turn status
+and poll count. It also logs cancellation submission and terminal observation.
+
+Sample (illustrative rather than actual results):
+
+```text
+[12:00:00Z][KnowledgeFactory][example-task] input-accepted elapsed=00:03 remaining=59:57 status=unknown polls=0
+[12:00:15Z][KnowledgeFactory][example-task] polling elapsed=00:18 remaining=59:42 status=in_progress polls=6
+```
+
+No API keys, prompts, raw responses, stack traces or untrusted agent output
+are logged. A heartbeat confirms the **controller** is polling, not that
+the migration is making progress or what files the agent is reading.
+Already-running PowerShell processes cannot load new code from GitHub:
+update the checkout before starting another distinct task.
+
 ### Cancel a managed agent, including after a controller crash
 
 While Python is active, it attempts server cancellation on timeout, any
