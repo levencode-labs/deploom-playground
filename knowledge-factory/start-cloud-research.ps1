@@ -12,6 +12,7 @@ param(
     [ValidateRange(1,80)][int]$Count = 8,
     [ValidateSet(1,2,4,8)][int]$Workers = 4,
     [ValidateRange(0,79)][int]$Offset = 0,
+    [ValidateRange(1,60)][int]$TimeoutMinutes = 60,
     [switch]$AllowUncappedSession
 )
 $ErrorActionPreference = 'Stop'
@@ -50,7 +51,8 @@ try {
             $Mode.ToLowerInvariant(), '--corpus', $queue,
             '--max-sessions', [string]$Count,
             '--workers', [string]$Workers, '--offset', [string]$Offset,
-            '--budget-usd', [string]$total, '--reserve-usd', '2'
+            '--budget-usd', [string]$total, '--reserve-usd', '2',
+            '--timeout', [string]($TimeoutMinutes * 60)
         )
         if ($AllowUncappedSession) {
             Write-Warning 'No API per-session spend limit. $2 reservation is NOT a spending ceiling.'
