@@ -25,6 +25,11 @@ MAX_WORKERS = 8
 MAX_BATCH_SESSIONS = 80
 
 
+def _is_uncapped(args):
+    return (getattr(args, "allow_uncapped_session", False)
+            or getattr(args, "allow_uncapped_batch", False))
+
+
 def _parameters(data, args):
     if not isinstance(data, dict) or not isinstance(data.get("tasks"), list):
         raise ValueError("Unvalidated source-exact corpus")
@@ -32,9 +37,16 @@ def _parameters(data, args):
         raise ValueError("Session count outside 1..80")
     if not 1 <= args.workers <= MAX_WORKERS:
         raise ValueError("Parallel worker count outside 1..8")
+    if getattr(args, "allow_uncapped_session", False) and getattr(args, "allow_uncapped_batch", False):
+        raise ValueError("Choose exactly one uncapped mode")
     if getattr(args, "allow_uncapped_session", False) and (
             args.max_sessions != 1 or args.workers != 1):
         raise ValueError("Uncapped opt-in requires exactly one session and one worker")
+    if getattr(args, "allow_uncapped_batch", False):
+        if not (2 <= args.max_sessions <= 80 and 1 <= args.workers <= 4):
+            raise ValueError("Uncapped batch requires 2..80 tasks and at most 4 workers")
+        if args.model not in ("gpt-6.2-sol", "gpt-6-luna"):
+            raise ValueError("Uncapped batch requires Sol or Luna model")
     if not 60 <= args.timeout <= 3600:
         raise ValueError("Invalid per-session timeout")
     offset = getattr(args, "offset", 0)
@@ -43,6 +55,8 @@ def _parameters(data, args):
     tasks = data["tasks"][offset:offset + args.max_sessions]
     if not tasks or len({task["id"] for task in tasks}) != len(tasks):
         raise ValueError("Missing or duplicate source-exact tasks")
+    if getattr(args, "allow_uncapped_batch", False) and len(tasks) != args.max_sessions:
+        raise ValueError("Uncapped batch cannot silently truncate requested task count")
     unit = single.reserve(args.budget_usd, args.reserve_usd, len(tasks))
     return tasks, unit
 
@@ -54,10 +68,14 @@ def plan(data, args):
         "sourceBatch": data["batch"], "sourceCorpusSha256": single.sha(single.encode(data)),
         "selectedSessions": len(tasks), "offset": getattr(args, "offset", 0),
         "workers": min(args.workers, len(tasks)),
-        "spendLimitPerSessionCents": (None if getattr(args, "allow_uncapped_session", False)
+        "model": args.model, "maxWallClockSecondsPerAgent": args.timeout,
+        "uncappedMultiSessionBatch": bool(getattr(args, "allow_uncapped_batch", False)),
+        "subagentsDisabled": bool(getattr(args, "allow_uncapped_batch", False)
+                                  or args.model == "gpt-6-luna"),
+        "spendLimitPerSessionCents": (None if _is_uncapped(args)
                                        else int(unit * 100)),
         "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
-                                if getattr(args, "allow_uncapped_session", False)
+                                if _is_uncapped(args)
                                 else "CAPPED_REQUIRED"),
         "localBudgetIsNotApiSpendCap": True,
         "plannedReservationsUsd": str(unit * len(tasks)),
@@ -66,7 +84,7 @@ def plan(data, args):
                    "promptSha256": single.sha(single.prompt(task).encode())}
                   for task in tasks],
         "note": ("No task executed. UNLIMITED session API spend; local $2 "
-                 "reservation is NOT a spending ceiling." if getattr(args, "allow_uncapped_session", False)
+                 "reservation is NOT a spending ceiling." if _is_uncapped(args)
                  else "No task has been executed or independently verified."),
     }
 
@@ -77,7 +95,8 @@ def _one(data, task, args, unit, send):
     local = SimpleNamespace(
         execute=True, max_sessions=1, budget_usd=str(unit), reserve_usd=str(unit),
         output=args.output, model=args.model, timeout=args.timeout,
-        allow_uncapped_session=getattr(args, "allow_uncapped_session", False),
+        allow_uncapped_session=_is_uncapped(args),
+        disable_subagents=getattr(args, "allow_uncapped_batch", False),
     )
     try:
         return single.run(one, local, send=send)[0]
@@ -100,7 +119,7 @@ def execute(data, args, *, send=None):
     tasks, unit = _parameters(data, args)
     if send is None:
         send = (single.agent_session_uncapped_opt_in
-                if getattr(args, "allow_uncapped_session", False)
+                if _is_uncapped(args)
                 else single.agent_session_with_staged_cap)
     if not args.execute:
         raise ValueError("Paid execution requires explicit --execute")
@@ -116,6 +135,11 @@ def execute(data, args, *, send=None):
     if summary.exists():
         raise ValueError("Existing summary requires separate reconciliation before new paid run")
 
+    if getattr(args, "allow_uncapped_batch", False):
+        existing = [task["id"] for task in tasks
+                    if (output / (task["id"] + ".json")).exists()]
+        if existing:
+            raise ValueError("Uncapped batch includes existing attempted tasks; choose an unused offset")
     selected = tasks
     results = {}
     stop_new = False
@@ -158,10 +182,14 @@ def execute(data, args, *, send=None):
         "unlaunched": [task["id"] for task in selected[next_index:]],
         "stoppedOnUncertainEvidence": stop_new,
         "workers": max_workers,
-        "spendLimitPerSessionCents": (None if getattr(args, "allow_uncapped_session", False)
+        "model": args.model, "maxWallClockSecondsPerAgent": args.timeout,
+        "uncappedMultiSessionBatch": bool(getattr(args, "allow_uncapped_batch", False)),
+        "subagentsDisabled": bool(getattr(args, "allow_uncapped_batch", False)
+                                  or args.model == "gpt-6-luna"),
+        "spendLimitPerSessionCents": (None if _is_uncapped(args)
                                        else int(unit * 100)),
         "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
-                                if getattr(args, "allow_uncapped_session", False)
+                                if _is_uncapped(args)
                                 else "CAPPED_REQUIRED"),
         "localBudgetIsNotApiSpendCap": True,
         "plannedReservationsUsd": str(unit * len(selected)),
@@ -188,7 +216,8 @@ def main(argv=None):
     parser.add_argument("--corpus", type=Path,
                         default=single.ROOT / "corpus/projects.lock.json")
     parser.add_argument("--output", type=Path, default=single.ROOT / ".runs")
-    parser.add_argument("--model", default="gpt-6-astra")
+    parser.add_argument("--model", choices=("gpt-6.2-sol", "gpt-6-luna", "gpt-6-astra"),
+                        default="gpt-6.2-sol")
     parser.add_argument("--max-sessions", type=int, default=8)
     parser.add_argument("--offset", type=int, default=0,
                         help="Zero-based starting position in the immutable source-exact queue")
@@ -199,6 +228,8 @@ def main(argv=None):
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--allow-uncapped-session", action="store_true",
                         help="One uncapped paid API session only; local reservation is NOT an API limit")
+    parser.add_argument("--allow-uncapped-batch", action="store_true",
+                        help="Explicit 2..80 uncapped sessions, <=4 workers")
     args = parser.parse_args(argv)
     try:
         data = single.corpus(args.corpus)
