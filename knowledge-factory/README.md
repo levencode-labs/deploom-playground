@@ -305,6 +305,48 @@ computer may not deliver the provider-side cancel. No terminal agent turn
 or artifact is an independently verified migration until separate checks
 have run and accepted the source SHA and negative controls.
 
+### Small six-task recovery waves and interrupted receipts
+
+The default is **6 new tasks per wave, 2 workers**, not 80 at once.
+Every wave still scans the full **80-project source-exact corpus** to exclude
+completed, failed, cancelled, previously attempted and UNKNOWN tasks.
+The original 80-project coverage and test matrix are unchanged.
+
+```powershell
+.\knowledge-factory\start-cloud-resume.ps1 -Mode Plan -Count 6 -Workers 2 -Model gpt-6-luna -TimeoutMinutes 30
+```
+
+An operator may explicitly start a *single* six-task wave after reconciling
+any previous live sessions and confirming available credits:
+
+```powershell
+.\knowledge-factory\start-cloud-resume.ps1 -Mode Run -Count 6 -Workers 2 -Model gpt-6-luna -TimeoutMinutes 30 -ConfirmPaid
+```
+
+If four or more agents received `completed` before a local
+`KeyboardInterrupt`, their durable original receipts may still say
+`turn-terminal` rather than `agent-turn-reported`. Restore the **exact**
+turn ID and artifact hashes via read-only API calls; never rerun them:
+
+```powershell
+$corpus = Join-Path $env:TEMP ("deploom-reconcile-" + [guid]::NewGuid().ToString('N') + ".json")
+python .\knowledge-factory\research\combine_batches.py --out $corpus
+python .\knowledge-factory\reconcile_batch.py --corpus $corpus --online --write --recover-terminal --summary-only
+```
+
+The `--recover-terminal` flag creates a new immutable
+`.runs/recovered/<task-id>.json` **sidecar**, never overwrites the original
+receipt, and only if server GET confirms a terminal root turn; for a
+`completed` turn the downloader requires provider artifact names, bytes
+and SHA-256 to match the saved sidecar. This is evidence recovery, **not
+independent migration verification**. Recoveries retain `UNKNOWN` migration
+verdicts until Codex or separate host CI proves source-exact checks.
+
+A recovered completed sidecar may be passed to
+`knowledge-factory/download_artifacts.py` for private local download;
+the downloaded JSON and raw agent output must not be committed to public
+GitHub automatically.
+
 ## Mass cloud research: lower-cost Sol and four concurrent sessions
 
 After the completed source-exact Astra pilot, the next **explicit** batch
