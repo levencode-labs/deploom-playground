@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "platformatic/platformatic",
+      "sourceRef": "main",
+      "sourceCommit": "34658bc2545841844db0e48673c19c3f6667342b",
+      "sourceTree": "726011ab5e9abdc95c5ef62c6eec1cdd4a6c84e6",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "WalletConnect/walletconnect-monorepo",
+      "sourceRef": "v2.0",
+      "sourceCommit": "005cba5e298be9d80d9bb351ba96ff768c4bd556",
+      "sourceTree": "457352b31def57b0f8462956f2ec5ee54ae8ee4a",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "campsite/campsite",
+      "sourceRef": "main",
+      "sourceCommit": "cc14551df7264c4adfdf6d0f6a549c713e0da7a8",
+      "sourceTree": "a56779b53fbcbfd308b026a391ba584c146adca5",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "nounsDAO/nouns-monorepo",
+      "sourceRef": "master",
+      "sourceCommit": "2213eea1c15f331f786784c2621d53bdecf907e2",
+      "sourceTree": "76b80ad05591834f93c74aa61c89d4ab3f96555d",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "meshtastic/web",
+      "sourceRef": "main",
+      "sourceCommit": "a326cac3df049a9a3bdc688cf4dddb547d5e7a58",
+      "sourceTree": "fb6c970f0f47e8477ebbcd27161831a3c8ef8433",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "microsoft/rushstack",
+      "sourceRef": "main",
+      "sourceCommit": "c2acd010079c6c08e63ba25d0b136ed2c1b16ccd",
+      "sourceTree": "4af98f2620c2348104cbcf3b10009de084e9ff04",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "belgattitude/nextjs-monorepo-example",
+      "sourceRef": "main",
+      "sourceCommit": "b7953382e5efc3173356bf977dfa6e88f28d8bfc",
+      "sourceTree": "e79a948cf35b3c577432dd4e9e53a9bfccc9835a",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "svelteuidev/svelteui",
+      "sourceRef": "main",
+      "sourceCommit": "f40812b5e2000ff41b63a51c0870e030d2796be0",
+      "sourceTree": "a97aa5c52bc8200d71fa2c7bbdb97a8631dd5ec5",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "Automattic/gravatar",
+      "sourceRef": "trunk",
+      "sourceCommit": "f814ff0532486994b1184cabfe117b8eb1d270c6",
+      "sourceTree": "d8046fbd31898bc9fcab321b602953e74156f0e4",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "fastapi/full-stack-fastapi-template",
+      "sourceRef": "master",
+      "sourceCommit": "77e550a73bb49dd2967622c5ed11bf7a49603c93",
+      "sourceTree": "d307eca14f2382e66ad1fd3e4c6d326dfdc10ef0",
+      "lane": "monorepo",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
