@@ -59,7 +59,8 @@ def inspect_or_cancel(receipt_path, key, *, execute_cancel=False,
     if result["rootTurnStatus"] in ("completed", "failed", "cancelled"):
         result["status"] = "ALREADY_TERMINAL"
         return result
-    if result["sessionStatus"] == "idle" and result["rootTurnStatus"] == "UNKNOWN":
+    if (result["sessionStatus"] == "idle" and result["rootTurnStatus"] == "UNKNOWN"
+            and "turnReadError" not in result and "sessionReadError" not in result):
         result["status"] = "NO_OBSERVED_ACTIVE_TURN"
         return result
     if not execute_cancel:
