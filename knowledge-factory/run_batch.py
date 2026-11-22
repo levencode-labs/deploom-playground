@@ -429,19 +429,170 @@ def agent_session_with_staged_cap(payload, key, timeout=1800):
         raise
 
 
-def agent_session_uncapped_opt_in(payload, key, timeout=1800):
-    """Deliberately omit spend_control; caller MUST opt in for one session.
+def cancel_active_agent_turn(session_id, key, *, clock=None, sleep=None,
+                             grace_seconds=90):
+    """Server-side cancellation, then independently poll for a terminal turn.
 
-    This uses no API-side per-session spend cap. It must never be selected
-    automatically as a fallback from a rejected capped request.
+    HTTP 202 merely acknowledges the cancel event. Only an observed terminal
+    root turn is proof that execution ended. No raw HTTP content is persisted.
+    """
+    if not isinstance(session_id, str) or not SAFE_REF.fullmatch(session_id):
+        raise ValueError("Unsafe session ID for cancellation")
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    base = "/v1/agents/sessions/" + session_id
+    result = {"cancelDelivery": "unknown", "cancelConfirmed": False,
+              "cancelRootTurnStatus": "UNKNOWN"}
+    try:
+        api_json("POST", base + "/events", key,
+                 payload={"events": [{"type": "agent.session.input.cancel"}]},
+                 expected=(202,), idempotency_key="deploom-cancel-" + session_id)
+        result["cancelDelivery"] = "accepted"
+    except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+        result["cancelError"] = safe_transport_diagnostics(exc)
+    end = clock() + grace_seconds
+    while True:
+        try:
+            turns = api_json("GET", base + "/turns?limit=100&order=desc", key)
+            if not isinstance(turns.get("data"), list):
+                result["cancelPollStatus"] = "invalid-turn-list"
+                break
+            roots = [turn for turn in turns["data"] if isinstance(turn, dict)
+                     and turn.get("subagent_id") is None]
+            if roots:
+                latest = roots[0]
+                status = latest.get("status")
+                ident = latest.get("id")
+                if isinstance(ident, str) and SAFE_REF.fullmatch(ident):
+                    result["turnId"] = ident
+                    if status in ("cancelled", "completed", "failed"):
+                        result["cancelConfirmed"] = True
+                        result["cancelRootTurnStatus"] = status
+                        result["turnOutcome"] = status
+                        break
+        except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+            result["cancelPollError"] = safe_transport_diagnostics(exc)
+        if clock() >= end:
+            result["cancelPollStatus"] = "grace-expired"
+            break
+        sleep(min(3, max(0, end - clock())))
+    return result
+
+
+def agent_session_uncapped_opt_in(payload, key, timeout=3600, *,
+                                  checkpoint=None, clock=None, sleep=None):
+    """Start an uncapped session with a bounded live turn and server cancellation.
+
+    Create *without input* so that session ID is available for recovery before
+    potentially billable work begins. A checkpoint callback MUST durably save
+    that ID before any agent input is sent. The caller explicitly authorizes
+    no API-side spending limit.
     """
     if not isinstance(payload, dict) or "spend_control" not in payload:
         raise ValueError("Expected a previously validated capped payload")
-    uncapped = {k: v for k, v in payload.items() if k != "spend_control"}
-    answer = agent_session(uncapped, key, timeout=timeout)
-    answer["spendControlStatus"] = "unlimited-explicit-opt-in"
-    answer["executionProtocol"] = "uncapped-explicit-opt-in"
-    return answer
+    if checkpoint is None:
+        raise ValueError("Uncapped execution requires durable session checkpoint")
+    if type(timeout) is not int or not 60 <= timeout <= 3600:
+        raise ValueError("Uncapped time limit outside 60..3600 seconds")
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    started = clock()
+    deadline = started + timeout
+    result = {"turnOutcome": "unknown", "sessionId": None, "turnId": None,
+              "executionProtocol": "uncapped-idle-create-cancellable-turn",
+              "spendControlStatus": "unlimited-explicit-opt-in",
+              "agentTimeoutSeconds": timeout,
+              "cancelDelivery": "not-required", "cancelConfirmed": False,
+              "eventCount": 0}
+
+    initial = {"agent": payload["agent"], "environment": payload["environment"],
+               "stream": False}
+    # There is deliberately no spend_control field and no user input.
+    try:
+        session = api_json("POST", "/v1/agents/sessions", key,
+                           payload=initial, expected=(200, 201))
+    except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+        result["failurePhase"] = "uncapped-empty-session-create"
+        result["controlError"] = safe_transport_diagnostics(exc)
+        return result
+    ident = session.get("id")
+    if not isinstance(ident, str) or not SAFE_REF.fullmatch(ident):
+        result["failurePhase"] = "uncapped-untrusted-session-id"
+        return result
+    result["sessionId"] = ident
+    base = "/v1/agents/sessions/" + ident
+    try:
+        checkpoint(ident, "session-created-idle")
+        if session.get("status") != "idle":
+            result["failurePhase"] = "uncapped-created-session-not-idle"
+            return result
+        if clock() >= deadline:
+            result["failurePhase"] = "uncapped-timed-out-before-input"
+            return result
+        # Persist the possibly billable input *attempt* before submitting it.
+        checkpoint(ident, "input-submit-attempted")
+        event = {"events": [{"type": "agent.session.input.message",
+                             "input": [{"role": "user", "content": [
+                                 {"type": "input_text", "text": payload["input"]}
+                             ]}]}]}
+        idem = "deploom-knowledge-" + sha(payload["input"].encode("utf-8"))[:48]
+        try:
+            api_json("POST", base + "/events", key, payload=event,
+                     expected=(202,), idempotency_key=idem)
+            result["inputAccepted"] = True
+        except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+            result["failurePhase"] = "uncapped-input-submit-uncertain"
+            result["controlError"] = safe_transport_diagnostics(exc)
+            # Input may have been accepted even after disconnect. Cancel.
+            return result
+        while clock() < deadline:
+            try:
+                turns = api_json("GET", base + "/turns?limit=100&order=desc", key)
+            except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
+                result["failurePhase"] = "uncapped-turn-poll-error"
+                result["controlError"] = safe_transport_diagnostics(exc)
+                return result
+            if not isinstance(turns.get("data"), list):
+                result["failurePhase"] = "uncapped-invalid-turn-list"
+                return result
+            roots = [turn for turn in turns["data"] if isinstance(turn, dict)
+                     and turn.get("subagent_id") is None]
+            if roots:
+                latest = roots[0]
+                ident_turn = latest.get("id")
+                if isinstance(ident_turn, str) and SAFE_REF.fullmatch(ident_turn):
+                    result["turnId"] = ident_turn
+                if latest.get("status") in ("completed", "failed", "cancelled"):
+                    if result["turnId"]:
+                        result["turnOutcome"] = latest["status"]
+                        result["turnChecks"] = result.get("turnChecks", 0) + 1
+                        checkpoint(ident, "turn-terminal")
+                        return result
+                    result["failurePhase"] = "uncapped-terminal-invalid-turn-id"
+                    return result
+            result["turnChecks"] = result.get("turnChecks", 0) + 1
+            sleep(min(3, max(0, deadline - clock())))
+        result["failurePhase"] = "uncapped-agent-wall-clock-timeout"
+        return result
+    except KeyboardInterrupt:
+        result["failurePhase"] = "uncapped-interrupted"
+        return result
+    except (OSError, ValueError) as exc:
+        result["failurePhase"] = "uncapped-local-checkpoint-error"
+        result["controlError"] = safe_transport_diagnostics(exc)
+        return result
+    finally:
+        # Do not confuse local timeout with cloud cancellation. A cancel
+        # request MUST reach the server and a terminal turn MUST be observed.
+        if result["turnOutcome"] not in ("completed", "failed", "cancelled"):
+            try:
+                checkpoint(ident, "cancel-request-attempted")
+            except (OSError, ValueError):
+                result["checkpointFailureBeforeCancel"] = True
+            result.update(cancel_active_agent_turn(
+                ident, key, clock=clock, sleep=sleep, grace_seconds=90))
+            if not result["cancelConfirmed"]:
+                result["failurePhase"] = result.get("failurePhase", "uncapped-cancel-unconfirmed")
 
 
 def run(data, args, send=agent_session_with_staged_cap):
@@ -484,8 +635,17 @@ def run(data, args, send=agent_session_with_staged_cap):
         except FileExistsError as exc:
             raise ValueError("Concurrent controller owns the task; no second API launch") from exc
         try:
-            row.update(send(request_payload(task, args.model, int(unit * 100)),
-                            key, timeout=args.timeout))
+            request = request_payload(task, args.model, int(unit * 100))
+            if send is agent_session_uncapped_opt_in:
+                def persist_session(session_id, phase):
+                    atomic(receipt, dict(row, sessionId=session_id, state=phase,
+                                         apiSpendControlMode="UNLIMITED_EXPLICIT_OPT_IN",
+                                         localBudgetIsNotApiSpendCap=True))
+                answer = send(request, key, timeout=args.timeout,
+                              checkpoint=persist_session)
+            else:
+                answer = send(request, key, timeout=args.timeout)
+            row.update(answer)
             row["state"] = ("agent-turn-reported"
                             if row.get("turnOutcome") in ("completed", "failed", "cancelled")
                             else "unknown-api-outcome")
