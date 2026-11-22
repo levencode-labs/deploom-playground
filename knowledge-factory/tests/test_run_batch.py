@@ -110,6 +110,48 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn(secret, json.dumps(row))
 
 
+    def test_http_error_structured_diagnostics_are_bounded_and_redacted(self):
+        from urllib.error import HTTPError
+        from io import BytesIO
+        secret = "not-to-store-private-path-or-token"
+        message = "invalid model: " + secret
+        body = json.dumps({"error": {"type": "invalid_request_error",
+                                       "code": "invalid_model",
+                                       "param": "agent.model",
+                                       "message": message}}).encode()
+        def fail_http(_payload, _key, timeout):
+            raise HTTPError("https://api.openai.com/v1/agents/sessions",
+                            400, "secret reason", {"x-request-id": "req_test123"},
+                            BytesIO(body))
+        with patch.dict("os.environ", {"OPENAI_API_KEY": secret}):
+            row = lab.run(self.data, self.args, send=fail_http)[0]
+        self.assertEqual("unknown-api-outcome", row["state"])
+        self.assertEqual(400, row["httpStatus"])
+        self.assertEqual("invalid_request_error", row["apiErrorType"])
+        self.assertEqual("invalid_model", row["apiErrorCode"])
+        self.assertEqual("agent.model", row["apiErrorParam"])
+        self.assertEqual("req_test123", row["apiRequestId"])
+        self.assertIn("model", row["apiErrorCategories"])
+        self.assertEqual(lab.sha(message.encode()), row["apiErrorMessageSha256"])
+        self.assertNotIn(secret, json.dumps(row))
+        self.assertEqual("UNKNOWN", row["migrationVerdict"])
+
+    def test_http_error_rejects_oversized_and_untrusted_metadata(self):
+        from urllib.error import HTTPError
+        from io import BytesIO
+        secret = "secret" * 5000
+        def fail_http(_payload, _key, timeout):
+            raise HTTPError("https://api.openai.com/v1/agents/sessions", 400,
+                            secret, {"x-request-id": "req_" + secret},
+                            BytesIO(secret.encode()))
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "dummy"}):
+            row = lab.run(self.data, self.args, send=fail_http)[0]
+        self.assertEqual(400, row["httpStatus"])
+        self.assertNotIn("apiRequestId", row)
+        self.assertNotIn("apiErrorCode", row)
+        self.assertNotIn(secret, json.dumps(row))
+
+
     def test_plan_deterministic_and_offline(self):
         task = self.data["tasks"][0]
         self.assertEqual(lab.sha(lab.prompt(task).encode()), lab.sha(lab.prompt(task).encode()))
