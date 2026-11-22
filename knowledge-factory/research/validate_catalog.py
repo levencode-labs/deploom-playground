@@ -96,12 +96,45 @@ def guides(file=ROOT / "research/official-guides.json"):
     return rows
 
 
+
+def manifest_samples(file=ROOT / "research/sample-root-manifests.json"):
+    doc = json.loads(Path(file).read_bytes())
+    require(isinstance(doc, dict) and set(doc) == {
+        "schema", "kind", "dateUtc", "status", "warning", "samples"}
+        and type(doc["schema"]) is int and doc["schema"] == 1
+        and doc["status"] == "INSPECTED_NOT_TESTED"
+        and doc["kind"] == "source-exact-public-manifest-sample", "sample trust status")
+    expected = {row["repository"]: row["sourceCommit"] for row in projects()}
+    rows = doc["samples"]
+    require(isinstance(rows, list) and len(rows) == 10, "expected ten inspected roots")
+    seen = set()
+    for row in rows:
+        require(isinstance(row, dict) and set(row) == {
+            "repository", "sourceCommit", "packageJsonBlobSha", "manager", "declarations"},
+            "unexpected root manifest field")
+        identity = row["repository"]
+        require(identity in expected and identity not in seen
+                and row["sourceCommit"] == expected[identity]
+                and isinstance(row["packageJsonBlobSha"], str)
+                and SHA.fullmatch(row["packageJsonBlobSha"])
+                and row["manager"] in {"npm", "pnpm", "yarn", "bun"}
+                and isinstance(row["declarations"], dict)
+                and len(row["declarations"]) <= 64
+                and all(isinstance(k, str) and PKG.fullmatch(k)
+                        and isinstance(v, str) and 0 < len(v) < 180
+                        and all(ord(c) >= 32 for c in v)
+                        for k, v in row["declarations"].items()), "unverified root package evidence")
+        seen.add(identity)
+    return rows
+
+
 def report():
     pinned = projects()
     docs = guides()
+    roots = manifest_samples()
     canonical = json.dumps(pinned, sort_keys=True, separators=(",", ":")).encode()
     return {"status": "RESEARCH_ONLY", "pinnedProjects": len(pinned),
-            "officialGuides": len(docs),
+            "officialGuides": len(docs), "inspectedRootManifests": len(roots),
             "publicCorpusSha256": hashlib.sha256(canonical).hexdigest(),
             "observedMigrationPasses": 0, "verifiedKnowledgeCards": 0,
             "trueBlindHoldout": False}
