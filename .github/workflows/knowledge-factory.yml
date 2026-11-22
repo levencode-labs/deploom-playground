@@ -85,6 +85,7 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 8 -Workers 4
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 1 -Workers 1 -Offset 4 -AllowUncappedSession
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 16 -Workers 4 -Offset 5 -Model gpt-6.2-sol -TimeoutMinutes 30 -AllowUncappedBatch
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-resume.ps1 -Mode Plan -Count 80 -Workers 2 -Model gpt-6-luna -TimeoutMinutes 30
 
   paid-pilot:
     if: github.event_name == 'workflow_dispatch' && inputs.paid_execute == true
