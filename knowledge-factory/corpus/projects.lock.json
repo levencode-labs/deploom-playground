@@ -15,6 +15,13 @@
       "repository": "levencode-labs/deploom-playground",
       "sha": "35712bea86352d46c3d7252cded415bb6bc35ee9",
       "goal": "Investigate the pinned tests/fixtures/webpack-css dependency stack for an upgrade trial, preserve original tests, collect exact outputs and expose any gaps as UNKNOWN."
+    },
+    {
+      "id": "gitlab-frontend-inventory",
+      "provider": "gitlab",
+      "repository": "gitlab-org/gitlab",
+      "sha": "3ce966e8acc6d41ae30de9dc14fe77bc3ed7b2aa",
+      "goal": "Inspect the pinned public GitLab monorepo package.json and yarn dependency configuration; identify a narrowly scoped dependency update or return NOT_APPLICABLE without installing the full monorepo. Preserve exact source evidence."
     }
   ]
 }

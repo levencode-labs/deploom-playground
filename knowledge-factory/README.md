@@ -35,10 +35,12 @@ python knowledge-factory/run_batch.py plan --max-sessions 2 --reserve-usd 2
 ## Explicit paid launch
 
 Create an API project/key authorized for api.agents.read,
-api.agents.write, and api.responses.write; set an **actual hard
-spending limit in OpenAI Platform**. The runner's --budget-usd enforces
-only *reserved sessions*, not billing. Usage can be delayed, and
-an API disconnection must NOT prompt an automatic paid retry.
+api.agents.write, and api.responses.write; set a **project spending
+limit/alerts in OpenAI Platform**. Each session also receives an explicit
+Agents API spend_control.limit (USD cents), independent of the local
+reservation ceiling. Reported spending is best-effort, so neither mechanism
+should be treated as a guaranteed prepaid billing cap. Usage can be delayed,
+and an API disconnection must NOT prompt an automatic paid retry.
 
 ```powershell
 $env:OPENAI_API_KEY = '<set-locally-not-in-repo>'
@@ -54,6 +56,11 @@ Receipts (task, commit, model, prompt SHA256, reserved budget, event-stream
 digest, session ID if observed and terminal status) are saved under
 knowledge-factory/.runs/<batch>/; the runner never stores raw messages or keys.
 A reservation is persisted before a paid call; existing receipts are skipped.
+On a completed root turn the runner looks up two immutable published JSON
+artifacts from the same session/turn, checks bounded size and stores their
+artifact IDs and SHA-256 digests, **never raw AI evidence in a public build
+artifact**. Missing/ambiguous artifacts keep the gate UNKNOWN. Hosted artifacts
+are fetched using OpenAI's Artifacts API and never implicitly trusted.
 Use the workflow artifact for review, then commit **sanitized** reports into
 a long-lived evidence branch to survive ephemeral sandbox/CI retention.
 No receipt is marked VERIFIED by this runner.
@@ -62,11 +69,30 @@ No receipt is marked VERIFIED by this runner.
 
 - Download immutable /workspace/outputs artifacts and verify exact project
   SHA, command receipts, install/build/test/runtime checks on independent runners.
-- Add and pin real GitLab projects after source/licensing verification;
-  current GitLab support is in validator/runner, not a claimed live GitLab
-  migration result.
+- The corpus contains a **pinned public GitLab.org/GitLab repository** in
+  addition to two public GitHub fixtures; no GitLab migration has been run yet.
+  Verify checkout/source/license on the first real pilot and keep the result
+  NOT_APPLICABLE/UNKNOWN unless a concrete migration is validated.
 - Add a reviewed v2-native admission schema that permits arbitrary npm
   packages without bypassing pinned-source checks.
 - Independent held-out Bare-vs-DepLoom A/B, fixed SHA, equal budgets and
   honest snapshotSource + no-matching-record reporting.
 - Keep the v1 verified-pages endpoint working until cross-version acceptance.
+
+## GitLab Pages signed-byte mirror
+
+`mirror_v2.mjs` reads only the official GitHub Pages v2 index, verifies its
+Ed25519 signature against the pinned public key, and copies exactly the
+verified immutable shard bytes. It refuses an existing output destination,
+rejects damaged shards and accepts a monotonic revision floor via
+`DEPLOOM_MIRROR_MIN_REVISION`. No GitLab project, API token, or signing key is
+needed for its offline tests:
+
+```sh
+node --test knowledge-factory/tests/mirror-v2.test.mjs
+```
+
+An example manual GitLab Pages pipeline is in
+`knowledge-factory/examples/gitlab-pages.yml`. You must create/configure
+a GitLab mirror repository before any deployment. Do not claim GitLab Pages
+is live merely because the GitHub CI tests passed.

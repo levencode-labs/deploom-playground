@@ -83,5 +83,53 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(lab.MODEL if hasattr(lab, "MODEL") else "gpt-6-astra", "gpt-6-astra")
 
 
+    def test_real_agents_api_session_cap_and_multi_agent_config(self):
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 275)
+        self.assertEqual({"limit": 275}, payload["spend_control"])
+        self.assertEqual({"enabled": True, "max_concurrent_subagents": 2},
+                         payload["agent"]["multi_agent"])
+        with self.assertRaises(ValueError):
+            lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 0)
+        with self.assertRaises(ValueError):
+            lab.reserve("2", "1.005", 1)
+
+    def test_hosted_artifact_digests_no_raw_or_tokens(self):
+        report = b'{"sourceSha":"deadbeef","outcome":"UNKNOWN"}'
+        commands = b'[{"command":"npm test","exitCode":1}]'
+        values = {"/workspace/outputs/migration-report.json": (report, "artifact_report_1"),
+                  "/workspace/outputs/commands.json": (commands, "artifact_commands_1")}
+        import hashlib
+        def fake(path, key, cap):
+            self.assertEqual("not-a-real-key", key)
+            if path.endswith("?limit=100"):
+                return json.dumps({"has_more": False, "data": [
+                    {"id": identity, "session_id": "sess_valid_1", "turn_id": "turn_valid_1",
+                     "path": original, "size_bytes": len(raw)}
+                    for original, (raw, identity) in values.items()]}).encode()
+            for raw, identity in values.values():
+                if path.endswith("/" + identity + "/content"):
+                    self.assertGreaterEqual(cap, len(raw))
+                    return raw
+            self.fail("unexpected artifact URL")
+        result = lab.artifact_receipts("sess_valid_1", "turn_valid_1", "not-a-real-key", get=fake)
+        self.assertEqual("complete", result["status"])
+        self.assertEqual(2, len(result["artifacts"]))
+        self.assertEqual(hashlib.sha256(report).hexdigest(), result["artifacts"][0]["sha256"])
+        self.assertNotIn("npm test", str(result))
+        with self.assertRaises(ValueError):
+            lab.artifact_receipts("../wrong", "turn_valid_1", "not-a-real-key", get=fake)
+
+    def test_hosted_artifact_pagination_and_missing_are_not_verified(self):
+        def paging(_path, _key, _cap):
+            return b'{"has_more":true,"data":[]}'
+        with self.assertRaises(ValueError):
+            lab.artifact_receipts("sess_valid_1", "turn_valid_1", "key", get=paging)
+        def missing(_path, _key, _cap):
+            return b'{"has_more":false,"data":[]}'
+        self.assertEqual("missing",
+                         lab.artifact_receipts("sess_valid_1", "turn_valid_1",
+                                               "key", get=missing)["status"])
+
+
 if __name__ == "__main__":
     unittest.main()
