@@ -27,10 +27,9 @@ GUIDES_BY_LANE = {
     "library-upstream": ("react-19-removed-apis", "vite-8-rolldown"),
 }
 OUTPUT_NOTICE = (
-    "This is a candidate investigation, not an approved dependency update. "
-    "Verify the actual pinned package versions, source usages, peer and runtime constraints. "
-    "If the upgrade does not apply, return NOT_APPLICABLE with evidence. "
-    "Never weaken tests, push changes, publish results or call an unapproved registry."
+    "Check exact package and API usages; return NOT_APPLICABLE if irrelevant. "
+    "Independently test positive and negative cases; preserve UNKNOWN. "
+    "Never weaken tests, push code, publish or change registry."
 )
 
 
