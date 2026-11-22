@@ -2,10 +2,11 @@
 
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const {pathToFileURL} = require('node:url');
+const fs = require('node:fs/promises');
+const http = require('node:http');
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 
-const homepage = pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href;
+const docs = path.resolve(__dirname, '../docs');
 const strands = '.tile-weave path[data-woven]';
 
 // Sample the curves themselves. A moving highlight or a scaled card cannot satisfy this check.
@@ -50,7 +51,7 @@ async function pointAt(page, tile) {
   await page.mouse.move(box.x + box.width / 2, box.y + 8);
 }
 
-async function exercise(page) {
+async function exercise(page, homepage) {
   await page.clock.install({time: new Date('2026-01-01T00:00:00Z')});
   await page.goto(homepage + '?lang=en');
   await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'));
@@ -127,12 +128,25 @@ async function exercise(page) {
 }
 
 (async () => {
-  const browser = await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
+  const server = http.createServer(async (request, response) => {
+    const file = path.resolve(docs, '.' + new URL(request.url, 'http://localhost').pathname);
+    if (!file.startsWith(docs + path.sep)) return response.writeHead(404).end();
+    try {
+      const content = await fs.readFile(file);
+      const types = {'.html':'text/html;charset=utf-8','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml'};
+      response.writeHead(200, {'Content-Type':types[path.extname(file)] || 'application/octet-stream'}).end(content);
+    } catch { response.writeHead(404).end(); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const homepage = 'http://127.0.0.1:' + server.address().port + '/index.html';
+  let browser;
   try {
+    browser = await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
     const page = await browser.newPage({viewport:{width:1280,height:1000}});
-    await exercise(page);
+    await exercise(page, homepage);
     console.log('PASS all six tile weaves, smooth interruption, keyboard focus and reduced motion');
   } finally {
-    await browser.close();
+    await browser?.close();
+    await new Promise(resolve => server.close(resolve));
   }
 })().catch(error => {console.error(error); process.exitCode = 1;});

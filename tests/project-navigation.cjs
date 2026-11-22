@@ -113,7 +113,7 @@ async function checkYarnAuditHandoff(browser,base) {
       await page.locator('#shared-lock').setInputFiles(file('yarn.lock',lockText));
       await page.locator('#shared-lock-zone[data-filled=true]').waitFor();
       const start=requests.length;
-      await page.locator('main a[href*="audit.html"]').first().click();
+      await page.locator('main a[data-thread="project"]').click();
       await runReport(flavor,coverage);
       // Static hosts can serve audit.html at /audit without changing the address.
       await page.goto(base+'/lab/audit?lang=en');
@@ -190,7 +190,7 @@ async function checkLanguageNavigation(browser, base) {
     await page.goto(new URL('index.html?lang=en',pages).href);
     assert.equal(await page.locator('html').getAttribute('lang'),'en','An explicit query overrides the saved choice');
     console.log('PASS language defaults on both public hosts, EN/RU dropdown, saved files and example state across language changes');
-  } finally {await context.close();}
+  } finally {await context.unrouteAll({behavior:'wait'});await context.close();}
 }
 
 async function run() {
