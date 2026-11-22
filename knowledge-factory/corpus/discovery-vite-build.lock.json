@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "antfu-collective/vitesse",
+      "sourceRef": "main",
+      "sourceCommit": "a8785264f83c2ebe1b3cf689296775a4949957c8",
+      "sourceTree": "d8df568022c5f46a0834002eef284b21d5f10b07",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vite-pwa/vite-plugin-pwa",
+      "sourceRef": "main",
+      "sourceCommit": "355cf3dd283ca50da3ac4759501e9c3312a3da91",
+      "sourceTree": "329f50d6696df9815bfd7ae6a114994975c3adeb",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "originjs/vite-plugin-federation",
+      "sourceRef": "main",
+      "sourceCommit": "91014da9a39d9ea264e2ca7c5d22c620d5752073",
+      "sourceTree": "5122f09ca5bdee898949421bd1b62fceaa700406",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vitejs/vite-plugin-vue",
+      "sourceRef": "main",
+      "sourceCommit": "68b8f6ed3b315f9683154349575f1b1c45cd6782",
+      "sourceTree": "b7cb75cb69db52606c5ef86d06e517933f811fe2",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "electron-vite/electron-vite-react",
+      "sourceRef": "main",
+      "sourceCommit": "18d31d5dcfe6637aa1dd6699babcab1849c83f98",
+      "sourceTree": "504008d854ab4dfdabc55097c3ac5f7fcff23944",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "antfu-collective/vitesse-webext",
+      "sourceRef": "main",
+      "sourceCommit": "d237f4c00f1ac2cae9ea2b3d5dd93dd64d465073",
+      "sourceTree": "b98da669b4669d81405db5ec21fba35ab608c19a",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vbenjs/vue-vben-admin",
+      "sourceRef": "main",
+      "sourceCommit": "e726bc92780c1023c2393042871470d413ad79dc",
+      "sourceTree": "9877b1001c933c30b9b4aae9e609d2f7324a7bb7",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "solidjs/templates",
+      "sourceRef": "main",
+      "sourceCommit": "331a9bd96a7b1103e3fe1e037c41551445793844",
+      "sourceTree": "4dd1210e0472b5c766c542e7907704539d445935",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vitejs/vite-ecosystem-ci",
+      "sourceRef": "main",
+      "sourceCommit": "4aafae1b0a17bc7a530d757a8e48504752d84437",
+      "sourceTree": "1dcf1e857ff2037b14624fbbbc1abcc76baee356",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "fastify/fastify-vite",
+      "sourceRef": "main",
+      "sourceCommit": "2855a59a7dcc8c9670129af82fd0c09b7e4891c4",
+      "sourceTree": "cd8c1fdf4bfb3216a82a6ad6f2aa4238d659280d",
+      "lane": "vite-build",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
