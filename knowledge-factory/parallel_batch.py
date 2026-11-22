@@ -85,7 +85,7 @@ def accepted_turn(receipt):
             and receipt.get("state") == "agent-turn-reported")
 
 
-def execute(data, args, *, send=single.agent_session):
+def execute(data, args, *, send=single.agent_session_with_staged_cap):
     tasks, unit = _parameters(data, args)
     if not args.execute:
         raise ValueError("Paid execution requires explicit --execute")
