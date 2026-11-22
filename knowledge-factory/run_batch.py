@@ -168,6 +168,18 @@ def atomic(path, data):
     os.replace(temp, path)
 
 
+def reserve_once(path, row):
+    """Exclusive durable claim; two controllers cannot bill the same task."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Intentionally do not replace an existing file, including an incomplete
+    # one left by a crash. All ambiguous attempts require manual reconciliation.
+    with path.open("xb") as reserved:
+        reserved.write(encode(row))
+        reserved.flush()
+        os.fsync(reserved.fileno())
+
+
 def agent_session(payload, key, timeout=1800):
     """The HTTP request alone is not success; require a terminal top-level turn."""
     req = Request(API, data=encode(payload), method="POST", headers={
@@ -225,7 +237,16 @@ def run(data, args, send=agent_session):
     for task in data["tasks"][:args.max_sessions]:
         receipt = Path(args.output) / data["batch"] / (task["id"] + ".json")
         if receipt.exists():
-            results.append(json.loads(receipt.read_bytes()))
+            try:
+                prior = json.loads(receipt.read_bytes())
+            except (OSError, ValueError) as exc:
+                raise ValueError("Ambiguous existing reservation: never retry paid task") from exc
+            if (not isinstance(prior, dict) or prior.get("task") != task["id"]
+                    or prior.get("commit") != task["sha"] or prior.get("model") != args.model
+                    or prior.get("promptSha256") != sha(prompt(task).encode())
+                    or prior.get("reservedUsd") != str(unit)):
+                raise ValueError("Existing reservation has different source identity or spending policy")
+            results.append(prior)
             continue
         row = {"schema": 1, "batch": data["batch"], "task": task["id"],
                "repository": task["repository"], "commit": task["sha"],
@@ -234,7 +255,10 @@ def run(data, args, send=agent_session):
                "budgetCeilingUsd": args.budget_usd,
                "timestampUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "migrationVerdict": "UNKNOWN", "state": "reserved"}
-        atomic(receipt, row)  # Persistent reservation BEFORE any billable call.
+        try:
+            reserve_once(receipt, row)  # Exclusive disk claim BEFORE any billable call.
+        except FileExistsError as exc:
+            raise ValueError("Concurrent controller owns the task; no second API launch") from exc
         try:
             row.update(send(request_payload(task, args.model, int(unit * 100)),
                             key, timeout=args.timeout))
