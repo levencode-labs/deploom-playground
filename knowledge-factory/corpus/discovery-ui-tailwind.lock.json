@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "tailwindlabs/headlessui",
+      "sourceRef": "main",
+      "sourceCommit": "eea57cf46fd6767ed1059012f7073b88eb159fba",
+      "sourceTree": "b4dcfb035de6126fa99694b3d3eedd0c46c541bb",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "themesberg/flowbite-react",
+      "sourceRef": "main",
+      "sourceCommit": "699cbcf34eef10ea9c1f3707624e0c56479a0431",
+      "sourceTree": "725a283abb2b1108563d16e740ed4b6931efeb84",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "tailwindlabs/tailwindcss-intellisense",
+      "sourceRef": "main",
+      "sourceCommit": "5067ff7ec0b4b8bb5c3325a69c1f3410eb5b350a",
+      "sourceTree": "188047220c6bfe9e6f32e175fc00561343fca4a6",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "roots/sage",
+      "sourceRef": "main",
+      "sourceCommit": "7f53bafdf528f7e3270f4f6837beabcca223514c",
+      "sourceTree": "a5060d66bf2c82399a230bc3ab10c528b038c2e2",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "creativetimofficial/notus-nextjs",
+      "sourceRef": "main",
+      "sourceCommit": "83af9355cf3373c31d5f5f3845e65185d327186d",
+      "sourceTree": "3644883e5b490749867c5d678b09d93f1fe3db81",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "leoMirandaa/shadcn-landing-page",
+      "sourceRef": "main",
+      "sourceCommit": "ae3716dbce5c8a26815222bb743994b5717938f1",
+      "sourceTree": "efc6d545978cbbce1e8c3e567dfd099029cf542f",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "ekmas/neobrutalism-components",
+      "sourceRef": "main",
+      "sourceCommit": "f3c4d42973819ab5cf18697d08d6bd46f384d335",
+      "sourceTree": "f354f719d1f2085b24a82be3a007fc619f37c44a",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "pheralb/svgl",
+      "sourceRef": "main",
+      "sourceCommit": "90f6de7026c5e75a9014dbf1f422792bd40b1802",
+      "sourceTree": "ac8a02cbaab56b33d4bdc23ae8864e2b22806280",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "sahandghavidel/mern-blog",
+      "sourceRef": "main",
+      "sourceCommit": "813d1af3893c0c9e37ccd8d9865ee50a83f38821",
+      "sourceTree": "5bf5fbe225b7f6c6e76dc100505571d0b7ae5243",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "timonweb/django-tailwind",
+      "sourceRef": "master",
+      "sourceCommit": "89f4aa3eac73fb0c26b20bcbbf4c33af5342d2fd",
+      "sourceTree": "dad6ca2b9d17b226a8fec6c58543406fdec0dfaf",
+      "lane": "ui-tailwind",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
