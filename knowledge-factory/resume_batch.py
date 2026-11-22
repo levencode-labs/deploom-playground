@@ -24,7 +24,7 @@ import run_batch as agent
 
 
 def eligible_queue(original, *, output, online=False, key=None,
-                   max_sessions=80, model="gpt-6-luna", get=None, attest=None):
+                   max_sessions=6, model="gpt-6-luna", get=None, attest=None):
     if not 1 <= max_sessions <= 80:
         raise ValueError("Resume queue limit outside 1..80")
     if model not in ("gpt-6-luna", "gpt-6.2-sol"):
@@ -83,7 +83,7 @@ def main(argv=None):
                         choices=("gpt-6-luna", "gpt-6.2-sol"))
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--timeout", type=int, default=1800)
-    parser.add_argument("--max-sessions", type=int, default=80)
+    parser.add_argument("--max-sessions", type=int, default=6)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not 1 <= args.workers <= 4 or not 60 <= args.timeout <= 3600:
