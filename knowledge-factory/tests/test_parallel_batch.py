@@ -94,6 +94,22 @@ class ParallelBatchTests(unittest.TestCase):
         self.assertEqual(0, report["sessionCompletions"])
         self.assertFalse(any("secret" in str(x).lower() for x in report["results"]))
 
+    def test_offset_selects_nonoverlapping_waves_without_repeating_paid_sources(self):
+        self.args.offset = 4
+        self.args.max_sessions = 4
+        self.args.budget_usd = "8"
+        second = parallel.plan(self.data, self.args)
+        self.assertEqual(4, second["offset"])
+        self.assertEqual(4, second["selectedSessions"])
+        self.assertEqual([task["id"] for task in self.data["tasks"][4:8]],
+                         [item["id"] for item in second["tasks"]])
+        self.args.offset = 8
+        with self.assertRaisesRegex(ValueError, "offset"):
+            parallel.plan(self.data, self.args)
+        self.args.offset = -1
+        with self.assertRaisesRegex(ValueError, "offset"):
+            parallel.plan(self.data, self.args)
+
     def test_no_key_no_execute_and_budget_boundaries(self):
         self.args.execute = False
         with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
