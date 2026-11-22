@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "vueuse/vueuse",
+      "sourceRef": "main",
+      "sourceCommit": "84e7caedab4e79e13159d3390fa46f817e3f4eaa",
+      "sourceTree": "3e045b1756ec0f64cd78e5c84042751e31ed5441",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "nuxt/nuxt",
+      "sourceRef": "main",
+      "sourceCommit": "187e8c33697998c89c78e4a23655d653f24de7cc",
+      "sourceTree": "e242c336a95859e83820d07ee92ab5aba0c64f8f",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "intlify/vue-i18n",
+      "sourceRef": "master",
+      "sourceCommit": "31cf18640191b02688df1e990b01149cceb40831",
+      "sourceTree": "f4c590e7b07adc1f950fcf935db0bb25d8eb0213",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "un-pany/v3-admin-vite",
+      "sourceRef": "main",
+      "sourceCommit": "c2c895d71d571e9c18c2453fa85469a479c79fc6",
+      "sourceTree": "41e50d1059eefe25289098d895b031ed41c1bd5e",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vuetifyjs/vuetify",
+      "sourceRef": "master",
+      "sourceCommit": "7bf6c0dfe19bce66753f10b01d9346f904167b0c",
+      "sourceTree": "2a3aa2fda305e509066fc94b3bd2335967d5a97a",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vuejs/vue-router",
+      "sourceRef": "dev",
+      "sourceCommit": "680ccc68c506cca9be6207745043245d61fa715a",
+      "sourceTree": "30718a40ee6ec65355ec19819a13dab8c1251e29",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vuejs/vuepress",
+      "sourceRef": "master",
+      "sourceCommit": "9fb4bb00925d9409e6732118e996411c6a82c85d",
+      "sourceTree": "078bc872cf819888eab32264d627461809626fea",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "logaretm/vee-validate",
+      "sourceRef": "main",
+      "sourceCommit": "7d8cc524f9204655ad00a466090738e43b44ff2a",
+      "sourceTree": "5417f2a49de5656aeb775ddca0638cf2f13d5776",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "nuxt/ui",
+      "sourceRef": "v4",
+      "sourceCommit": "422d015e288bdae82a62c6aeeb7a722ad3070a83",
+      "sourceTree": "2a5eb0434eb57c5c602b43a63a811a2636f49d05",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "nuxt-modules/tailwindcss",
+      "sourceRef": "main",
+      "sourceCommit": "4b49ec07d69882223cf4d9336949544196ef8244",
+      "sourceTree": "3dac61f1aa238f6c8a88e505605f783ede2eafdd",
+      "lane": "vue-nuxt",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
