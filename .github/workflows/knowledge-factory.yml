@@ -16,10 +16,15 @@ on:
         type: boolean
         default: false
       max_sessions:
-        description: 'Maximum session count'
+        description: 'Maximum session count (each has an explicit $2 reservation and API spend control)'
         type: choice
         options: ['1', '2']
         default: '1'
+      lane:
+        description: 'Exact public source lane, or the original three-task pilot'
+        type: choice
+        options: ['pilot', 'next-react', 'vite-build', 'vue-nuxt', 'typescript-eslint', 'testing', 'ui-tailwind', 'monorepo', 'library-upstream']
+        default: 'pilot'
 permissions:
   contents: read
 jobs:
@@ -41,12 +46,17 @@ jobs:
       - name: Offline corpus and budget regression tests
         run: |
           python -m unittest discover -s knowledge-factory/tests -v
-          python knowledge-factory/run_batch.py plan --max-sessions 2 --reserve-usd 2 > "$RUNNER_TEMP/factory-plan.json"
+          python knowledge-factory/research/validate_catalog.py > "$RUNNER_TEMP/catalog-report.json"
+          python knowledge-factory/research/prepare_batches.py --output-dir "$RUNNER_TEMP/source-exact-batches"
+          python knowledge-factory/run_batch.py plan --corpus "$RUNNER_TEMP/source-exact-batches/research-next-react.json" --max-sessions 2 --reserve-usd 2 > "$RUNNER_TEMP/factory-plan.json"
+          python -m json.tool "$RUNNER_TEMP/catalog-report.json" > /dev/null
           python -m json.tool "$RUNNER_TEMP/factory-plan.json" > /dev/null
       - uses: actions/upload-artifact@v4
         with:
           name: knowledge-factory-plan
-          path: ${{ runner.temp }}/factory-plan.json
+          path: |
+            ${{ runner.temp }}/factory-plan.json
+            ${{ runner.temp }}/catalog-report.json
           if-no-files-found: error
   paid-pilot:
     if: github.event_name == 'workflow_dispatch' && inputs.paid_execute == true
@@ -65,10 +75,18 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COUNT: ${{ inputs.max_sessions }}
+          LANE: ${{ inputs.lane }}
         run: |
           set -euo pipefail
           test -n "$OPENAI_API_KEY"
-          python knowledge-factory/run_batch.py run --execute --max-sessions "$COUNT" --budget-usd 4 --reserve-usd 2
+          case "$LANE" in
+            pilot) CORPUS=knowledge-factory/corpus/projects.lock.json ;;
+            next-react|vite-build|vue-nuxt|typescript-eslint|testing|ui-tailwind|monorepo|library-upstream)
+              python knowledge-factory/research/prepare_batches.py --output-dir "$RUNNER_TEMP/source-exact-batches"
+              CORPUS="$RUNNER_TEMP/source-exact-batches/research-$LANE.json" ;;
+            *) echo "Unapproved source lane" >&2; exit 2 ;;
+          esac
+          python knowledge-factory/run_batch.py run --execute --corpus "$CORPUS" --max-sessions "$COUNT" --budget-usd "$((COUNT*2))" --reserve-usd 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:
