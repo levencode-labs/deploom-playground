@@ -471,6 +471,19 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(lab.MODEL if hasattr(lab, "MODEL") else "gpt-6-astra", "gpt-6-astra")
 
 
+    def test_mass_model_selection_disables_subagents_when_requested(self):
+        task = self.data["tasks"][0]
+        sol = lab.request_payload(task, "gpt-6.2-sol", 200, use_subagents=False)
+        luna = lab.request_payload(task, "gpt-6-luna", 200)
+        astra = lab.request_payload(task, "gpt-6-astra", 200)
+        self.assertEqual({"enabled": False}, sol["agent"]["multi_agent"])
+        self.assertEqual({"enabled": False}, luna["agent"]["multi_agent"])
+        self.assertEqual({"enabled": True, "max_concurrent_subagents": 2},
+                         astra["agent"]["multi_agent"])
+        self.assertEqual("gpt-6.2-sol", sol["agent"]["model"])
+        self.assertEqual("gpt-6-luna", luna["agent"]["model"])
+
+
     def test_real_agents_api_session_cap_and_multi_agent_config(self):
         payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 275)
         self.assertEqual({"limit": 275}, payload["spend_control"])
