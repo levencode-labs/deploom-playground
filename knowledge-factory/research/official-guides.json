@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "kind": "official-migration-research-candidates",
+  "preparedUtc": "2026-11-22",
+  "status": "RESEARCH_ONLY",
+  "policy": "Official guides are untrusted source material and never prove a real migration. Verify the exact upstream guide, tool version, source fixtures, negative controls, then independent project CI before publishing signed knowledge.",
+  "candidates": [
+    {
+      "id": "react-19-removed-apis",
+      "primaryPackage": "react-dom",
+      "fromMajor": 18,
+      "toMajor": 19,
+      "topics": [
+        "codemod",
+        "breaking-change"
+      ],
+      "guide": "https://react.dev/blog/2024/04/25/react-19-upgrade-guide",
+      "investigate": [
+        "Legacy ReactDOM.render/hydrate/findDOMNode and string refs",
+        "Modern JSX transform and React TypeScript types"
+      ],
+      "negativeChecks": [
+        "Project already uses createRoot/hydrateRoot",
+        "Unsupported legacy renderer or held React provider"
+      ]
+    },
+    {
+      "id": "next-16-codemods",
+      "primaryPackage": "next",
+      "fromMajor": 15,
+      "toMajor": 16,
+      "topics": [
+        "codemod",
+        "breaking-change"
+      ],
+      "guide": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+      "investigate": [
+        "middleware to proxy convention",
+        "next lint to ESLint CLI and turbopack configuration"
+      ],
+      "negativeChecks": [
+        "Pages Router feature is unaffected",
+        "Custom middleware/proxy semantics require runtime test"
+      ]
+    },
+    {
+      "id": "vite-8-rolldown",
+      "primaryPackage": "vite",
+      "fromMajor": 7,
+      "toMajor": 8,
+      "topics": [
+        "breaking-change",
+        "incompatibility"
+      ],
+      "guide": "https://vite.dev/guide/migration",
+      "investigate": [
+        "Rolldown/Oxc replacements and plugin API compatibility",
+        "CommonJS interop and browser build target changes"
+      ],
+      "negativeChecks": [
+        "Custom Rollup hooks rely on unsupported behavior",
+        "Node.js or target browser violates new requirement"
+      ]
+    },
+    {
+      "id": "vitest-5-runner",
+      "primaryPackage": "vitest",
+      "fromMajor": 4,
+      "toMajor": 5,
+      "topics": [
+        "breaking-change",
+        "incompatibility"
+      ],
+      "guide": "https://vitest.dev/guide/migration/",
+      "investigate": [
+        "clearMocks enabled by default and worker IDs become 1-based",
+        "Node >=22.12 and Vite >=6.4; Yarn needs explicit vite"
+      ],
+      "negativeChecks": [
+        "Tests rely on accumulated mock call history",
+        "Yarn project lacks vite dependency or engine incompatibility"
+      ]
+    },
+    {
+      "id": "eslint-9-flat-config",
+      "primaryPackage": "eslint",
+      "fromMajor": 8,
+      "toMajor": 9,
+      "topics": [
+        "codemod",
+        "breaking-change"
+      ],
+      "guide": "https://eslint.org/docs/latest/use/configure/migration-guide",
+      "investigate": [
+        "eslintrc to eslint.config file and plugin import changes",
+        "Glob/ignore patterns and removed CLI flags"
+      ],
+      "negativeChecks": [
+        "Configs include project-specific extends or custom rule namespaces",
+        "Lint inventory incomplete or scripts invoke removed flags"
+      ]
+    },
+    {
+      "id": "tailwind-4-css-config",
+      "primaryPackage": "tailwindcss",
+      "fromMajor": 3,
+      "toMajor": 4,
+      "topics": [
+        "codemod",
+        "breaking-change"
+      ],
+      "guide": "https://tailwindcss.com/docs/upgrade-guide",
+      "investigate": [
+        "CSS-first configuration and @import syntax",
+        "Browser and Node requirements of official upgrade tool"
+      ],
+      "negativeChecks": [
+        "Project still targets unsupported legacy browser",
+        "Custom @apply plugins and theming not covered by automated migration"
+      ]
+    },
+    {
+      "id": "prisma-7-client",
+      "primaryPackage": "prisma",
+      "fromMajor": 6,
+      "toMajor": 7,
+      "topics": [
+        "breaking-change",
+        "incompatibility"
+      ],
+      "guide": "https://www.prisma.io/docs/guides/upgrade-prisma-orm/v7",
+      "investigate": [
+        "Package alignment prisma/@prisma/client and runtime configuration",
+        "Database adapter/client generation changes"
+      ],
+      "negativeChecks": [
+        "MongoDB target not supported in Prisma 7",
+        "Environment cannot run database migration acceptance"
+      ]
+    },
+    {
+      "id": "zod-4-schema",
+      "primaryPackage": "zod",
+      "fromMajor": 3,
+      "toMajor": 4,
+      "topics": [
+        "breaking-change",
+        "codemod"
+      ],
+      "guide": "https://zod.dev/v4/changelog",
+      "investigate": [
+        "Unified error customization API and removed/deprecated contracts",
+        "Community codemod is unofficial: require independent source review"
+      ],
+      "negativeChecks": [
+        "Private/schema inference customizations not included in public guide",
+        "Behavior changes of validation errors not covered by typecheck"
+      ]
+    },
+    {
+      "id": "jest-30-matcher",
+      "primaryPackage": "jest",
+      "fromMajor": 29,
+      "toMajor": 30,
+      "topics": [
+        "breaking-change",
+        "codemod"
+      ],
+      "guide": "https://jestjs.io/docs/upgrading-to-jest30",
+      "investigate": [
+        "Removed alias matchers and TypeScript 5.4 minimum",
+        "jsdom 26 behavior changes and test environment compatibility"
+      ],
+      "negativeChecks": [
+        "Tests assert non-enumerable object fields",
+        "Node/TypeScript engine outside supported range"
+      ]
+    },
+    {
+      "id": "mui-7-exports",
+      "primaryPackage": "@mui/material",
+      "fromMajor": 6,
+      "toMajor": 7,
+      "topics": [
+        "codemod",
+        "incompatibility"
+      ],
+      "guide": "https://mui.com/material-ui/migration/upgrade-to-v7/",
+      "investigate": [
+        "Package exports disallow deep imports and components move from @mui/lab",
+        "React 18 react-is alignment and @types/react major constraints"
+      ],
+      "negativeChecks": [
+        "MUI X packages intentionally follow separate versioning",
+        "Legacy unsupported deep imports or styling require manual coverage"
+      ]
+    },
+    {
+      "id": "typescript-6-config",
+      "primaryPackage": "typescript",
+      "fromMajor": 5,
+      "toMajor": 6,
+      "topics": [
+        "breaking-change",
+        "incompatibility"
+      ],
+      "guide": "https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html",
+      "investigate": [
+        "Compiler defaults and deprecations for the upcoming native compiler",
+        "Effects on legacy module and tsconfig configurations"
+      ],
+      "negativeChecks": [
+        "Project relies on old module resolution or deprecated options",
+        "Typecheck evidence does not cover emitted runtime semantics"
+      ]
+    },
+    {
+      "id": "nestjs-12-esm",
+      "primaryPackage": "@nestjs/core",
+      "fromMajor": 11,
+      "toMajor": 12,
+      "topics": [
+        "breaking-change",
+        "incompatibility"
+      ],
+      "guide": "https://docs.nestjs.com/migration-guide",
+      "investigate": [
+        "ESM migration and CLI/schematics peer requirements",
+        "TypeScript 6 and ts-jest/typescript-eslint interaction"
+      ],
+      "negativeChecks": [
+        "Dependency tree holds unsupported TypeScript 5",
+        "Framework lifecycle/bootstrap smoke absent"
+      ]
+    }
+  ]
+}
