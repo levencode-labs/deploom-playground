@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "mschwarzmueller/nextjs-course-code",
+      "sourceRef": "main",
+      "sourceCommit": "f51cedd4828d9a6dff79f73d4d5ea020af63f28c",
+      "sourceTree": "8368de414f3c5bd7bc2c552418742a213d08f1cc",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "i18next/next-i18next",
+      "sourceRef": "master",
+      "sourceCommit": "ad1642b69cf1f4ca3b03d0b235c2c4bf410acfb7",
+      "sourceTree": "72373d2403172232141b449901fc5e5f29bdfa4e",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "pmndrs/react-three-next",
+      "sourceRef": "main",
+      "sourceCommit": "bb29a61949601e1c563688faf33a12d062ec3710",
+      "sourceTree": "8fa79cbb8d8599c8a21760cd21fb2c3dda4fb21a",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "craigary/nobelium",
+      "sourceRef": "main",
+      "sourceCommit": "fa6d5db71905297f66989aee7d2c7abd1e11e5bb",
+      "sourceTree": "eff6e187f730e22f2ffea0621b4d05bcee67ee44",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "imranhsayed/nextjs-headless-wordpress",
+      "sourceRef": "main",
+      "sourceCommit": "d38f3081d3cc3b487f263b557ba4a1c0cda7749f",
+      "sourceTree": "1b2b9a388ca65300a3c722380105d28e0fba730f",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "ixartz/Next-js-Boilerplate",
+      "sourceRef": "main",
+      "sourceCommit": "0326d011d1e0aa9a39c6caacac838071d6f8c979",
+      "sourceTree": "b0d251fda3236347830970022a3bf53b423e01a1",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "ixartz/Next-js-Blog-Boilerplate",
+      "sourceRef": "master",
+      "sourceCommit": "8b29f57b8da07127bf59fcdad68b9b4e9e1d8770",
+      "sourceTree": "93955a12a4478594447ea22f3ced802cd7c8c6f7",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "assistant-ui/assistant-ui",
+      "sourceRef": "main",
+      "sourceCommit": "dc9cad2b4b10c80478a2c28b9ee3e3484d158ec1",
+      "sourceTree": "f1b9696722ca876f7e845f0f82d3b11e69735c08",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "saleor/storefront",
+      "sourceRef": "main",
+      "sourceCommit": "61673d282c988ac92ec9a3a2bb55b9588017e41d",
+      "sourceTree": "20d67685ee31ef317d434440b10a334f55a3be83",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "alexeagleson/nextjs-fullstack-app-template",
+      "sourceRef": "main",
+      "sourceCommit": "8e788edb85b0e776f0ebcd04cfe6072f81c606da",
+      "sourceTree": "58ec7865563df4de59645393552ec4886b991206",
+      "lane": "next-react",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
