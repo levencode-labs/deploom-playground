@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from decimal import Decimal
 from pathlib import Path
@@ -97,6 +98,7 @@ def _one(data, task, args, unit, send):
         output=args.output, model=args.model, timeout=args.timeout,
         allow_uncapped_session=_is_uncapped(args),
         disable_subagents=getattr(args, "allow_uncapped_batch", False),
+        stop_requested=getattr(args, "stop_requested", None),
     )
     try:
         return single.run(one, local, send=send)[0]
@@ -108,11 +110,35 @@ def _one(data, task, args, unit, send):
                 "errorKind": type(exc).__name__, "migrationVerdict": "UNKNOWN"}
 
 
+def receipt_disposition(receipt):
+    """Classify a receipt without inferring success from mere session creation.
+
+    A failed or cancelled root turn is a completed *API attempt*, not a
+    successful migration. It may be skipped safely because it is already
+    terminal and cannot continue consuming tokens. Anything else is UNKNOWN.
+    """
+    if not isinstance(receipt, dict) or receipt.get("state") != "agent-turn-reported":
+        return "UNKNOWN"
+    outcome = receipt.get("turnOutcome")
+    if outcome not in ("completed", "failed", "cancelled"):
+        return "UNKNOWN"
+    sid, tid = receipt.get("sessionId"), receipt.get("turnId")
+    if not isinstance(sid, str) or not single.SAFE_REF.fullmatch(sid):
+        return "UNKNOWN"
+    if not isinstance(tid, str) or not single.SAFE_REF.fullmatch(tid):
+        return "UNKNOWN"
+    if outcome == "failed":
+        return "FAILED_TERMINAL"
+    if outcome == "cancelled":
+        return "CANCELLED_TERMINAL"
+    if receipt.get("artifactEvidence", {}).get("status") == "complete":
+        return "COMPLETED_WITH_ARTIFACTS"
+    return "COMPLETED_ARTIFACTS_MISSING"
+
+
 def accepted_turn(receipt):
-    """Only controls scheduling; does NOT certify a migration."""
-    return (receipt.get("turnOutcome") == "completed"
-            and receipt.get("artifactEvidence", {}).get("status") == "complete"
-            and receipt.get("state") == "agent-turn-reported")
+    """Old compatibility helper; only artifacts + completed root count."""
+    return receipt_disposition(receipt) == "COMPLETED_WITH_ARTIFACTS"
 
 
 def execute(data, args, *, send=None):
@@ -126,7 +152,6 @@ def execute(data, args, *, send=None):
     if not os.environ.get("OPENAI_API_KEY"):
         raise ValueError("OPENAI_API_KEY absent in controller; no sessions launched")
 
-    # Validate entire reservation BEFORE submitting a single chargeable task.
     output = Path(args.output) / data["batch"]
     output.mkdir(parents=True, exist_ok=True)
     offset = getattr(args, "offset", 0)
@@ -134,18 +159,82 @@ def execute(data, args, *, send=None):
                         else "parallel-summary-offset-" + str(offset).zfill(3) + ".json")
     if summary.exists():
         raise ValueError("Existing summary requires separate reconciliation before new paid run")
-
     if getattr(args, "allow_uncapped_batch", False):
         existing = [task["id"] for task in tasks
-                    if (output / (task["id"] + ".json")).exists()]
+                    if (output / (task["id"] + ".json")).exists()
+                    or (Path(args.output) / "claims" / (task["id"] + ".json")).exists()]
         if existing:
-            raise ValueError("Uncapped batch includes existing attempted tasks; choose an unused offset")
+            raise ValueError("Uncapped batch includes existing attempted tasks/claims; "
+                             "reconcile and select only never-launched tasks")
+
     selected = tasks
     results = {}
+    unknown_seen = False
     stop_new = False
-    next_index = 0
+    interrupted = False
     launched = 0
+    next_index = 0
+    stop_requested = threading.Event()
+    # Keep original args untouched across test runs. Each worker gets one
+    # immutable shared signal that is checked while its agent is active.
+    worker_args = SimpleNamespace(**vars(args))
+    worker_args.stop_requested = stop_requested
     max_workers = min(len(selected), args.workers)
+
+    def report(state):
+        dispositions = {tid: receipt_disposition(r) for tid, r in results.items()}
+        counts = {
+            "completed": sum(x == "COMPLETED_WITH_ARTIFACTS" for x in dispositions.values()),
+            "failed": sum(x == "FAILED_TERMINAL" for x in dispositions.values()),
+            "cancelled": sum(x == "CANCELLED_TERMINAL" for x in dispositions.values()),
+            "unknown": sum(x in ("UNKNOWN", "COMPLETED_ARTIFACTS_MISSING")
+                           for x in dispositions.values()),
+        }
+        summary_doc = {
+            "schema": 1, "status": state, "sourceBatch": data["batch"],
+            "sourceCorpusSha256": single.sha(single.encode(data)),
+            "selectedSessions": len(selected), "offset": offset,
+            "sessionsLaunched": launched,
+            "sessionReceipts": len(results),
+            "sessionCompletions": counts["completed"],
+            "completed": counts["completed"], "failed": counts["failed"],
+            "cancelled": counts["cancelled"], "unknown": counts["unknown"],
+            "recovered": 0,
+            "verifiedArtifacts": counts["completed"],
+            "unlaunched": [t["id"] for t in selected[next_index:]],
+            "stoppedOnUncertainEvidence": unknown_seen,
+            "stoppedOnInterrupt": interrupted,
+            "workers": max_workers,
+            "model": args.model, "maxWallClockSecondsPerAgent": args.timeout,
+            "uncappedMultiSessionBatch": bool(getattr(args, "allow_uncapped_batch", False)),
+            "subagentsDisabled": bool(getattr(args, "allow_uncapped_batch", False)
+                                      or args.model == "gpt-6-luna"),
+            "spendLimitPerSessionCents": (None if _is_uncapped(args)
+                                         else int(unit * 100)),
+            "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
+                                    if _is_uncapped(args) else "CAPPED_REQUIRED"),
+            "localBudgetIsNotApiSpendCap": True,
+            "plannedReservationsUsd": str(unit * len(selected)),
+            "launchedReservationsUsd": str(unit * launched),
+            "ceilingUsd": args.budget_usd,
+            "results": [
+                {"task": task["id"], "state": results[task["id"]].get("state"),
+                 "turnOutcome": results[task["id"]].get("turnOutcome", "UNKNOWN"),
+                 "artifactStatus": results[task["id"]].get("artifactEvidence", {}).get(
+                     "status", "UNKNOWN"),
+                 "sessionId": results[task["id"]].get("sessionId"),
+                 "disposition": dispositions[task["id"]],
+                 "migrationVerdict": "UNKNOWN"}
+                for task in selected if task["id"] in results
+            ],
+            "verifiedKnowledgeCards": 0, "independentVerification": "NOT_RUN",
+        }
+        # Rewrite the *derived* summary atomically; immutable per-task
+        # receipts and cross-batch claims remain untouched.
+        single.atomic(summary, summary_doc)
+        return summary_doc
+
+    report("RUNNING_NO_TASKS_COMPLETED")
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="deploom-cloud") as pool:
         inflight = {}
 
@@ -154,60 +243,60 @@ def execute(data, args, *, send=None):
             task = selected[next_index]
             next_index += 1
             launched += 1
-            future = pool.submit(_one, data, task, args, unit, send)
+            future = pool.submit(_one, data, task, worker_args, unit, send)
             inflight[future] = task
 
         while next_index < max_workers:
             submit()
+        report("RUNNING")
         while inflight:
-            finished, _ = wait(set(inflight), return_when=FIRST_COMPLETED)
+            try:
+                finished, _ = wait(set(inflight), timeout=5,
+                                   return_when=FIRST_COMPLETED)
+            except KeyboardInterrupt:
+                # First Ctrl+C means stop submitting new tasks and ask every
+                # known active agent to cancel itself server-side. Do not
+                # terminate local workers and strand cloud sessions.
+                interrupted = True
+                stop_new = True
+                stop_requested.set()
+                print("[KnowledgeFactory] Ctrl+C: draining active sessions; "
+                      "server cancellation requested, no new tasks.",
+                      file=sys.stderr, flush=True)
+                report("INTERRUPTING_DRAINING")
+                continue
+            if not finished:
+                continue
             for future in finished:
                 task = inflight.pop(future)
-                receipt = future.result()
+                try:
+                    receipt = future.result()
+                except Exception as exc:
+                    # No raw exception text may reach public logs.
+                    receipt = {"schema": 1, "task": task["id"],
+                               "state": "controller-error",
+                               "errorKind": type(exc).__name__,
+                               "migrationVerdict": "UNKNOWN"}
                 results[task["id"]] = receipt
-                if not accepted_turn(receipt):
+                disposition = receipt_disposition(receipt)
+                if disposition in ("UNKNOWN", "COMPLETED_ARTIFACTS_MISSING"):
+                    unknown_seen = True
                     stop_new = True
+                # FAILED_TERMINAL/CANCELLED_TERMINAL are safely skipped.
+                # Neither can be retried or count as migration PASS.
+                report("RUNNING" if not stop_new else
+                       ("INTERRUPTING_DRAINING" if interrupted else "HALTING_DRAINING"))
             while not stop_new and len(inflight) < max_workers and next_index < len(selected):
                 submit()
-            # A missing or malformed published artifact blocks further spending
-            # without discarding already-running independent tasks.
+            report("RUNNING" if not stop_new else "HALTING_DRAINING")
 
-    ordered = [results[task["id"]] for task in selected if task["id"] in results]
-    report = {
-        "schema": 1, "status": "AGENT_SESSIONS_ONLY_NOT_INDEPENDENT_CI",
-        "sourceBatch": data["batch"], "sourceCorpusSha256": single.sha(single.encode(data)),
-        "selectedSessions": len(selected), "offset": offset,
-        "sessionsLaunched": launched,
-        "sessionReceipts": len(ordered), "sessionCompletions": sum(accepted_turn(x) for x in ordered),
-        "unlaunched": [task["id"] for task in selected[next_index:]],
-        "stoppedOnUncertainEvidence": stop_new,
-        "workers": max_workers,
-        "model": args.model, "maxWallClockSecondsPerAgent": args.timeout,
-        "uncappedMultiSessionBatch": bool(getattr(args, "allow_uncapped_batch", False)),
-        "subagentsDisabled": bool(getattr(args, "allow_uncapped_batch", False)
-                                  or args.model == "gpt-6-luna"),
-        "spendLimitPerSessionCents": (None if _is_uncapped(args)
-                                       else int(unit * 100)),
-        "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
-                                if _is_uncapped(args)
-                                else "CAPPED_REQUIRED"),
-        "localBudgetIsNotApiSpendCap": True,
-        "plannedReservationsUsd": str(unit * len(selected)),
-        "launchedReservationsUsd": str(unit * launched),
-        "ceilingUsd": args.budget_usd,
-        "results": [
-            {"task": r.get("task"), "state": r.get("state"),
-             "turnOutcome": r.get("turnOutcome", "UNKNOWN"),
-             "artifactStatus": r.get("artifactEvidence", {}).get("status", "UNKNOWN"),
-             "sessionId": r.get("sessionId"),
-             "migrationVerdict": "UNKNOWN"}
-            for r in ordered
-        ],
-        "verifiedKnowledgeCards": 0,
-        "independentVerification": "NOT_RUN",
-    }
-    single.atomic(summary, report)
-    return report
+    final_state = ("HALTED_UNCONFIRMED" if unknown_seen else
+                   "INTERRUPTED_RECONCILED" if interrupted else
+                   "PROCESSED_WITH_TERMINAL_FAILURES" if
+                   any(receipt_disposition(r) in
+                       ("FAILED_TERMINAL", "CANCELLED_TERMINAL") for r in results.values())
+                   else "PROCESSED_ALL_WITH_ARTIFACTS")
+    return report(final_state)
 
 
 def main(argv=None):
@@ -240,7 +329,11 @@ def main(argv=None):
     print(json.dumps(result, sort_keys=True, indent=2))
     if args.command == "plan":
         return 0
-    return 0 if result["sessionsLaunched"] == result["sessionCompletions"] == result["selectedSessions"] else 2
+    # Exit 0 means that the *queue* is entirely reconciled, not that every
+    # migration succeeded. Terminal failures are explicitly in the summary.
+    return (0 if result["status"] in
+            ("PROCESSED_ALL_WITH_ARTIFACTS", "PROCESSED_WITH_TERMINAL_FAILURES")
+            and not result["unlaunched"] else 2)
 
 
 if __name__ == "__main__":
