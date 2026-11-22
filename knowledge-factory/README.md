@@ -27,10 +27,10 @@ GitHub/GitLab token, API key or Ed25519 signing key enters the sandbox.
 
 From the repository root, with Python 3.12+:
 
-\`\`\`powershell
+```powershell
 python -m unittest discover -s knowledge-factory/tests -v
 python knowledge-factory/run_batch.py plan --max-sessions 2 --reserve-usd 2
-\`\`\`
+```
 
 ## Explicit paid launch
 
@@ -40,11 +40,11 @@ spending limit in OpenAI Platform**. The runner's --budget-usd enforces
 only *reserved sessions*, not billing. Usage can be delayed, and
 an API disconnection must NOT prompt an automatic paid retry.
 
-\`\`\`powershell
+```powershell
 $env:OPENAI_API_KEY = '<set-locally-not-in-repo>'
 python knowledge-factory/run_batch.py run --execute --max-sessions 1 --budget-usd 2 --reserve-usd 2
 Remove-Item Env:OPENAI_API_KEY
-\`\`\`
+```
 
 For a CI-based manual launch, configure OPENAI_API_KEY as an Actions secret,
 create a protected knowledge-lab-paid environment and explicitly select
