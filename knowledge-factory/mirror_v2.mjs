@@ -118,11 +118,13 @@ export async function mirror(destination, opts={}) {
             item.schema !== 2 || !Array.isArray(item.records) || item.records.length !== d.records)
           throw Error('Shard schema/count mismatch');
         for (const entry of item.records) {
-          const pkg = entry && entry.record && entry.record.package;
-          if (!entry || !['history','knowledge'].includes(entry.kind) ||
-              typeof pkg !== 'string' ||
+          const pkg = entry && entry.package;
+          const kinds = ['breaking-change','codemod','incompatibility','playbook','failure-mode'];
+          if (!entry || entry.schema !== 2 || !kinds.includes(entry.kind) ||
+              typeof pkg !== 'string' || !entry.evidence ||
+              !Array.isArray(entry.negativeControls) || entry.negativeControls.length === 0 ||
               hash(Buffer.from(pkg, 'utf8')).substring(0, 2) !== bucket)
-            throw Error('Shard package bucket mismatch');
+            throw Error('Native knowledge shard schema/bucket mismatch');
         }
         await writeFile(join(stage, d.path), blob, {flag:'wx'});
         observed += item.records.length;

@@ -16,11 +16,22 @@ async function fixture() {
   const publicHex = Buffer.from(keys.publicKey.export({format:'jwk'}).x, 'base64url').toString('hex');
   const publicPin = join(root, 'pin.hex');
   await writeFile(publicPin, publicHex);
-  const row = {kind:'history', record:{
-    schema:1, package:'react-dom', from:'18.2.0', to:'18.3.1',
-    source:'https://github.com/levencode-labs/deploom-npm/blob/36216f29d52bacd92e0b64e87433c8ed3e84b5a4/fixtures/react-renderers/check.cjs',
-    check:'install', outcome:'passed'
-  }};
+  const row = {
+    schema:2, id:'react-dom-peer-renderer-alignment-18', kind:'incompatibility',
+    package:'react-dom', fromMajor:18, toMajor:18, packageManagers:['npm'],
+    verifiedTransitions:[{from:'18.2.0',to:'18.3.1'}],
+    title:'Renderer peer compatibility',
+    summary:'The checked fixture rejects incompatible React peers.',
+    conditions:['React DOM peer constraint must be satisfied.'],
+    actions:['Align only declared in-scope React providers.'],
+    verification:['Run the receiving projects strict install and renderer tests.'],
+    negativeControls:[{name:'held-react-peer-conflict',expected:'reject',fixtureAssertion:'ERESOLVE'}],
+    evidence:{
+      source:'https://github.com/levencode-labs/deploom-npm/blob/b79d3291010f068ebb87a3ecbcd72a8ab4f67130/fixtures/react-renderers/check.cjs',
+      fixtureSha256:'6c4f9d031d1d9201c353e44845bf77e6b3de6ad52c4de9697bda0d527ea55970',
+      claim:{package:'react-dom',from:'18.2.0',to:'18.3.1',check:'install',outcome:'passed'}
+    }
+  };
   const bucket = hash(Buffer.from('react-dom')).substring(0, 2);
   const blob = encode({schema:2, records:[row]});
   const digest = hash(blob);
