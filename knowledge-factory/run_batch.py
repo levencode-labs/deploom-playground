@@ -521,7 +521,8 @@ def cancel_active_agent_turn(session_id, key, *, clock=None, sleep=None,
 
 
 def agent_session_uncapped_opt_in(payload, key, timeout=3600, *,
-                                  checkpoint=None, clock=None, sleep=None, progress=None):
+                                  checkpoint=None, clock=None, sleep=None, progress=None,
+                                  stop_requested=None):
     """Start an uncapped session with a bounded live turn and server cancellation.
 
     Create *without input* so that session ID is available for recovery before
@@ -575,6 +576,9 @@ def agent_session_uncapped_opt_in(payload, key, timeout=3600, *,
         if session.get("status") != "idle":
             result["failurePhase"] = "uncapped-created-session-not-idle"
             return result
+        if stop_requested is not None and stop_requested.is_set():
+            result["failurePhase"] = "uncapped-controller-interrupted-before-input"
+            return result
         if clock() >= deadline:
             result["failurePhase"] = "uncapped-timed-out-before-input"
             return result
@@ -598,6 +602,9 @@ def agent_session_uncapped_opt_in(payload, key, timeout=3600, *,
             return result
         last_progress_at, last_status = None, None
         while clock() < deadline:
+            if stop_requested is not None and stop_requested.is_set():
+                result["failurePhase"] = "uncapped-controller-interrupted-active-turn"
+                return result
             try:
                 turns = api_json("GET", base + "/turns?limit=100&order=desc", key)
             except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
@@ -694,8 +701,22 @@ def run(data, args, send=agent_session_with_staged_cap):
                "localBudgetIsNotApiSpendCap": True,
                "timestampUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "migrationVerdict": "UNKNOWN", "state": "reserved"}
+        # Cross-batch immutable claims prevent two PowerShell controllers from
+        # executing the same task under different batch/offset names. Even an
+        # orphan claim is intentionally NOT reusable without reconciliation.
+        claim = Path(args.output) / "claims" / (task["id"] + ".json")
+        claim_row = {"schema": 1, "task": task["id"], "commit": task["sha"],
+                     "batch": data["batch"], "model": args.model,
+                     "promptSha256": row["promptSha256"],
+                     "timestampUtc": row["timestampUtc"],
+                     "status": "PAID_ATTEMPT_RESERVED"}
         try:
-            reserve_once(receipt, row)  # Exclusive disk claim BEFORE any billable call.
+            reserve_once(claim, claim_row)
+        except FileExistsError as exc:
+            raise ValueError("Cross-batch paid task claim already exists; "
+                             "reconcile before launch, never retry") from exc
+        try:
+            reserve_once(receipt, row)  # Exclusive claim before any billable call.
         except FileExistsError as exc:
             raise ValueError("Concurrent controller owns the task; no second API launch") from exc
         try:
@@ -709,13 +730,18 @@ def run(data, args, send=agent_session_with_staged_cap):
                                          localBudgetIsNotApiSpendCap=True))
                 answer = send(request, key, timeout=args.timeout,
                               checkpoint=persist_session,
-                              progress=make_progress_logger(task["id"]))
+                              progress=make_progress_logger(task["id"]),
+                              stop_requested=getattr(args, "stop_requested", None))
             else:
                 answer = send(request, key, timeout=args.timeout)
             row.update(answer)
             row["state"] = ("agent-turn-reported"
                             if row.get("turnOutcome") in ("completed", "failed", "cancelled")
                             else "unknown-api-outcome")
+            # Commit the observed root turn before the potentially slow,
+            # separate artifact-fetch phase. Ctrl+C may interrupt the main
+            # scheduler at any point; source-exact terminal evidence survives.
+            atomic(receipt, row)
             if (row.get("turnOutcome") == "completed"
                     and row.get("sessionId") and row.get("turnId")):
                 try:
