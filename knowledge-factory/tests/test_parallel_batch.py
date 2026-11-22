@@ -270,6 +270,113 @@ class ParallelBatchTests(unittest.TestCase):
         self.assertTrue(report["stoppedOnUncertainEvidence"])
 
 
+    def test_confirmed_failed_and_cancelled_skip_without_retry(self):
+        self.args.max_sessions = 8
+        self.args.workers = 2
+        self.args.budget_usd = "16"
+        seen = []
+        def send(payload, key, timeout):
+            ident = next(
+                ident for ident in range(8)
+                if "task-" + str(ident).zfill(3) in payload["input"])
+            seen.append(ident)
+            outcome = "failed" if ident == 0 else "cancelled" if ident == 1 else "completed"
+            return {"turnOutcome": outcome, "sessionId": "sess_fake_" + str(ident),
+                    "turnId": "turn_fake_" + str(ident)}
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
+            with patch.object(single, "artifact_receipts", return_value={
+                    "status": "complete", "artifacts": [
+                        {"path": "report", "sha256": "a"*64},
+                        {"path": "commands", "sha256": "b"*64}
+                    ]}):
+                output = parallel.execute(self.data, self.args, send=send)
+        self.assertEqual(sorted(seen), list(range(8)))
+        self.assertEqual(8, len(set(seen)))
+        self.assertEqual("PROCESSED_WITH_TERMINAL_FAILURES", output["status"])
+        self.assertEqual(6, output["completed"])
+        self.assertEqual(1, output["failed"])
+        self.assertEqual(1, output["cancelled"])
+        self.assertEqual(0, output["unknown"])
+        self.assertEqual([], output["unlaunched"])
+        self.assertFalse(output["stoppedOnUncertainEvidence"])
+        self.assertEqual(0, output["verifiedKnowledgeCards"])
+
+    def test_completed_without_artifact_proof_still_stops_new_scheduling(self):
+        self.args.max_sessions = 8
+        self.args.workers = 2
+        self.args.budget_usd = "16"
+        calls = []
+        def send(payload, key, timeout):
+            calls.append(payload["input"])
+            return {"turnOutcome": "completed", "sessionId": "sess_missing_1",
+                    "turnId": "turn_missing_1"}
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
+            with patch.object(single, "artifact_receipts",
+                              return_value={"status": "missing", "artifacts": []}):
+                output = parallel.execute(self.data, self.args, send=send)
+        self.assertEqual(2, len(calls))
+        self.assertEqual("HALTED_UNCONFIRMED", output["status"])
+        self.assertEqual(2, output["unknown"])
+        self.assertEqual(0, output["completed"])
+        self.assertEqual(6, len(output["unlaunched"]))
+
+    def test_keyboard_interrupt_drains_only_started_jobs_with_summary(self):
+        self.args.max_sessions = 8
+        self.args.workers = 2
+        self.args.budget_usd = "16"
+        sends = []
+        def send(payload, key, timeout):
+            sends.append(payload["input"])
+            return {"turnOutcome": "completed", "sessionId": "sess_interrupt_1",
+                    "turnId": "turn_interrupt_1"}
+        original_wait = parallel.wait
+        did_interrupt = []
+        def interrupt_once(*a, **kw):
+            if not did_interrupt:
+                did_interrupt.append(1)
+                raise KeyboardInterrupt()
+            return original_wait(*a, **kw)
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
+            with patch.object(single, "artifact_receipts", return_value={
+                    "status": "complete", "artifacts": [
+                        {"path": "report"}, {"path": "commands"}
+                    ]}):
+                with patch.object(parallel, "wait", side_effect=interrupt_once):
+                    report = parallel.execute(self.data, self.args, send=send)
+        self.assertEqual(2, len(sends))
+        self.assertTrue(report["stoppedOnInterrupt"])
+        self.assertEqual("INTERRUPTED_RECONCILED", report["status"])
+        self.assertEqual(6, len(report["unlaunched"]))
+        self.assertEqual(2, report["completed"])
+        summary = self.output / self.data["batch"] / "parallel-summary.json"
+        saved = json.loads(summary.read_bytes())
+        self.assertEqual("INTERRUPTED_RECONCILED", saved["status"])
+        self.assertEqual(2, len(saved["results"]))
+
+    def test_global_claim_blocks_duplicate_across_distinct_batch_names(self):
+        self.args.max_sessions = 1
+        self.args.workers = 1
+        self.args.budget_usd = "2"
+        first = {"schema": 1, "batch": "parallel-claim-first",
+                 "tasks": self.data["tasks"][:1]}
+        second = {"schema": 1, "batch": "parallel-claim-second",
+                  "tasks": self.data["tasks"][:1]}
+        sent = []
+        def send(payload, key, timeout):
+            sent.append(payload["input"])
+            return {"turnOutcome": "failed", "sessionId": "sess_claim_1",
+                    "turnId": "turn_claim_1"}
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
+            original = parallel.execute(first, self.args, send=send)
+            replay = parallel.execute(second, self.args, send=send)
+        self.assertEqual("PROCESSED_WITH_TERMINAL_FAILURES", original["status"])
+        self.assertEqual(1, len(sent))
+        self.assertEqual("HALTED_UNCONFIRMED", replay["status"])
+        self.assertEqual(1, replay["unknown"])
+        self.assertEqual(1, len(sent))
+        self.assertTrue((self.output / "claims" /
+                         (first["tasks"][0]["id"] + ".json")).is_file())
+
     def test_no_key_no_execute_and_budget_boundaries(self):
         self.args.execute = False
         with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
