@@ -32,6 +32,9 @@ def _parameters(data, args):
         raise ValueError("Session count outside 1..80")
     if not 1 <= args.workers <= MAX_WORKERS:
         raise ValueError("Parallel worker count outside 1..8")
+    if getattr(args, "allow_uncapped_session", False) and (
+            args.max_sessions != 1 or args.workers != 1):
+        raise ValueError("Uncapped opt-in requires exactly one session and one worker")
     if not 60 <= args.timeout <= 3600:
         raise ValueError("Invalid per-session timeout")
     offset = getattr(args, "offset", 0)
@@ -51,13 +54,20 @@ def plan(data, args):
         "sourceBatch": data["batch"], "sourceCorpusSha256": single.sha(single.encode(data)),
         "selectedSessions": len(tasks), "offset": getattr(args, "offset", 0),
         "workers": min(args.workers, len(tasks)),
-        "spendLimitPerSessionCents": int(unit * 100),
+        "spendLimitPerSessionCents": (None if getattr(args, "allow_uncapped_session", False)
+                                       else int(unit * 100)),
+        "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
+                                if getattr(args, "allow_uncapped_session", False)
+                                else "CAPPED_REQUIRED"),
+        "localBudgetIsNotApiSpendCap": True,
         "plannedReservationsUsd": str(unit * len(tasks)),
         "ceilingUsd": args.budget_usd,
         "tasks": [{"id": task["id"], "sourceCommit": task["sha"],
                    "promptSha256": single.sha(single.prompt(task).encode())}
                   for task in tasks],
-        "note": "No task has been executed or independently verified.",
+        "note": ("No task executed. UNLIMITED session API spend; local $2 "
+                 "reservation is NOT a spending ceiling." if getattr(args, "allow_uncapped_session", False)
+                 else "No task has been executed or independently verified."),
     }
 
 
@@ -67,6 +77,7 @@ def _one(data, task, args, unit, send):
     local = SimpleNamespace(
         execute=True, max_sessions=1, budget_usd=str(unit), reserve_usd=str(unit),
         output=args.output, model=args.model, timeout=args.timeout,
+        allow_uncapped_session=getattr(args, "allow_uncapped_session", False),
     )
     try:
         return single.run(one, local, send=send)[0]
@@ -85,8 +96,12 @@ def accepted_turn(receipt):
             and receipt.get("state") == "agent-turn-reported")
 
 
-def execute(data, args, *, send=single.agent_session_with_staged_cap):
+def execute(data, args, *, send=None):
     tasks, unit = _parameters(data, args)
+    if send is None:
+        send = (single.agent_session_uncapped_opt_in
+                if getattr(args, "allow_uncapped_session", False)
+                else single.agent_session_with_staged_cap)
     if not args.execute:
         raise ValueError("Paid execution requires explicit --execute")
     if not os.environ.get("OPENAI_API_KEY"):
@@ -142,7 +157,13 @@ def execute(data, args, *, send=single.agent_session_with_staged_cap):
         "sessionReceipts": len(ordered), "sessionCompletions": sum(accepted_turn(x) for x in ordered),
         "unlaunched": [task["id"] for task in selected[next_index:]],
         "stoppedOnUncertainEvidence": stop_new,
-        "workers": max_workers, "spendLimitPerSessionCents": int(unit * 100),
+        "workers": max_workers,
+        "spendLimitPerSessionCents": (None if getattr(args, "allow_uncapped_session", False)
+                                       else int(unit * 100)),
+        "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
+                                if getattr(args, "allow_uncapped_session", False)
+                                else "CAPPED_REQUIRED"),
+        "localBudgetIsNotApiSpendCap": True,
         "plannedReservationsUsd": str(unit * len(selected)),
         "launchedReservationsUsd": str(unit * launched),
         "ceilingUsd": args.budget_usd,
@@ -176,6 +197,8 @@ def main(argv=None):
     parser.add_argument("--budget-usd", default="16")
     parser.add_argument("--reserve-usd", default="2")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--allow-uncapped-session", action="store_true",
+                        help="One uncapped paid API session only; local reservation is NOT an API limit")
     args = parser.parse_args(argv)
     try:
         data = single.corpus(args.corpus)
