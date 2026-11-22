@@ -240,6 +240,55 @@ Use the workflow artifact for review, then commit **sanitized** reports into
 a long-lived evidence branch to survive ephemeral sandbox/CI retention.
 No receipt is marked VERIFIED by this runner.
 
+## Mass cloud research: lower-cost Sol and four concurrent sessions
+
+After the completed source-exact Astra pilot, the next **explicit** batch
+can use `gpt-6.2-sol` for code research at roughly one fifth of Astra's
+token rates (Sol input/output $2/$10 per million; old `gpt-6-astra`
+$10/$50). `gpt-6-luna` ($0.10/$0.50) is available for lightweight discovery
+but should not be treated as an independent full migration verifier.
+These rates exclude hosted sandbox and tool charges. The actual model's
+availability and budget must be checked with the project API key.
+
+An explicit `-AllowUncappedBatch` flag allows **2–80 source-exact tasks,
+up to 4 independent concurrent sessions**, with no nested subagents.
+Each task has a unique durable reservation/receipt, its own cloud
+`sessionId`, an independent time deadline, and API-side turn
+cancellation when needed. One uncertain task halts the dispatch of
+**further** queued tasks; already-running peers must finish or attempt
+server-side cancellation. Offsets containing previous receipts are
+rejected before any new paid task. No task gets an API spending limit,
+because the observed server rejects `spend_control`; the $2-per-task
+local reservation remains **NOT a billing cap**. All proposals remain DRAFT.
+
+From the repo root, on Windows with TUN and `OPENAI_API_KEY` set,
+first inspect the source-exact plan (zero credits):
+
+```powershell
+.\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 16 -Workers 4 -Offset 5 -Model gpt-6.2-sol -TimeoutMinutes 30 -AllowUncappedBatch
+```
+
+Then launch the user-authorized **16-task wave**:
+
+```powershell
+.\knowledge-factory\start-cloud-research.ps1 -Mode Run -Count 16 -Workers 4 -Offset 5 -Model gpt-6.2-sol -TimeoutMinutes 30 -AllowUncappedBatch
+```
+
+The controller prints sanitized 15-second heartbeats with the public task
+ID, latest observed status and countdown. This is parallel cloud research,
+not continuous background work: **leave Windows, PowerShell and VPN online**.
+A terminated controller, loss of internet, or sleeping PC can prevent
+server-side cancellation. An independent always-on cloud watchdog has
+NOT been deployed. Configure project-level spend enforcement if available,
+monitor https://platform.openai.com/usage and the Agents logs, and do not
+treat the planned 16 × $2 = $32 reservation as a billing limit.
+
+For a further wave, choose an entirely new offset/count after checking
+`.runs` and reconciling UNKNOWNs. If prior sessions failed, do not
+automatically retry their source identities. Do not sign or upload agent
+proposals until independent positive/negative checks confirm source SHA
+and actual dependency migration.
+
 ## Verify and download the first completed agent's evidence
 
 After the controller reports `turnOutcome=completed` and
