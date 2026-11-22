@@ -106,6 +106,28 @@ def reserve(budget, unit, count):
     return unit
 
 
+def safe_transport_diagnostics(exc):
+    """Persist only typed transport diagnostics; never store exception text.
+
+    Exception messages can include proxy URLs, credentials, or user data.
+    This is descriptive evidence, not permission to retry a paid call.
+    """
+    result = {"errorKind": type(exc).__name__}
+    if isinstance(exc, HTTPError):
+        result["httpStatus"] = exc.code
+        return result
+    if isinstance(exc, URLError):
+        cause = exc.reason
+        result["causeKind"] = type(cause).__name__
+        for attribute, field in (("errno", "causeErrno"),
+                                 ("winerror", "causeWinerror"),
+                                 ("verify_code", "tlsVerifyCode")):
+            value = getattr(cause, attribute, None)
+            if type(value) is int:
+                result[field] = value
+    return result
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise ValueError("Unexpected Agents API artifact redirect")
@@ -280,9 +302,9 @@ def run(data, args, send=agent_session):
             else:
                 row["artifactEvidence"] = {"status": "not-confirmed"}
         except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:
-            row["state"], row["errorKind"] = "unknown-api-outcome", type(exc).__name__
-            if isinstance(exc, HTTPError):
-                row["httpStatus"] = exc.code
+            row["state"] = "unknown-api-outcome"
+            row["failurePhase"] = "agents-create-or-event-stream"
+            row.update(safe_transport_diagnostics(exc))
         atomic(receipt, row)
         results.append(row)
     return results
