@@ -135,12 +135,85 @@ def _candidate_paths(root, task_id):
     paths = []
     for folder in root.iterdir():
         if not folder.is_dir() or folder.name in (
-                "claims", "reconciliation", "downloaded", "__pycache__"):
+                "claims", "reconciliation", "recovered", "downloaded", "__pycache__"):
             continue
         candidate = folder / (task_id + ".json")
         if candidate.is_file():
             paths.append(candidate)
     return sorted(paths)
+
+
+def _valid_recovery(recovered, original, task):
+    """Recovery sidecar must be source/turn exact and cite its immutable root."""
+    if not _valid_receipt(recovered, task):
+        return False
+    if (not isinstance(original, dict)
+            or recovered.get("recoveryAuthority") != "READ_ONLY_AGENTS_API"
+            or recovered.get("originalReceiptPath") is None
+            or recovered.get("state") != "agent-turn-reported"
+            or recovered.get("turnOutcome") not in TERMINAL
+            or not _known_ref(recovered.get("sessionId"))
+            or not _known_ref(recovered.get("turnId"))):
+        return False
+    existing = original.get("sessionId")
+    if _known_ref(existing) and existing != recovered["sessionId"]:
+        return False
+    return True
+
+
+def write_recovery_sidecars(scan, output):
+    """Add verified read-only terminal receipts without overwriting any source.
+
+    A sidecar is not proof of project migration success, merely a recovered
+    root-turn + artifact-hash receipt. Entire operation has zero API writes.
+    """
+    output = Path(output)
+    recovered = []
+    for row in scan.get("rows", []):
+        live = row.get("live")
+        if not isinstance(live, dict) or live.get("liveStatus") not in (
+                "COMPLETED_WITH_ARTIFACTS", "COMPLETED_ARTIFACTS_MISSING",
+                "FAILED_TERMINAL", "CANCELLED_TERMINAL"):
+            continue
+        paths = row.get("receiptFiles", [])
+        if len(paths) != 1:
+            continue
+        original_path = output / paths[0]
+        source = json.loads(original_path.read_bytes())
+        if (not isinstance(source, dict)
+                or not isinstance(source.get("task"), str)
+                or not _known_ref(source.get("sessionId"))
+                or source["sessionId"] != row.get("sessionId")
+                or not _known_ref(live.get("turnId"))
+                or live.get("turnOutcome") not in TERMINAL):
+            continue
+        if (_classify(source) in ("FAILED_TERMINAL", "CANCELLED_TERMINAL",
+                                  "COMPLETED_WITH_ARTIFACTS")
+                and source.get("turnId") == live.get("turnId")):
+            continue  # Already fully recorded by original receipt.
+        dest = output / "recovered" / (source["task"] + ".json")
+        if dest.exists():
+            continue  # No rewrite or overwrite, even if previously incomplete.
+        item = dict(source)
+        item.update({
+            "state": "agent-turn-reported",
+            "turnOutcome": live["turnOutcome"],
+            "turnId": live["turnId"],
+            "artifactEvidence": live.get(
+                "artifactEvidence", {"status": "not-confirmed"}),
+            "migrationVerdict": "UNKNOWN",
+            "recoveryAuthority": "READ_ONLY_AGENTS_API",
+            "originalReceiptPath": paths[0],
+            "recoveredUtc": datetime.now(timezone.utc).isoformat(),
+        })
+        if isinstance(live.get("errorCode"), str):
+            item["rootErrorCode"] = live["errorCode"]
+        try:
+            agent.reserve_once(dest, item)
+        except FileExistsError:
+            continue
+        recovered.append(str(dest.relative_to(output)))
+    return recovered
 
 
 def census(data, output, *, online=False, key=None, get=None, attest=None):
@@ -194,6 +267,27 @@ def census(data, output, *, online=False, key=None, get=None, attest=None):
         elif claim:
             entry["status"] = "UNKNOWN_CLAIMED"
 
+        # Strictly validate a separate, immutable server-recovered sidecar.
+        # It can strengthen a previous terminal checkpoint without modifying
+        # the original. Conflicting/broken recovery records fail closed.
+        sidecar = output / "recovered" / (ident + ".json")
+        if sidecar.exists():
+            try:
+                recovered = json.loads(sidecar.read_bytes())
+                original = evidence[0][1] if len(evidence) == 1 else None
+                if not (_valid_recovery(recovered, original, task)
+                        and recovered["originalReceiptPath"] ==
+                        str(evidence[0][0].relative_to(output))
+                        and len(evidence) == 1):
+                    raise ValueError("Recovered receipt identity mismatch")
+                if entry["status"] not in ("UNKNOWN_CONFLICT",):
+                    entry["status"] = _classify(recovered)
+                    entry["recoveredFromSidecar"] = True
+                    entry["recoveredReceipt"] = str(sidecar.relative_to(output))
+                    entry["turnId"] = recovered["turnId"]
+            except (OSError, ValueError, TypeError, KeyError):
+                entry["status"] = "UNKNOWN_CONFLICT"
+
         # Legacy old attempts have receipts without global claims; both
         # old and new attempts block paid replay. A claim with malformed
         # content is also conservatively ambiguous.
@@ -208,6 +302,7 @@ def census(data, output, *, online=False, key=None, get=None, attest=None):
         rows.append(entry)
     counts = {name: sum(r["status"] == name for r in rows)
               for name in CLASSIFICATIONS}
+    recovered_count = sum(bool(r.get("recoveredFromSidecar")) for r in rows)
     return {
         "schema": 1,
         "status": "RECONCILED_READ_ONLY" if not online else "RECONCILED_LIVE_READ_ONLY",
@@ -215,6 +310,7 @@ def census(data, output, *, online=False, key=None, get=None, attest=None):
         "sourceCorpusSha256": agent.sha(agent.encode(data)),
         "totalTasks": len(data["tasks"]), "counts": counts,
         "neverLaunched": counts["NOT_LAUNCHED"],
+        "recoveredReceiptCount": recovered_count,
         "migrationVerification": "NOT_RUN",
         "rows": rows,
     }
@@ -228,6 +324,8 @@ def main(argv=None):
                         help="Read-only GET status and hash-check artifacts")
     parser.add_argument("--write", action="store_true",
                         help="Save a new immutable reconciliation snapshot")
+    parser.add_argument("--recover-terminal", action="store_true",
+                        help="Explicitly create verified terminal sidecars after read-only API GET")
     parser.add_argument("--summary-only", action="store_true")
     args = parser.parse_args(argv)
     data = agent.corpus(args.corpus)
@@ -236,6 +334,12 @@ def main(argv=None):
         result = census(data, args.output, online=args.online, key=key)
     except (ValueError, OSError) as exc:
         parser.error(type(exc).__name__)
+    if args.recover_terminal:
+        if not args.online:
+            parser.error("--recover-terminal requires --online")
+        recovered = write_recovery_sidecars(result, args.output)
+        result["newRecoveredReceipts"] = recovered
+        # Preserve the read-only manifest and sidecar records separately.
     if args.write:
         path = args.output / "reconciliation" / (
             "reconcile-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
