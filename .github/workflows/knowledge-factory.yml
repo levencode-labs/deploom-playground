@@ -83,6 +83,7 @@ jobs:
         run: |
           python -m unittest discover -s knowledge-factory/tests -v
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 8 -Workers 4
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 1 -Workers 1 -Offset 4 -AllowUncappedSession
 
   paid-pilot:
     if: github.event_name == 'workflow_dispatch' && inputs.paid_execute == true
