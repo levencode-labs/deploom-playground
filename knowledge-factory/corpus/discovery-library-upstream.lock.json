@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "vercel/next.js",
+      "sourceRef": "canary",
+      "sourceCommit": "57edfeac4440da9a9e78e3d05f7ba5ef53d6a105",
+      "sourceTree": "62dfa78e697a34d78ec071a8f02628fce56d9326",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vitejs/vite",
+      "sourceRef": "main",
+      "sourceCommit": "3567471998e3da315675086f44368e266c9c0e33",
+      "sourceTree": "64fbe2531449b86d526640bc69cf97afe763db89",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "eslint/eslint",
+      "sourceRef": "main",
+      "sourceCommit": "b377b08f95646ac450551a5b73486ab95b9b09cf",
+      "sourceTree": "ff0df23466d6c8b83c95f0c1c130c077c3570064",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "jestjs/jest",
+      "sourceRef": "main",
+      "sourceCommit": "aa88f7cf0bfc7a3a2efbfcab97914886b22d4454",
+      "sourceTree": "65ca810863616c056359958b47351c90d6621acc",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "mui/material-ui",
+      "sourceRef": "master",
+      "sourceCommit": "bae15c1074845419c623c0923449fb4831a26d76",
+      "sourceTree": "70136d8fc351cc472d7e8d5b8e20980223787b10",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "storybookjs/storybook",
+      "sourceRef": "next",
+      "sourceCommit": "20075e60242c908616d9ce8783a0686fc0ba896d",
+      "sourceTree": "4e7326c0780fbc0893c03d9742be295d77449e84",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "tailwindlabs/tailwindcss",
+      "sourceRef": "main",
+      "sourceCommit": "511c82a2ce4431b16fc72cd0580da9964497a2f1",
+      "sourceTree": "03e7ce256914002a54094fc539ef7c78f2588bfe",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "microsoft/TypeScript",
+      "sourceRef": "main",
+      "sourceCommit": "01f1a759d92b19ea7024776da02358995d56a7ff",
+      "sourceTree": "262b24bd9ab8c66ab7b5a0fe73a6a389bbf05e46",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
