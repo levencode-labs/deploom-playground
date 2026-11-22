@@ -49,7 +49,7 @@ class ReconcileResumeTests(unittest.TestCase):
         self.assertEqual(80, len(one["tasks"]))
         self.assertEqual(one["tasks"], self.tasks)
         self.assertEqual(one["batch"], resume.eligible_queue(
-            self.data, output=self.output)[0]["batch"])
+            self.data, output=self.output, max_sessions=80)[0]["batch"])
         self.assertTrue(one["batch"].startswith("research-resume-"))
 
         self.receipt(0)
@@ -69,6 +69,18 @@ class ReconcileResumeTests(unittest.TestCase):
                          resume.plan_output(second, scan,
                                             model="gpt-6-luna",
                                             workers=2, timeout=1800)["status"])
+
+    def test_small_default_wave_is_six_and_preserves_full_corpus(self):
+        batch, scan = resume.eligible_queue(self.data, output=self.output)
+        self.assertEqual(6, len(batch["tasks"]))
+        self.assertEqual([r["id"] for r in self.tasks[:6]],
+                         [r["id"] for r in batch["tasks"]])
+        self.assertEqual(80, scan["totalTasks"])
+        self.assertEqual(80, scan["neverLaunched"])
+        full, _ = resume.eligible_queue(
+            self.data, output=self.output, max_sessions=80)
+        self.assertEqual(80, len(full["tasks"]))
+
 
     def test_partial_completed_receipt_is_recovered_by_live_get_without_replaying(self):
         old = self.receipt(0, state="turn-terminal", artifacts=False)
@@ -181,7 +193,8 @@ class ReconcileResumeTests(unittest.TestCase):
         rows = rec.census(self.data, self.output)["rows"]
         self.assertEqual("UNKNOWN_CLAIMED", rows[1]["status"])
         self.assertEqual("NOT_LAUNCHED", rows[2]["status"])
-        chosen, scan = resume.eligible_queue(self.data, output=self.output)
+        chosen, scan = resume.eligible_queue(
+            self.data, output=self.output, max_sessions=80)
         self.assertEqual(78, len(chosen["tasks"]))
         self.assertEqual(1, scan["counts"]["UNKNOWN_CONFLICT"])
 
