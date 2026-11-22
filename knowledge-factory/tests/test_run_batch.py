@@ -225,6 +225,41 @@ class RunnerTests(unittest.TestCase):
         remote.assert_not_called()
 
 
+    def test_uncapped_opt_in_omits_field_and_is_never_automatic(self):
+        sent = []
+        def fake_agent(payload, key, timeout=1800):
+            self.assertEqual("synthetic-key", key)
+            sent.append(payload)
+            return {"turnOutcome": "failed", "sessionId": "sess_uncapped_1",
+                    "turnId": "turn_uncapped_1"}
+        capped = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "agent_session", side_effect=fake_agent):
+            direct = lab.agent_session_uncapped_opt_in(capped, "synthetic-key")
+            self.assertEqual("unlimited-explicit-opt-in", direct["spendControlStatus"])
+            self.assertNotIn("spend_control", sent[0])
+            self.assertEqual(capped["spend_control"], {"limit": 200})
+            with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic-key"}):
+                self.args.allow_uncapped_session = True
+                receipt = lab.run(self.data, self.args,
+                                  send=lab.agent_session_uncapped_opt_in)[0]
+        self.assertEqual(2, len(sent))
+        self.assertNotIn("spend_control", sent[1])
+        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", receipt["apiSpendControlMode"])
+        self.assertTrue(receipt["localBudgetIsNotApiSpendCap"])
+        self.assertEqual("UNKNOWN", receipt["migrationVerdict"])
+
+    def test_uncapped_mode_rejects_multiple_sessions_before_api(self):
+        self.args.allow_uncapped_session = True
+        self.args.max_sessions = 2
+        self.args.budget_usd = "4"
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic-key"}):
+            with patch.object(lab, "agent_session") as network:
+                with self.assertRaisesRegex(ValueError, "exactly one session"):
+                    lab.run(self.data, self.args,
+                            send=lab.agent_session_uncapped_opt_in)
+                network.assert_not_called()
+
+
     def test_plan_deterministic_and_offline(self):
         task = self.data["tasks"][0]
         self.assertEqual(lab.sha(lab.prompt(task).encode()), lab.sha(lab.prompt(task).encode()))
