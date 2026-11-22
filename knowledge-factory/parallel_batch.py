@@ -167,6 +167,18 @@ def execute(data, args, *, send=None):
             raise ValueError("Uncapped batch includes existing attempted tasks/claims; "
                              "reconcile and select only never-launched tasks")
 
+    # Atomically claim this launch *before* submitting any tasks. Concurrent
+    # controllers with the same offset cannot both write a RUNNING summary;
+    # distinct offsets remain independent, protected by per-task claims.
+    launch_claim = output / ("launch-claim-offset-" + str(offset).zfill(3) + ".json")
+    try:
+        single.reserve_once(launch_claim, {
+            "schema": 1, "sourceBatch": data["batch"], "offset": offset,
+            "model": args.model, "taskIds": [task["id"] for task in tasks],
+            "status": "LAUNCH_CLAIMED_NON_REPLAYABLE"})
+    except FileExistsError as exc:
+        raise ValueError("Existing batch launch claim: reconcile, never retry") from exc
+
     selected = tasks
     results = {}
     unknown_seen = False
