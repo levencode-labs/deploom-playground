@@ -16,7 +16,7 @@ corpus, prepares a deterministic dry-run plan, and (only when --execute
 and a key are explicitly supplied) creates OpenAI Agents API sessions.
 One separate hosted sandbox per task; each agent performs research, migration,
 verification and curation phases sequentially. A finished agent turn is
-**not** independent migration acceptance. Returned recipes remain DRAFT.
+**not** independent migration acceptance. Returned knowledge cards remain DRAFT.
 
 Every task has an immutable 40-character commit SHA. The sandbox has
 restricted egress to named GitHub/GitLab/npm/PyPI hosts; restricted
@@ -96,3 +96,20 @@ An example manual GitLab Pages pipeline is in
 `knowledge-factory/examples/gitlab-pages.yml`. You must create/configure
 a GitLab mirror repository before any deployment. Do not claim GitLab Pages
 is live merely because the GitHub CI tests passed.
+
+## Current v2 native publisher boundary
+
+The curated format is implemented in `levencode-labs/deploom-mcp` as
+`src/deploom_mcp/knowledge_contract_v2.py`. The signed publisher in
+`deploom-npm` accepts only records that cite a verified, pinned first-party
+fixture from trusted main with a matching positive claim and negative probes.
+The factory may propose breaking changes, codemod descriptions, compatibility
+findings, playbooks and failure modes, but **cannot submit user telemetry, open
+knowledge PRs automatically, mark a record verified, or sign a snapshot**.
+The previous contributor/LLM admission pipeline is intentionally retired.
+
+For a new package, independently reproduce the migration against exact public
+npm versions and its negative control. Commit the approved fixture separately,
+then curate the knowledge record against that immutable fixture SHA. A major-line
+candidate is a hypothesis for the recipient's specific versions, even if a
+related exact transition was verified elsewhere.

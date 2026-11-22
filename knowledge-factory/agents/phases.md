@@ -13,8 +13,9 @@ This is an **experimental agent**, not an independent certification authority.
    relevant build/test/runtime/peer evidence and changed files. Distinguish
    each check. If a dependency or environment cannot be reached, return
    UNKNOWN, do not relax tests to manufacture green.
-4. Curation: propose only DRAFT advisory recipes, pinned applicability
-   conditions, negative examples, dependencies and provenance. No
+4. Curation: propose only DRAFT knowledge cards (breaking-change, codemod,
+   incompatibility, playbook, failure-mode), pinned applicability conditions,
+   negative examples, dependencies and provenance. No
    transition to VERIFIED without separate host-controlled acceptance.
 
 Write /workspace/outputs/migration-report.json and
