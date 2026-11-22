@@ -41,7 +41,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: knowledge-factory-plan
-          path: \${{ runner.temp }}/factory-plan.json
+          path: ${{ runner.temp }}/factory-plan.json
           if-no-files-found: error
   paid-pilot:
     if: github.event_name == 'workflow_dispatch' && inputs.paid_execute == true
@@ -58,8 +58,8 @@ jobs:
           python-version: '3.12'
       - name: Manually authorized API sessions; no public publication
         env:
-          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
-          COUNT: \${{ inputs.max_sessions }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COUNT: ${{ inputs.max_sessions }}
         run: |
           set -euo pipefail
           test -n "$OPENAI_API_KEY"
