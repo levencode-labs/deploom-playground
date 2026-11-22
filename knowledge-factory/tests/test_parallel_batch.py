@@ -110,6 +110,39 @@ class ParallelBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "offset"):
             parallel.plan(self.data, self.args)
 
+    def test_uncapped_opt_in_is_single_session_and_explicit(self):
+        self.args.allow_uncapped_session = True
+        with self.assertRaisesRegex(ValueError, "exactly one session"):
+            parallel.plan(self.data, self.args)
+        self.args.max_sessions = 1
+        self.args.workers = 1
+        self.args.budget_usd = "2"
+        offline = parallel.plan(self.data, self.args)
+        self.assertIsNone(offline["spendLimitPerSessionCents"])
+        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", offline["apiSpendControlMode"])
+        self.assertIn("NOT a spending ceiling", offline["note"])
+
+        seen = []
+        def fake_api(payload, key, timeout=1800):
+            seen.append(payload)
+            return {"turnOutcome": "failed", "sessionId": "sess_uncapped_p",
+                    "turnId": "turn_uncapped_p"}
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "secret-synthetic"}):
+            with patch.object(single, "agent_session", side_effect=fake_api):
+                report = parallel.execute(self.data, self.args)
+        self.assertEqual(1, report["sessionsLaunched"])
+        self.assertEqual(0, report["sessionCompletions"])
+        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", report["apiSpendControlMode"])
+        self.assertIsNone(report["spendLimitPerSessionCents"])
+        self.assertEqual(1, len(seen))
+        self.assertNotIn("spend_control", seen[0])
+        self.assertIn("spend_control", single.request_payload(
+            self.data["tasks"][0], "gpt-6-astra", 200))
+        receipt = json.loads((self.output / self.data["batch"] /
+                              (self.data["tasks"][0]["id"] + ".json")).read_bytes())
+        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", receipt["apiSpendControlMode"])
+
+
     def test_no_key_no_execute_and_budget_boundaries(self):
         self.args.execute = False
         with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
