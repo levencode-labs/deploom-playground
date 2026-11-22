@@ -220,6 +220,62 @@ class ReconcileResumeTests(unittest.TestCase):
         self.assertEqual(79, scan["neverLaunched"])
         self.assertTrue(previous.exists())
 
+    def test_orphan_summary_result_is_unknown_not_relaunched(self):
+        old = self.output / "research-balanced-001"
+        old.mkdir(parents=True)
+        (old / "parallel-summary-offset-012.json").write_text(json.dumps({
+            "schema": 1, "offset": 12, "sessionReceipts": 1,
+            "results": [{"task": self.tasks[12]["id"],
+                         "sessionId": "sess_orphan_012",
+                         "turnOutcome": "completed"}],
+        }))
+        scan = rec.census(self.data, self.output)
+        self.assertEqual("UNKNOWN_CLAIMED", scan["rows"][12]["status"])
+        self.assertTrue(scan["rows"][12]["referencedByPriorSummary"])
+        self.assertEqual("NOT_LAUNCHED", scan["rows"][13]["status"])
+        next_batch, _ = resume.eligible_queue(
+            self.data, output=self.output, max_sessions=80)
+        self.assertNotIn(self.tasks[12]["id"],
+                         [t["id"] for t in next_batch["tasks"]])
+
+    def test_active_launch_claim_blocks_queued_tasks_without_receipts(self):
+        root = self.output / "research-resume-concurrent"
+        root.mkdir(parents=True)
+        selected = [t["id"] for t in self.tasks[:6]]
+        (root / "launch-claim-offset-000.json").write_text(json.dumps({
+            "schema": 1, "offset": 0, "taskIds": selected,
+            "status": "LAUNCH_CLAIMED_NON_REPLAYABLE",
+        }))
+        (root / "parallel-summary-offset-000.json").write_text(json.dumps({
+            "schema": 1, "offset": 0, "status": "RUNNING",
+            "results": [], "unlaunched": selected,
+        }))
+        scan = rec.census(self.data, self.output)
+        self.assertTrue(all(r["status"] == "UNKNOWN_CLAIMED"
+                            for r in scan["rows"][:6]))
+        self.assertEqual("NOT_LAUNCHED", scan["rows"][6]["status"])
+
+    def test_terminal_launch_claim_releases_only_explicit_unlaunched(self):
+        root = self.output / "research-resume-concurrent"
+        root.mkdir(parents=True)
+        ids = [t["id"] for t in self.tasks[:6]]
+        (root / "launch-claim-offset-000.json").write_text(json.dumps({
+            "schema": 1, "offset": 0, "taskIds": ids,
+            "status": "LAUNCH_CLAIMED_NON_REPLAYABLE",
+        }))
+        (root / "parallel-summary-offset-000.json").write_text(json.dumps({
+            "schema": 1, "offset": 0, "status": "PROCESSED_WITH_TERMINAL_FAILURES",
+            "results": [{"task": ids[0], "turnOutcome": "failed"}],
+            "unlaunched": ids[1:],
+        }))
+        scan = rec.census(self.data, self.output)
+        self.assertEqual("UNKNOWN_CLAIMED", scan["rows"][0]["status"])
+        self.assertTrue(all(r["status"] == "NOT_LAUNCHED"
+                            for r in scan["rows"][1:6]))
+        six, _ = resume.eligible_queue(
+            self.data, output=self.output, max_sessions=6)
+        self.assertEqual(ids[1:], [t["id"] for t in six["tasks"][:5]])
+
     def test_unsafe_receipt_is_not_mislabeled_never_launched(self):
         path = self.receipt(0)
         doc = json.loads(path.read_bytes())
