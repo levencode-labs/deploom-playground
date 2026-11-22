@@ -39,6 +39,26 @@ class ResearchCatalogTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate"):
                 catalog.projects(root)
 
+    def test_root_manifest_sample_is_locked_not_a_migration_pass(self):
+        summary = catalog.report()
+        self.assertEqual(10, summary["inspectedRootManifests"])
+        self.assertEqual(0, summary["observedMigrationPasses"])
+        source = FILE.parent / "sample-root-manifests.json"
+        original = json.loads(source.read_bytes())
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "sample.json"
+            for fault in ("sourceCommit", "packageJsonBlobSha", "status", "repository"):
+                doc = json.loads(json.dumps(original))
+                if fault == "status":
+                    doc["status"] = "VERIFIED"
+                elif fault == "repository":
+                    doc["samples"][0]["repository"] = "nonexistent/private-repo"
+                else:
+                    doc["samples"][0][fault] = "main"
+                path.write_text(json.dumps(doc))
+                with self.subTest(fault=fault), self.assertRaises(ValueError):
+                    catalog.manifest_samples(path)
+
     def test_untrusted_source_and_negative_control_are_rejected(self):
         source = FILE.parent / "official-guides.json"
         original = json.loads(source.read_bytes())
