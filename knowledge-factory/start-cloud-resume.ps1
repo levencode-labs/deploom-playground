@@ -9,7 +9,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Plan','Run')][string]$Mode = 'Plan',
-    [ValidateRange(1,80)][int]$Count = 80,
+    [ValidateRange(1,80)][int]$Count = 6,
     [ValidateSet(1,2,4)][int]$Workers = 2,
     [ValidateRange(1,60)][int]$TimeoutMinutes = 30,
     [ValidateSet('gpt-6-luna','gpt-6.2-sol')][string]$Model = 'gpt-6-luna',
