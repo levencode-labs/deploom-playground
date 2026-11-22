@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "typescript-eslint/typescript-eslint",
+      "sourceRef": "main",
+      "sourceCommit": "6b12469d6142d3c9fb96ffe1cbfd7db2cfee5ca1",
+      "sourceTree": "fed68a7fd25572e18b95890d06a2792390895ca3",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "antfu/eslint-config",
+      "sourceRef": "main",
+      "sourceCommit": "bb2013690a517ea9b369d36d79a5708356326a64",
+      "sourceTree": "34991f42725baecc3a0a08b30ac3198d3d7340a8",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "jsx-eslint/eslint-plugin-react",
+      "sourceRef": "master",
+      "sourceCommit": "61b91b612eed65386e1d2bda39b9afeb7c92c708",
+      "sourceTree": "1fea34e49b907089dcf0bd8a97f558dd86495b04",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vuejs/eslint-plugin-vue",
+      "sourceRef": "master",
+      "sourceCommit": "46a1c002b3259abc44a041673d33f4f786fbe7bb",
+      "sourceTree": "dc36c4bd5b20ac548e6c3abd15208cc1ecab2217",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "sindresorhus/eslint-plugin-unicorn",
+      "sourceRef": "main",
+      "sourceCommit": "b82aeaacc841dcf3b1d908691ba8146af6f6ad72",
+      "sourceTree": "974fe1a22532b13658d5000d3f823537e9130213",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "import-js/eslint-plugin-import",
+      "sourceRef": "main",
+      "sourceCommit": "a60d71548b0d12b750f7a7040285774fed25975a",
+      "sourceTree": "b127d442add7791a2414a93956f1a98e5dc58d7f",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "jest-community/eslint-plugin-jest",
+      "sourceRef": "main",
+      "sourceCommit": "53507db5d43ebeda66b6a647427886d19305ccc8",
+      "sourceTree": "cd6a656a12280c4cd5f1572ff884a314e1ec558c",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "microsoft/vscode-eslint",
+      "sourceRef": "main",
+      "sourceCommit": "c999730b195bd8dc3eaf58435de71b185cb35138",
+      "sourceTree": "204abeb8eb6cd3602f5830de36d64707edd74c59",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "eslint-stylistic/eslint-stylistic",
+      "sourceRef": "main",
+      "sourceCommit": "a485ce384c9f939696f966053d7d0b1be198a455",
+      "sourceTree": "3869e24687ad0f2cd2556dc8e32f1efa46f10d7d",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "xojs/xo",
+      "sourceRef": "main",
+      "sourceCommit": "ccbe5292bfdb6abe6f958e39625d8542e9f1b9bf",
+      "sourceTree": "6427a955fbc975a73f7b6fdbd6fd5520e3043a7b",
+      "lane": "typescript-eslint",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
