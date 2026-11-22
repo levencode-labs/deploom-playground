@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "vuejs/vue",
+      "sourceRef": "main",
+      "sourceCommit": "9e88707940088cb1f4cd7dd210c9168a50dc347c",
+      "sourceTree": "51c78d75f1c16cd941883d66b5db24ec8837786c",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "nestjs/nest",
+      "sourceRef": "master",
+      "sourceCommit": "94df49d7898df2009fc6dd4900ed77847eb8aaab",
+      "sourceTree": "7d1d2ea0e635a340df7ae25d7e4a7f35711c548a",
+      "lane": "library-upstream",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
