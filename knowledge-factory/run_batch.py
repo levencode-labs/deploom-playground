@@ -115,6 +115,47 @@ def safe_transport_diagnostics(exc):
     result = {"errorKind": type(exc).__name__}
     if isinstance(exc, HTTPError):
         result["httpStatus"] = exc.code
+        # Only structured, strictly bounded server diagnostics enter receipts.
+        # The free-form API message/body may contain private paths, URLs or
+        # tokens, so neither is persisted or printed.
+        headers = getattr(exc, "headers", None)
+        request_id = headers.get("x-request-id") if headers else None
+        if (isinstance(request_id, str) and
+                re.fullmatch(r"req_[A-Za-z0-9_-]{1,120}", request_id)):
+            result["apiRequestId"] = request_id
+        try:
+            raw = exc.read(16_385)
+            if not raw or len(raw) > 16_384:
+                return result
+            doc = json.loads(raw)
+        except (OSError, ValueError, UnicodeError, AttributeError, TypeError):
+            return result
+        if not isinstance(doc, dict):
+            return result
+        error = doc.get("error")
+        if not isinstance(error, dict):
+            return result
+        for field, label in (("type", "apiErrorType"),
+                             ("code", "apiErrorCode"),
+                             ("param", "apiErrorParam")):
+            value = error.get(field)
+            if (isinstance(value, str) and
+                    re.fullmatch(r"[A-Za-z0-9_.\\[\\]-]{1,128}", value)):
+                result[label] = value
+        message = error.get("message")
+        if isinstance(message, str):
+            # Keyword hints only: never store free-form server messages.
+            labels = ("model", "tool", "agent", "environment", "network",
+                      "domain", "permission", "authorization", "quota",
+                      "budget", "spend", "input", "schema", "format",
+                      "project", "organization", "invalid", "unsupported",
+                      "rate limit", "billing", "region", "country", "json",
+                      "version", "stream")
+            result["apiErrorCategories"] = [
+                label.replace(" ", "-") for label in labels
+                if label in message.lower()
+            ]
+            result["apiErrorMessageSha256"] = sha(message.encode("utf-8"))
         return result
     if isinstance(exc, URLError):
         cause = exc.reason
