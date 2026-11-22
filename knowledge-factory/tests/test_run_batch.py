@@ -25,8 +25,10 @@ class RunnerTests(unittest.TestCase):
     def test_pinned_immutable_corpus(self):
         self.assertEqual(2, len(self.data["tasks"]))
         self.assertTrue(all(len(t["sha"]) == 40 for t in self.data["tasks"]))
+        malformed = self.output / "malformed.json"
+        malformed.write_text("{invalid json", encoding="utf-8")
         with self.assertRaises(ValueError):
-            lab.corpus(self.output / "missing.json")
+            lab.corpus(malformed)
 
     def test_rejects_malformed_task_and_unpinned_sha(self):
         for key, bad in (("sha", "main"), ("provider", "private"),
