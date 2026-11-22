@@ -113,3 +113,68 @@ npm versions and its negative control. Commit the approved fixture separately,
 then curate the knowledge record against that immutable fixture SHA. A major-line
 candidate is a hypothesis for the recipient's specific versions, even if a
 related exact transition was verified elsewhere.
+
+
+## Source-exact internet research and the 80-project corpus
+
+The research-only corpus currently contains **80 public GitHub project
+snapshots in eight balanced dependency families**, each with an exact commit
+SHA and source tree SHA. They were verified against the GitHub API on
+2026-11-22, but **none of the 80 are claimed to be successful migrations**.
+A previously listed GitLab pilot does not count toward those 80: its
+commit/CI evidence must be independently verified before use.
+
+The separate `research/official-guides.json` catalog contains 12
+**official** migration references for React, Next.js, Vite, Vitest, ESLint,
+Tailwind CSS, Prisma, Zod, Jest, Material UI, TypeScript and NestJS.
+Each points to documented breaking-change/codemod hypotheses and explicitly
+names negative conditions. Official documentation is research evidence,
+not a verified project outcome. No arbitrary installer or upstream codemod
+is executed merely because it appears in a guide.
+
+Offline, with no OpenAI API key, generate eight constrained source-exact
+Agent task batches (choose a fresh directory; existing output is not
+overwritten):
+
+```powershell
+python knowledge-factory/research/validate_catalog.py
+python -m unittest discover -s knowledge-factory/tests -v
+$research = Join-Path $env:TEMP "deploom-research-001"
+python knowledge-factory/research/prepare_batches.py --output-dir $research
+python knowledge-factory/run_batch.py plan --corpus (Join-Path $research "research-next-react.json") --max-sessions 2 --reserve-usd 2
+```
+
+Each task instructs the research agent to inspect the exact pinned tree,
+confirm that a documented breaking change or codemod applies, and return
+`NOT_APPLICABLE` or `UNKNOWN` instead of manufacturing a migration.
+To opt in to a small paid batch, configure the protected GitHub Actions
+`knowledge-lab-paid` environment and secret `OPENAI_API_KEY`, then use
+**Actions → Knowledge factory contracts → Run workflow** with
+`paid_execute=true` and an explicit `lane` and `max_sessions`.
+By default that control is off. Per-session API spend limits and local
+reservation ceilings are **not guarantees of total billable spend**.
+
+### True blind holdout is separate from this public directory
+
+The same batch preparer supports an optional secret-keyed 64/16 split.
+The seed **must** be at least 32 bytes and stored outside the public repo.
+The withheld 16 identities and any training manifest revealing their
+complement must be kept in an access-controlled private vault outside
+GitHub's public PR and job artifact surfaces. The project requires both
+a `DEPLOOM_HOLDOUT_SECRET` environment variable and
+`--private-holdout <private-absolute-path>`; it rejects private output
+inside the repository. Never upload those files as CI artifacts.
+
+CI uses only a synthetic test secret and does **not** create a true blind
+holdout. Real evaluation needs separately frozen labels, a private vault
+and independent test execution before any cache-hit-rate claim.
+
+### Knowledge lookup in MCP/Skill
+
+The stacked [MCP P3 PR #40](https://github.com/levencode-labs/deploom-mcp/pull/40)
+adds a bounded local `get_shared_migration_knowledge_batch` tool and
+Skill 2.0.32. It is called after a real plan has established exact,
+host-authorized public version transitions and before applying edits.
+The tool reads only previously signed local shards, never uploads
+project package names, and labels its results `ADVISORY_ONLY`.
+A major-line hit is a candidate, not project verification.
