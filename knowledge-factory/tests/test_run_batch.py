@@ -78,6 +78,38 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual("unknown-api-outcome", result[0]["state"])
         self.assertEqual("UNKNOWN", result[0]["migrationVerdict"])
 
+    def test_urllib_failure_records_safe_cause_without_secrets_or_retry(self):
+        from urllib.error import URLError
+        secret = "private-proxy-token-and-api-key"
+        def fail_transport(_payload, _key, timeout):
+            raise URLError(ConnectionRefusedError(10061, secret))
+        with patch.dict("os.environ", {"OPENAI_API_KEY": secret}):
+            result = lab.run(self.data, self.args, send=fail_transport)
+            replay = lab.run(self.data, self.args,
+                             send=lambda *_args, **_kw: self.fail("must not retry"))
+        self.assertEqual(result, replay)
+        row = result[0]
+        self.assertEqual("unknown-api-outcome", row["state"])
+        self.assertEqual("agents-create-or-event-stream", row["failurePhase"])
+        self.assertEqual("URLError", row["errorKind"])
+        self.assertEqual("ConnectionRefusedError", row["causeKind"])
+        self.assertEqual(10061, row["causeErrno"])
+        self.assertNotIn(secret, json.dumps(row))
+        self.assertEqual("UNKNOWN", row["migrationVerdict"])
+
+    def test_http_failure_records_status_without_error_body(self):
+        from urllib.error import HTTPError
+        secret = "secret-authorization-data"
+        def fail_http(_payload, _key, timeout):
+            raise HTTPError("https://api.openai.com/v1/agents/sessions",
+                            403, secret, None, None)
+        with patch.dict("os.environ", {"OPENAI_API_KEY": secret}):
+            row = lab.run(self.data, self.args, send=fail_http)[0]
+        self.assertEqual("HTTPError", row["errorKind"])
+        self.assertEqual(403, row["httpStatus"])
+        self.assertNotIn(secret, json.dumps(row))
+
+
     def test_plan_deterministic_and_offline(self):
         task = self.data["tasks"][0]
         self.assertEqual(lab.sha(lab.prompt(task).encode()), lab.sha(lab.prompt(task).encode()))
