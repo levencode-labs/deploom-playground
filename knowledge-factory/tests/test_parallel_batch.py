@@ -154,6 +154,122 @@ class ParallelBatchTests(unittest.TestCase):
         self.assertEqual("sess_parallel_1", receipt["sessionId"])
 
 
+    def test_mass_sol_four_concurrent_uncapped_sessions_with_checkpoints(self):
+        """Exercises real controller and fake provider, not paid network."""
+        self.args.allow_uncapped_batch = True
+        self.args.max_sessions = 4
+        self.args.workers = 4
+        self.args.model = "gpt-6.2-sol"
+        self.args.budget_usd = "8"
+        self.args.timeout = 60
+        self.data["batch"] = "parallel-sol-staged-batch"
+        barrier = threading.Barrier(4)
+        lock = threading.Lock()
+        created = []
+        observations = []
+
+        def provider(method, path, key, *, payload=None, expected=(200,),
+                     idempotency_key=None):
+            self.assertEqual("local-synthetic-key", key)
+            if path == "/v1/agents/sessions":
+                self.assertNotIn("spend_control", payload)
+                self.assertNotIn("input", payload)
+                self.assertEqual({"enabled": False},
+                                 payload["agent"]["multi_agent"])
+                with lock:
+                    ident = "sess_mass_" + str(len(created) + 1).zfill(3)
+                    created.append(ident)
+                barrier.wait(timeout=10)
+                return {"id": ident, "status": "idle"}
+            if path.endswith("/events"):
+                with lock:
+                    observations.append(payload["events"][0]["type"])
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"data": [{"id": "turn_mass_001",
+                                  "subagent_id": None, "status": "completed"}],
+                        "has_more": False}
+            self.fail("Unexpected API method/path")
+
+        def artifacts(session_id, turn_id, key):
+            return {"status": "complete", "artifacts": [
+                {"path": "/workspace/outputs/migration-report.json",
+                 "sha256": "a" * 64},
+                {"path": "/workspace/outputs/commands.json",
+                 "sha256": "b" * 64}],
+                "authority": "UNTRUSTED_AGENT_OUTPUT"}
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "local-synthetic-key"}):
+            with patch.object(single, "api_json", side_effect=provider):
+                with patch.object(single, "artifact_receipts", side_effect=artifacts):
+                    with patch.object(single, "make_progress_logger",
+                                      return_value=lambda *_args, **_kw: None):
+                        report = parallel.execute(self.data, self.args)
+        self.assertEqual(4, report["sessionsLaunched"])
+        self.assertEqual(4, report["sessionCompletions"])
+        self.assertEqual(4, len(created))
+        self.assertEqual(4, len(observations))
+        self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", report["apiSpendControlMode"])
+        self.assertTrue(report["uncappedMultiSessionBatch"])
+        self.assertTrue(report["subagentsDisabled"])
+        self.assertEqual("gpt-6.2-sol", report["model"])
+        self.assertIsNone(report["spendLimitPerSessionCents"])
+        self.assertEqual("NOT_RUN", report["independentVerification"])
+        self.assertEqual(0, report["verifiedKnowledgeCards"])
+        for task in self.data["tasks"][:4]:
+            receipt = self.output / self.data["batch"] / (task["id"] + ".json")
+            row = json.loads(receipt.read_bytes())
+            self.assertTrue(row["sessionId"].startswith("sess_mass_"))
+            self.assertEqual("completed", row["turnOutcome"])
+            self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", row["apiSpendControlMode"])
+
+    def test_uncapped_mass_rejects_unsafe_parallelism_and_repeated_tasks(self):
+        self.args.allow_uncapped_batch = True
+        self.args.model = "gpt-6.2-sol"
+        self.args.max_sessions = 8
+        self.args.budget_usd = "16"
+        self.args.workers = 5
+        with self.assertRaisesRegex(ValueError, "at most 4 workers"):
+            parallel.plan(self.data, self.args)
+        self.args.workers = 4
+        self.args.model = "gpt-6-astra"
+        with self.assertRaisesRegex(ValueError, "Sol or Luna"):
+            parallel.plan(self.data, self.args)
+        self.args.model = "gpt-6.2-sol"
+        self.args.allow_uncapped_session = True
+        with self.assertRaisesRegex(ValueError, "exactly one uncapped mode"):
+            parallel.plan(self.data, self.args)
+        self.args.allow_uncapped_session = False
+        self.args.offset = 3
+        with self.assertRaisesRegex(ValueError, "silently truncate"):
+            parallel.plan(self.data, self.args)
+        self.args.offset = 0
+        blocked = self.output / self.data["batch"] / (self.data["tasks"][1]["id"] + ".json")
+        blocked.parent.mkdir(parents=True, exist_ok=True)
+        blocked.write_text('{"state":"reserved"}')
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "local-synthetic-key"}):
+            with patch.object(single, "api_json") as network:
+                with self.assertRaisesRegex(ValueError, "existing attempted tasks"):
+                    parallel.execute(self.data, self.args)
+                network.assert_not_called()
+
+    def test_mass_uncertain_turn_stops_scheduling_new_cloud_sends(self):
+        self.args.allow_uncapped_batch = True
+        self.args.model = "gpt-6.2-sol"
+        self.args.max_sessions = 8
+        self.args.workers = 2
+        self.args.budget_usd = "16"
+        calls = []
+        def lost(_payload, _key, timeout):
+            calls.append(timeout)
+            raise TimeoutError("simulated lost provider response")
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
+            report = parallel.execute(self.data, self.args, send=lost)
+        self.assertEqual(2, len(calls))
+        self.assertEqual(2, report["sessionsLaunched"])
+        self.assertEqual(6, len(report["unlaunched"]))
+        self.assertTrue(report["stoppedOnUncertainEvidence"])
+
+
     def test_no_key_no_execute_and_budget_boundaries(self):
         self.args.execute = False
         with patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic"}):
