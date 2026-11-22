@@ -240,6 +240,71 @@ Use the workflow artifact for review, then commit **sanitized** reports into
 a long-lived evidence branch to survive ephemeral sandbox/CI retention.
 No receipt is marked VERIFIED by this runner.
 
+## Recover terminal failures and interrupted mass batches
+
+**No historical receipt, signed task identity, or SHA-256 evidence is deleted.**
+A terminal `failed` or `cancelled` root turn (with a known session and
+turn ID) is now recorded separately and **skipped without retry**, while the
+remaining source-exact tasks continue. Both are still migration verdict
+`UNKNOWN`; they are *not* successful upgrades. A completed root with missing
+or unverified artifacts, an uncertain API outcome, or cancellation without
+a terminal confirmation halts **new** dispatch and requires reconciliation.
+
+The batch scheduler atomically checkpoints its summary after each finished
+job. On Ctrl+C it stops submitting tasks and signals each active worker to
+send the **server-side cancel** to its known session, then drains before
+writing a partial terminal summary. Forced termination/power loss can still
+leave UNCERTAIN state; it is never treated as `NOT_LAUNCHED`.
+New task-global claims under `knowledge-factory/.runs/claims/` prevent two
+PowerShell controllers from billing the same task across different batch names.
+
+Source-exact inventory of all 80 projects is **read-only by default**.
+The reconciling agent can optionally pass `--online` (read-only OpenAI
+session/turn/artifact GET only) and `--write` (new separate report, never
+an overwrite). Both commands need the original balanced corpus JSON:
+
+```powershell
+$corpus = Join-Path $env:TEMP 'deploom-reconcile-balanced.json'
+python .\knowledge-factory\research\combine_batches.py --out $corpus
+python .\knowledge-factory\reconcile_batch.py --corpus $corpus --summary-only
+python .\knowledge-factory\reconcile_batch.py --corpus $corpus --online --write --summary-only
+```
+
+Do not reuse the same temporary corpus destination on the next run: the
+generator intentionally refuses overwrite. An existing file can be passed
+as-is without recreating it.
+
+To plan the rest with **no manual offsets and no paid API calls**:
+
+```powershell
+.\knowledge-factory\start-cloud-resume.ps1 -Mode Plan -Count 80 -Workers 2 -Model gpt-6-luna -TimeoutMinutes 30
+```
+
+After checking the exact task list, ensuring no other controllers still run
+using old code, confirming actual project credits and any uncertain live
+sessions, the owner can explicitly authorize new (never-launched) work:
+
+```powershell
+.\knowledge-factory\start-cloud-resume.ps1 -Mode Run -Count 80 -Workers 2 -Model gpt-6-luna -TimeoutMinutes 30 -ConfirmPaid
+```
+
+`resume_batch.py run` performs **live read-only reconciliation before
+launching any task**. Known completed, failed, cancelled, uncertain, duplicate
+and globally claimed tasks are excluded from the new queue. Unresolved
+active sessions, malformed claims or conflicting receipts block the paid
+resume until inspected. A newly selected subset receives its own immutable
+resume batch ID and distinct summary; no existing offset summary is deleted.
+An incomplete previous run is not retried. If only one task remains, the
+resume automatically switches to a single-worker uncapped session.
+
+**Important:** a task-global claim is local to this specific `.runs`
+directory, not a distributed GitHub/cloud lock. Do not run a stale
+controller from another checkout concurrently. The $2 per-task local
+reservation does not enforce a dollar spending cap, and an interrupted
+computer may not deliver the provider-side cancel. No terminal agent turn
+or artifact is an independently verified migration until separate checks
+have run and accepted the source SHA and negative controls.
+
 ## Mass cloud research: lower-cost Sol and four concurrent sessions
 
 After the completed source-exact Astra pilot, the next **explicit** batch
