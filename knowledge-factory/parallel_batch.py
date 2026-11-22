@@ -34,7 +34,10 @@ def _parameters(data, args):
         raise ValueError("Parallel worker count outside 1..8")
     if not 60 <= args.timeout <= 3600:
         raise ValueError("Invalid per-session timeout")
-    tasks = data["tasks"][:args.max_sessions]
+    offset = getattr(args, "offset", 0)
+    if type(offset) is not int or not 0 <= offset < len(data["tasks"]):
+        raise ValueError("Invalid source-exact task offset")
+    tasks = data["tasks"][offset:offset + args.max_sessions]
     if not tasks or len({task["id"] for task in tasks}) != len(tasks):
         raise ValueError("Missing or duplicate source-exact tasks")
     unit = single.reserve(args.budget_usd, args.reserve_usd, len(tasks))
@@ -46,7 +49,8 @@ def plan(data, args):
     return {
         "schema": 1, "status": "DRY_RUN_ZERO_CREDITS",
         "sourceBatch": data["batch"], "sourceCorpusSha256": single.sha(single.encode(data)),
-        "selectedSessions": len(tasks), "workers": min(args.workers, len(tasks)),
+        "selectedSessions": len(tasks), "offset": getattr(args, "offset", 0),
+        "workers": min(args.workers, len(tasks)),
         "spendLimitPerSessionCents": int(unit * 100),
         "plannedReservationsUsd": str(unit * len(tasks)),
         "ceilingUsd": args.budget_usd,
@@ -91,7 +95,9 @@ def execute(data, args, *, send=single.agent_session):
     # Validate entire reservation BEFORE submitting a single chargeable task.
     output = Path(args.output) / data["batch"]
     output.mkdir(parents=True, exist_ok=True)
-    summary = output / "parallel-summary.json"
+    offset = getattr(args, "offset", 0)
+    summary = output / ("parallel-summary.json" if offset == 0
+                        else "parallel-summary-offset-" + str(offset).zfill(3) + ".json")
     if summary.exists():
         raise ValueError("Existing summary requires separate reconciliation before new paid run")
 
@@ -131,7 +137,8 @@ def execute(data, args, *, send=single.agent_session):
     report = {
         "schema": 1, "status": "AGENT_SESSIONS_ONLY_NOT_INDEPENDENT_CI",
         "sourceBatch": data["batch"], "sourceCorpusSha256": single.sha(single.encode(data)),
-        "selectedSessions": len(selected), "sessionsLaunched": launched,
+        "selectedSessions": len(selected), "offset": offset,
+        "sessionsLaunched": launched,
         "sessionReceipts": len(ordered), "sessionCompletions": sum(accepted_turn(x) for x in ordered),
         "unlaunched": [task["id"] for task in selected[next_index:]],
         "stoppedOnUncertainEvidence": stop_new,
@@ -162,6 +169,8 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, default=single.ROOT / ".runs")
     parser.add_argument("--model", default="gpt-6-astra")
     parser.add_argument("--max-sessions", type=int, default=8)
+    parser.add_argument("--offset", type=int, default=0,
+                        help="Zero-based starting position in the immutable source-exact queue")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--budget-usd", default="16")
