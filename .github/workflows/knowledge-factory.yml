@@ -68,6 +68,22 @@ jobs:
             ${{ runner.temp }}/parallel-plan.json
             ${{ runner.temp }}/catalog-report.json
           if-no-files-found: error
+  windows-powershell-plan:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Windows PowerShell 5.1 zero-credit launcher and concurrency tests
+        shell: powershell
+        run: |
+          python -m unittest discover -s knowledge-factory/tests -v
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 8 -Workers 4
+
   paid-pilot:
     if: github.event_name == 'workflow_dispatch' && inputs.paid_execute == true
     needs: contracts
