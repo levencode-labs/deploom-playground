@@ -109,6 +109,38 @@ task after updating the branch, use an unused `-Offset` value with
 `-Count 1 -Workers 1`, then inspect the new receipt rather than starting
 a mass batch.
 
+## Explicit single-session experiment WITHOUT `spend_control`
+
+Observed live API behavior: HTTP 400 `unknown_parameter: spend_control`
+on both session create **and** session update. The documented spending cap
+cannot be applied through this API gateway. Default execution remains
+**fail-closed**, retaining the documented capped request and safe staged
+fallback; it never silently executes uncapped.
+
+For a user-authorized **single** experiment only, enable the separate
+`-AllowUncappedSession` PowerShell switch with `-Count 1 -Workers 1`.
+This completely **omits** `spend_control` in the initial streaming POST;
+there is NO per-session API spending cap and NO automatic fallback from the
+safe mode. The displayed $2 is a **local planning reservation only**, not
+a spending limit, and actual charges may exceed it. No API-based stop based
+on tracked consumption is claimed. Use an isolated OpenAI project, configure
+a project-level **Enforce a hard limit** if available (enforcement may lag),
+and check https://platform.openai.com/usage. Never expose its API key.
+
+From the project root, after `git pull --ff-only`, plan an **unused**
+source-exact offset (first never-attempted in this run is 4):
+```powershell
+.\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 1 -Workers 1 -Offset 4 -AllowUncappedSession
+```
+Only after reviewing the unlimited-spend warning and project controls:
+```powershell
+.\knowledge-factory\start-cloud-research.ps1 -Mode Run -Count 1 -Workers 1 -Offset 4 -AllowUncappedSession
+```
+Offsets 0–3 already have immutable local receipts; never overwrite or
+automatically retry them. On unexpected HTTP response, transport disconnect,
+or incomplete artifacts, stop and reconcile before attempting another offset.
+Do not use the uncapped flag for the multi-agent/CI paid workflow.
+
 ## Validate safely without tokens
 
 From the repository root, with Python 3.12+:
