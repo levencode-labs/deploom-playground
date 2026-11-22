@@ -429,8 +429,25 @@ def agent_session_with_staged_cap(payload, key, timeout=1800):
         raise
 
 
+def agent_session_uncapped_opt_in(payload, key, timeout=1800):
+    """Deliberately omit spend_control; caller MUST opt in for one session.
+
+    This uses no API-side per-session spend cap. It must never be selected
+    automatically as a fallback from a rejected capped request.
+    """
+    if not isinstance(payload, dict) or "spend_control" not in payload:
+        raise ValueError("Expected a previously validated capped payload")
+    uncapped = {k: v for k, v in payload.items() if k != "spend_control"}
+    answer = agent_session(uncapped, key, timeout=timeout)
+    answer["spendControlStatus"] = "unlimited-explicit-opt-in"
+    answer["executionProtocol"] = "uncapped-explicit-opt-in"
+    return answer
+
+
 def run(data, args, send=agent_session_with_staged_cap):
     unit = reserve(args.budget_usd, args.reserve_usd, args.max_sessions)
+    if getattr(args, "allow_uncapped_session", False) and args.max_sessions != 1:
+        raise ValueError("Uncapped opt-in requires exactly one session")
     if not args.execute:
         raise ValueError("Paid run requires --execute")
     key = os.environ.get("OPENAI_API_KEY", "")
@@ -456,6 +473,10 @@ def run(data, args, send=agent_session_with_staged_cap):
                "corpusSha256": sha(encode(data)), "promptSha256": sha(prompt(task).encode()),
                "model": args.model, "reservedUsd": str(unit),
                "budgetCeilingUsd": args.budget_usd,
+               "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
+                                       if getattr(args, "allow_uncapped_session", False)
+                                       else "CAPPED_REQUIRED"),
+               "localBudgetIsNotApiSpendCap": True,
                "timestampUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "migrationVerdict": "UNKNOWN", "state": "reserved"}
         try:
@@ -497,21 +518,30 @@ def main(argv=None):
     ap.add_argument("--reserve-usd", default="2")
     ap.add_argument("--timeout", type=int, default=1800)
     ap.add_argument("--execute", action="store_true")
+    ap.add_argument("--allow-uncapped-session", action="store_true",
+                    help="DANGEROUS: one explicitly uncapped paid session; no API-side $2 cap")
     args = ap.parse_args(argv)
     if not 1 <= args.max_sessions <= 500 or not 60 <= args.timeout <= 3600:
         ap.error("Invalid execution bounds")
+    if args.allow_uncapped_session and args.max_sessions != 1:
+        ap.error("Uncapped opt-in only permits one session")
     data = corpus(args.corpus)
     if args.command == "plan":
         unit = reserve("1000000000", args.reserve_usd, args.max_sessions)
         print(json.dumps({"schema": 1, "batch": data["batch"],
                           "corpusSha256": sha(encode(data)), "sessions": min(args.max_sessions, len(data["tasks"])),
                           "reservedUsd": str(unit * min(args.max_sessions, len(data["tasks"]))),
+                          "apiSpendControlMode": ("UNLIMITED_EXPLICIT_OPT_IN"
+                                                  if args.allow_uncapped_session else "CAPPED_REQUIRED"),
+                          "localBudgetIsNotApiSpendCap": True,
                           "tasks": [{"id": task["id"], "sha": task["sha"],
                                      "promptSha256": sha(prompt(task).encode())}
                                     for task in data["tasks"][:args.max_sessions]]}, indent=2))
         return 0
     try:
-        receipts = run(data, args)
+        receipts = run(data, args, send=(agent_session_uncapped_opt_in
+                                        if args.allow_uncapped_session
+                                        else agent_session_with_staged_cap))
     except ValueError as exc:
         ap.error(str(exc))
     print(json.dumps({"batch": data["batch"], "receipts": len(receipts),
