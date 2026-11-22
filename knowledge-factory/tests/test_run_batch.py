@@ -396,6 +396,46 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn("private-api-key", stream.getvalue())
         self.assertNotIn("secret-token", stream.getvalue())
 
+    def test_heartbeat_throttled_to_15_seconds_with_status_change(self):
+        from io import StringIO
+        fake_time = [0.0]
+        output = StringIO()
+        report = lab.make_progress_logger("safe-task-123", stream=output)
+
+        def clock():
+            return fake_time[0]
+
+        def sleeper(seconds):
+            fake_time[0] += seconds
+
+        def api(method, path, key, *, payload=None, expected=(200,), idempotency_key=None):
+            if path == "/v1/agents/sessions":
+                return {"id": "sess_throttle_1", "status": "idle"}
+            if path.endswith("/events"):
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                status = "completed" if clock() >= 21 else "in_progress"
+                return {"data": [{"id": "turn_throttle_1", "subagent_id": None,
+                                  "status": status}], "has_more": False}
+            self.fail("Unexpected API path")
+
+        payload = lab.request_payload(self.data["tasks"][0], "gpt-6-astra", 200)
+        with patch.object(lab, "api_json", side_effect=api):
+            outcome = lab.agent_session_uncapped_opt_in(
+                payload, "secret-not-for-log", timeout=60,
+                checkpoint=lambda *_args: None, clock=clock,
+                sleep=sleeper, progress=report)
+        self.assertEqual("completed", outcome["turnOutcome"])
+        lines = output.getvalue().splitlines()
+        running = [line for line in lines if "polling" in line
+                   and "status=in_progress" in line]
+        self.assertEqual(2, len(running))
+        self.assertIn("elapsed=00:00", running[0])
+        self.assertIn("elapsed=00:15", running[1])
+        self.assertTrue(any("status=completed" in line for line in lines))
+        self.assertNotIn("secret-not-for-log", output.getvalue())
+
+
     def test_uncapped_progress_reports_poll_then_terminal_without_raw_output(self):
         from io import StringIO
         stream = StringIO()
