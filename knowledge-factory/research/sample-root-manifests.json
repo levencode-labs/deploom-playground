@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "kind": "source-exact-public-manifest-sample",
+  "dateUtc": "2026-11-22",
+  "status": "INSPECTED_NOT_TESTED",
+  "warning": "Only root package.json at pinned commit was read. catalog:/workspace:* are symbolic requirements, not actual resolved versions. Missing root dependencies do not mean the package is absent from workspaces. No install/build/runtime accepted.",
+  "samples": [
+    {
+      "repository": "assistant-ui/assistant-ui",
+      "sourceCommit": "dc9cad2b4b10c80478a2c28b9ee3e3484d158ec1",
+      "packageJsonBlobSha": "dd84a6b8316a35fcef605199f33b6259e3ff27ef",
+      "manager": "pnpm",
+      "declarations": {
+        "vitest": "^5.0.5",
+        "typescript": "^7.0.2"
+      }
+    },
+    {
+      "repository": "saleor/storefront",
+      "sourceCommit": "61673d282c988ac92ec9a3a2bb55b9588017e41d",
+      "packageJsonBlobSha": "460ccb1cd318149db66aa526dc9b6e9d76384890",
+      "manager": "pnpm",
+      "declarations": {
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
+        "next": "16.4.5",
+        "vitest": "4.1.9",
+        "typescript": "5.3.3",
+        "eslint": "9.39.1",
+        "tailwindcss": "3.4.19"
+      }
+    },
+    {
+      "repository": "antfu-collective/vitesse",
+      "sourceCommit": "a8785264f83c2ebe1b3cf689296775a4949957c8",
+      "packageJsonBlobSha": "22fd61b729f62cfc792142146fa41e5eae4013f8",
+      "manager": "pnpm",
+      "declarations": {
+        "vite": "catalog:build",
+        "vitest": "catalog:dev",
+        "typescript": "catalog:dev",
+        "eslint": "catalog:dev",
+        "vue": "catalog:frontend"
+      }
+    },
+    {
+      "repository": "vite-pwa/vite-plugin-pwa",
+      "sourceCommit": "355cf3dd283ca50da3ac4759501e9c3312a3da91",
+      "packageJsonBlobSha": "551fec35b781fd7b5b4c3b71ba5097049ba1f165",
+      "manager": "pnpm",
+      "declarations": {
+        "react": "^18.2.0",
+        "vite": "^3.1.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
+        "vitest": "1.0.0-beta.4",
+        "typescript": "^5.3.3",
+        "eslint": "^9.23.0",
+        "vue": "^3.3.8"
+      }
+    },
+    {
+      "repository": "vueuse/vueuse",
+      "sourceCommit": "84e7caedab4e79e13159d3390fa46f817e3f4eaa",
+      "packageJsonBlobSha": "2d36cec7d8dbd1ee630f2727536d9e99b0e65bbd",
+      "manager": "pnpm",
+      "declarations": {
+        "vite": "catalog:dev",
+        "vitest": "catalog:test",
+        "typescript": "catalog:dev",
+        "eslint": "catalog:dev",
+        "vue": "catalog:dev"
+      }
+    },
+    {
+      "repository": "nuxt/nuxt",
+      "sourceCommit": "187e8c33697998c89c78e4a23655d653f24de7cc",
+      "packageJsonBlobSha": "cc086f63aa77ce94741e2c626656cee726b3d647",
+      "manager": "pnpm",
+      "declarations": {
+        "vite": "catalog:vite",
+        "vitest": "catalog:dev",
+        "typescript": "catalog:dev",
+        "eslint": "catalog:dev",
+        "nuxt": "workspace:*",
+        "vue": "catalog:app-runtime",
+        "zod": "catalog:dev"
+      }
+    },
+    {
+      "repository": "typescript-eslint/typescript-eslint",
+      "sourceCommit": "6b12469d6142d3c9fb96ffe1cbfd7db2cfee5ca1",
+      "packageJsonBlobSha": "94af5bbd48407d8b668b435d6a39366c6e6736e0",
+      "manager": "pnpm",
+      "declarations": {
+        "vite": "catalog:",
+        "vitest": "catalog:",
+        "typescript": "catalog:",
+        "eslint": "catalog:"
+      }
+    },
+    {
+      "repository": "vitest-dev/vitest",
+      "sourceCommit": "8b0ca603a8342aff1851a37ce0c0ae8cf4fa6b56",
+      "packageJsonBlobSha": "ff259f049d4c5a68f944023522967dac23323cae",
+      "manager": "pnpm",
+      "declarations": {
+        "vite": "catalog:",
+        "vitest": "workspace:*",
+        "typescript": "^5.9.3"
+      }
+    },
+    {
+      "repository": "themesberg/flowbite-react",
+      "sourceCommit": "699cbcf34eef10ea9c1f3707624e0c56479a0431",
+      "packageJsonBlobSha": "88e4dd5712628a5a6922cc8af82d9f9c5f9a71d5",
+      "manager": "bun",
+      "declarations": {
+        "eslint": "8.57.0"
+      }
+    },
+    {
+      "repository": "platformatic/platformatic",
+      "sourceCommit": "34658bc2545841844db0e48673c19c3f6667342b",
+      "packageJsonBlobSha": "fcf58fa4f4da96abd8fc8d1e8d102d17a4ef7ea9",
+      "manager": "pnpm",
+      "declarations": {}
+    }
+  ]
+}
