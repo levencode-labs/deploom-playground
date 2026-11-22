@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "source-exact-discovery-corpus",
+  "date": "2026-11-22",
+  "note": "Source SHA verified via GitHub; NOT a migration test, holdout or verified knowledge.",
+  "projects": [
+    {
+      "provider": "github",
+      "repository": "vitest-dev/vitest",
+      "sourceRef": "main",
+      "sourceCommit": "8b0ca603a8342aff1851a37ce0c0ae8cf4fa6b56",
+      "sourceTree": "4a9f2623f55acd436f943c0efbe76459e640bef0",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vitest-dev/eslint-plugin-vitest",
+      "sourceRef": "main",
+      "sourceCommit": "c5df1054a25044a7ca5baf07461b7aee1f15f5f2",
+      "sourceTree": "3f9a9724793439ed390379bed877f649e948ebea",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vitest-dev/vscode",
+      "sourceRef": "main",
+      "sourceCommit": "86bb5e8b7eb56977e16afacc0cdba117284b94b7",
+      "sourceTree": "4a94aa5b152049524baa99df8c5ed1b6e3099921",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "jsynowiec/node-typescript-boilerplate",
+      "sourceRef": "main",
+      "sourceCommit": "0275c7a4a98c6e07af74307eb895e232a9c08490",
+      "sourceTree": "71571618770710a35b9c0f26bdbe23a9977dd743",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "vitest-community/vitest-browser-react",
+      "sourceRef": "main",
+      "sourceCommit": "a8b5169f28da5978742e1caf59c0a21015b56d60",
+      "sourceTree": "6006222e462824c0c88025d6c6d51865dc848282",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "alonronin/mockingoose",
+      "sourceRef": "master",
+      "sourceCommit": "c4b6bf8952880bde83533f26e2f36c944253f886",
+      "sourceTree": "4a49bcd11c1be38e70de7665dd585e61a5554480",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "firsttris/vscode-jest-runner",
+      "sourceRef": "master",
+      "sourceCommit": "9205c8b25e17c1c0c799ee894d6f92286b59277e",
+      "sourceTree": "413b31d1fd710a2656eb083bd4d35900f283b42e",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "davelosert/vitest-coverage-report-action",
+      "sourceRef": "main",
+      "sourceCommit": "bc841371052a284a8f3ff4104ac0810b0db06d31",
+      "sourceTree": "15bf281de689087652b6f13bf6519381ffce951d",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "CodingGarden/react-ts-starter",
+      "sourceRef": "main",
+      "sourceCommit": "e268b83beeb99a6a761ef5ceb269dc2c1964753b",
+      "sourceTree": "61f7e598f905efce906da222331294ff2679777f",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    },
+    {
+      "provider": "github",
+      "repository": "epicweb-dev/advanced-vitest-patterns",
+      "sourceRef": "main",
+      "sourceCommit": "00f33bd1844035a8cb79a043d07f4b1ef0f670e3",
+      "sourceTree": "fc9c7ffb085b927f3641c2ae2c6f2ea7c79c6669",
+      "lane": "testing",
+      "status": "PINNED_NOT_EXECUTED"
+    }
+  ]
+}
