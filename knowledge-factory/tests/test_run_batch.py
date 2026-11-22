@@ -23,7 +23,8 @@ class RunnerTests(unittest.TestCase):
                                     output=self.output)
 
     def test_pinned_immutable_corpus(self):
-        self.assertEqual(2, len(self.data["tasks"]))
+        self.assertEqual(3, len(self.data["tasks"]))
+        self.assertIn("gitlab", {t["provider"] for t in self.data["tasks"]})
         self.assertTrue(all(len(t["sha"]) == 40 for t in self.data["tasks"]))
         malformed = self.output / "malformed.json"
         malformed.write_text("{invalid json", encoding="utf-8")
