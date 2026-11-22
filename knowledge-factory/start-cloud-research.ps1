@@ -11,9 +11,13 @@ param(
     [ValidateSet('Plan','Run')][string]$Mode = 'Plan',
     [ValidateRange(1,80)][int]$Count = 8,
     [ValidateSet(1,2,4,8)][int]$Workers = 4,
-    [ValidateRange(0,79)][int]$Offset = 0
+    [ValidateRange(0,79)][int]$Offset = 0,
+    [switch]$AllowUncappedSession
 )
 $ErrorActionPreference = 'Stop'
+if ($AllowUncappedSession -and ($Count -ne 1 -or $Workers -ne 1)) {
+    throw 'Uncapped API mode requires -Count 1 -Workers 1. No API-side per-session spending limit.'
+}
 $project = Split-Path -Parent $PSScriptRoot
 $root = Join-Path $env:TEMP ('deploom-cloud-research-' + [guid]::NewGuid().ToString('N'))
 $queue = Join-Path $root 'balanced.json'
@@ -48,6 +52,10 @@ try {
             '--workers', [string]$Workers, '--offset', [string]$Offset,
             '--budget-usd', [string]$total, '--reserve-usd', '2'
         )
+        if ($AllowUncappedSession) {
+            Write-Warning 'No API per-session spend limit. $2 reservation is NOT a spending ceiling.'
+            $command += '--allow-uncapped-session'
+        }
         if ($Mode -eq 'Run') {
             $command += '--execute'
         }
