@@ -119,18 +119,26 @@ fallback; it never silently executes uncapped.
 
 For a user-authorized **single** experiment only, enable the separate
 `-AllowUncappedSession` PowerShell switch with `-Count 1 -Workers 1`.
-This completely **omits** `spend_control` in the initial streaming POST;
-there is NO per-session API spending cap and NO automatic fallback from the
-safe mode. The displayed $2 is a **local planning reservation only**, not
-a spending limit, and actual charges may exceed it. No API-based stop based
-on tracked consumption is claimed. Use an isolated OpenAI project, configure
+This completely **omits** `spend_control`. It creates an **idle**
+session without a user message, durably saves its session ID **before**
+submitting input, polls the active turn, and after the deadline sends the
+server-side `agent.session.input.cancel` event. Cancellation is only
+confirmed when a terminal root-turn status is observed; HTTP 202 alone
+does not prove cancellation. There is NO per-session API spending cap.
+The displayed $2 is a **local planning reservation only**, not
+a spending limit, and actual charges may exceed it. This is a
+**wall-clock execution limit**, not an API token/dollar cap. The controller
+must stay running with network access to send the cancel event; OS sleep,
+a force-killed process, lost internet or a lost session ID can prevent
+timely cancellation. A separate server-side watchdog is not yet deployed.
+No API-based stop based on tracked consumption is claimed. Use an isolated OpenAI project, configure
 a project-level **Enforce a hard limit** if available (enforcement may lag),
 and check https://platform.openai.com/usage. Never expose its API key.
 
 From the project root, after `git pull --ff-only`, plan an **unused**
 source-exact offset (first never-attempted in this run is 4):
 ```powershell
-.\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 1 -Workers 1 -Offset 4 -AllowUncappedSession
+.\knowledge-factory\start-cloud-research.ps1 -Mode Plan -Count 1 -Workers 1 -Offset 4 -AllowUncappedSession -TimeoutMinutes 60
 ```
 Only after reviewing the unlimited-spend warning and project controls:
 ```powershell
@@ -140,6 +148,32 @@ Offsets 0–3 already have immutable local receipts; never overwrite or
 automatically retry them. On unexpected HTTP response, transport disconnect,
 or incomplete artifacts, stop and reconcile before attempting another offset.
 Do not use the uncapped flag for the multi-agent/CI paid workflow.
+
+### Cancel a managed agent, including after a controller crash
+
+While Python is active, it attempts server cancellation on timeout, any
+uncertain input submission, or an interrupted turn. Receipts checkpoint the
+session ID before input. The API's documented cancel endpoint is a POST
+to `/v1/agents/sessions/{session_id}/events` containing
+`{"events":[{"type":"agent.session.input.cancel"}]}`.
+**Never claim the agent is stopped from HTTP 202 alone.**
+
+If PowerShell crashed, restore TUN/network, then inspect the known receipt
+(with no new agent creation or replay):
+```powershell
+python .\knowledge-factory\cancel_session.py .\knowledge-factory\.runs\research-balanced-001\antfu-eslint-config-bb201369.json
+```
+If it reports an active or uncertain turn, explicitly request server
+cancellation and verify the terminal turn:
+```powershell
+python .\knowledge-factory\cancel_session.py .\knowledge-factory\.runs\research-balanced-001\antfu-eslint-config-bb201369.json --cancel
+```
+The original immutable receipt is retained; the cancellation action creates
+a separate, append-only `*.cancel-recovery-*.json` record. If cancellation
+is unconfirmed, do **not** launch more uncapped research until it is
+reconciled. A missing/unknown session ID cannot be recovered automatically
+without consulting the Platform session list.
+
 
 ## Validate safely without tokens
 
