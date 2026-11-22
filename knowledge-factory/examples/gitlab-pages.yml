@@ -1,0 +1,24 @@
+# Copy this into an isolated GitLab mirror repository as .gitlab-ci.yml.
+# Copy knowledge-factory/mirror_v2.mjs and records-public.hex alongside it.
+# This does NOT issue credentials, sign, execute upstream code or publish new recipes.
+# Set DEPLOOM_MIRROR_MIN_REVISION to your last accepted publisher revision.
+image: node:24
+stages: [test, deploy]
+validate:
+  stage: test
+  script:
+    - node --test knowledge-factory/tests/mirror-v2.test.mjs
+pages:
+  stage: deploy
+  needs: [validate]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - when: never
+  script:
+    - mkdir -p public
+    - printf '<!doctype html><title>DepLoom public knowledge mirror</title>\n' > public/index.html
+    - node knowledge-factory/mirror_v2.mjs public/v2
+  pages: true
+  artifacts:
+    paths: [public]
