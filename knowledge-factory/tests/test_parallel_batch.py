@@ -122,25 +122,36 @@ class ParallelBatchTests(unittest.TestCase):
         self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", offline["apiSpendControlMode"])
         self.assertIn("NOT a spending ceiling", offline["note"])
 
-        seen = []
-        def fake_api(payload, key, timeout=1800):
-            seen.append(payload)
-            return {"turnOutcome": "failed", "sessionId": "sess_uncapped_p",
-                    "turnId": "turn_uncapped_p"}
+        sent = []
+        def fake_api(method, path, key, *, payload=None, expected=(200,),
+                     idempotency_key=None):
+            sent.append((path, payload))
+            if path == "/v1/agents/sessions":
+                self.assertNotIn("spend_control", payload)
+                self.assertNotIn("input", payload)
+                return {"id": "sess_parallel_1", "status": "idle"}
+            if path.endswith("/events"):
+                self.assertEqual("agent.session.input.message",
+                                 payload["events"][0]["type"])
+                return {}
+            if path.endswith("/turns?limit=100&order=desc"):
+                return {"has_more": False, "data": [
+                    {"id": "turn_parallel_1", "subagent_id": None, "status": "failed"}]}
+            self.fail("Unexpected API path")
         with patch.dict("os.environ", {"OPENAI_API_KEY": "secret-synthetic"}):
-            with patch.object(single, "agent_session", side_effect=fake_api):
+            with patch.object(single, "api_json", side_effect=fake_api):
                 report = parallel.execute(self.data, self.args)
         self.assertEqual(1, report["sessionsLaunched"])
         self.assertEqual(0, report["sessionCompletions"])
         self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", report["apiSpendControlMode"])
         self.assertIsNone(report["spendLimitPerSessionCents"])
-        self.assertEqual(1, len(seen))
-        self.assertNotIn("spend_control", seen[0])
+        self.assertEqual(3, len(sent))
         self.assertIn("spend_control", single.request_payload(
             self.data["tasks"][0], "gpt-6-astra", 200))
         receipt = json.loads((self.output / self.data["batch"] /
                               (self.data["tasks"][0]["id"] + ".json")).read_bytes())
         self.assertEqual("UNLIMITED_EXPLICIT_OPT_IN", receipt["apiSpendControlMode"])
+        self.assertEqual("sess_parallel_1", receipt["sessionId"])
 
 
     def test_no_key_no_execute_and_budget_boundaries(self):
