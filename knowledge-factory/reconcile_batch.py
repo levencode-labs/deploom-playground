@@ -212,7 +212,7 @@ def write_recovery_sidecars(scan, output):
             agent.reserve_once(dest, item)
         except FileExistsError:
             continue
-        recovered.append(str(dest.relative_to(output)))
+        recovered.append(dest.relative_to(output).as_posix())
     return recovered
 
 
@@ -290,7 +290,7 @@ def census(data, output, *, online=False, key=None, get=None, attest=None):
             evidence.append((path, item))
         entry = {
             "task": ident, "sourceCommit": task["sha"],
-            "receiptFiles": [str(path.relative_to(output)) for path in paths],
+            "receiptFiles": [path.relative_to(output).as_posix() for path in paths],
             "hasGlobalClaim": claim, "status": "NOT_LAUNCHED",
         }
         if len(evidence) > 1:
@@ -330,16 +330,16 @@ def census(data, output, *, online=False, key=None, get=None, attest=None):
         if sidecar.exists():
             try:
                 recovered = json.loads(sidecar.read_bytes())
-                original = evidence[0][1] if len(evidence) == 1 else None
-                if not (_valid_recovery(recovered, original, task)
-                        and recovered["originalReceiptPath"] ==
-                        str(evidence[0][0].relative_to(output))
-                        and len(evidence) == 1):
+                original_path, original = evidence[0] if len(evidence) == 1 else (None, None)
+                if original_path is None or not _valid_recovery(recovered, original, task):
                     raise ValueError("Recovered receipt identity mismatch")
+                expected = original_path.relative_to(output).as_posix()
+                if recovered["originalReceiptPath"] not in (expected, expected.replace("/", "\\")):
+                    raise ValueError("Recovered receipt path mismatch")
                 if entry["status"] not in ("UNKNOWN_CONFLICT",):
                     entry["status"] = _classify(recovered)
                     entry["recoveredFromSidecar"] = True
-                    entry["recoveredReceipt"] = str(sidecar.relative_to(output))
+                    entry["recoveredReceipt"] = sidecar.relative_to(output).as_posix()
                     entry["turnId"] = recovered["turnId"]
             except (OSError, ValueError, TypeError, KeyError):
                 entry["status"] = "UNKNOWN_CONFLICT"

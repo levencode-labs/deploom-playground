@@ -162,6 +162,13 @@ class ReconcileResumeTests(unittest.TestCase):
             read=read)
         self.assertEqual("NOT_RUN", manifest["independentVerification"])
         self.assertTrue((exported_dir / "migration-report.json").exists())
+        self.assertEqual(original.relative_to(self.output).as_posix(),
+                         patched["originalReceiptPath"])
+        patched["originalReceiptPath"] = patched["originalReceiptPath"].replace("/", "\\")
+        recovered.write_text(json.dumps(patched), encoding="utf-8")
+        legacy = rec.census(self.data, self.output)
+        self.assertEqual("COMPLETED_WITH_ARTIFACTS", legacy["rows"][0]["status"])
+        self.assertEqual(created[0], legacy["rows"][0]["recoveredReceipt"])
 
     def test_forged_recovered_receipt_fails_closed(self):
         original = self.receipt(0, state="turn-terminal", artifacts=False)
