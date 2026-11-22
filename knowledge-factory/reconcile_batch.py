@@ -216,11 +216,65 @@ def write_recovery_sidecars(scan, output):
     return recovered
 
 
+def _summary_implied_attempts(output):
+    """Fail closed on orphan launched tasks known only through old summaries.
+
+    A current RUNNING launch claim is not proof which requests reached OpenAI,
+    so all its selected tasks remain reserved. A terminal summary's
+    'unlaunched' list releases precisely tasks never submitted.
+    """
+    output = Path(output)
+    blocked = set()
+    if not output.exists():
+        return blocked
+    for folder in output.iterdir():
+        if not folder.is_dir() or folder.name in (
+                "claims", "reconciliation", "downloaded", "recovered", "__pycache__"):
+            continue
+        summaries = {}
+        for file in folder.glob("parallel-summary*.json"):
+            try:
+                summary = json.loads(file.read_bytes())
+            except (OSError, ValueError, TypeError):
+                continue
+            if not isinstance(summary, dict):
+                continue
+            offset = summary.get("offset")
+            if isinstance(offset, int):
+                summaries[offset] = summary
+            for row in summary.get("results", []):
+                if isinstance(row, dict) and isinstance(row.get("task"), str):
+                    blocked.add(row["task"])
+        for file in folder.glob("launch-claim-offset-*.json"):
+            try:
+                claim = json.loads(file.read_bytes())
+            except (OSError, ValueError, TypeError):
+                continue
+            if (not isinstance(claim, dict) or not isinstance(claim.get("offset"), int)
+                    or not isinstance(claim.get("taskIds"), list)):
+                continue
+            summary = summaries.get(claim["offset"])
+            # Only an actually *terminal* summary with explicit unlaunched
+            # identities can release tasks reserved by a launch claim.
+            final = bool(summary and summary.get("status") in (
+                "HALTED_UNCONFIRMED", "INTERRUPTED_RECONCILED",
+                "PROCESSED_WITH_TERMINAL_FAILURES",
+                "PROCESSED_ALL_WITH_ARTIFACTS"))
+            unlaunched = set(summary.get("unlaunched", [])) if final else set()
+            for taskid in claim["taskIds"]:
+                if isinstance(taskid, str) and taskid not in unlaunched:
+                    blocked.add(taskid)
+    return blocked
+
+
 def census(data, output, *, online=False, key=None, get=None, attest=None):
     """Build an 80-row manifest; ambiguity never becomes NOT_LAUNCHED."""
     output = Path(output)
     if online and not key:
         raise ValueError("Read-only live reconciliation requires OPENAI_API_KEY")
+    # Even legacy runs without a per-task receipt can have a persisted
+    # session result/launch claim in a summary. Never label those tasks fresh.
+    summary_attempts = _summary_implied_attempts(output)
     rows = []
     for task in data["tasks"]:
         ident = task["id"]
@@ -264,8 +318,10 @@ def census(data, output, *, online=False, key=None, get=None, attest=None):
                     entry["live"] = live
                     if live.get("turnId"):
                         entry["turnId"] = live["turnId"]
-        elif claim:
+        elif claim or ident in summary_attempts:
             entry["status"] = "UNKNOWN_CLAIMED"
+            if ident in summary_attempts:
+                entry["referencedByPriorSummary"] = True
 
         # Strictly validate a separate, immutable server-recovered sidecar.
         # It can strengthen a previous terminal checkpoint without modifying
