@@ -78,6 +78,37 @@ The complete hosted task results remain **DRAFT/UNKNOWN** until independently
 reproduced against pinned source and negative controls. The signed v2
 publisher is never automatically fed results from this run.
 
+## Agents API gateways rejecting the documented spend_control create field
+
+A real paid-controller attempt on 2026-11-22 returned HTTP 400 with
+`error.code=unknown_parameter` and `error.param=spend_control`, even though
+OpenAI's public Create session reference documents that field. This is an
+API/runtime compatibility boundary, **not a migration FAIL**.
+
+The runner first uses the documented atomic capped create+stream protocol.
+**Only** on that exact validation error it switches to a staged protocol:
+
+1. Create an idle hosted session **without an initial user message**.
+2. Update the session's `spend_control.limit` and require an exact matching
+   value in the server's response while the session is still idle.
+3. Only then submit an idempotency-keyed research message and poll the
+   terminal root turn. Session, turn, cap and any structured failure are
+   recorded; the result is still DRAFT until independent source verification.
+
+If the server also rejects the separate cap update, the controller **never
+submits the research message** and returns UNKNOWN with the idle session ID
+when available. A staged session can provision an environment before the cap
+is set; this is **not a guarantee of zero charges**, and reported spending
+may be delayed. Never treat the local reservation or session limit as a
+prepaid hard cap. For cloud reconciliation check the Platform usage page.
+Do not change the code to submit an uncapped research message merely to
+work around a 400. Unknown/failed prior tasks are not automatically retried.
+
+Historical receipts remain immutable. To investigate a new, unreserved
+task after updating the branch, use an unused `-Offset` value with
+`-Count 1 -Workers 1`, then inspect the new receipt rather than starting
+a mass batch.
+
 ## Validate safely without tokens
 
 From the repository root, with Python 3.12+:
