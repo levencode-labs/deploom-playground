@@ -747,8 +747,10 @@ def run(data, args, send=agent_session_with_staged_cap):
                 try:
                     row["artifactEvidence"] = artifact_receipts(
                         row["sessionId"], row["turnId"], key)
-                except (HTTPError, URLError, OSError, ValueError, TimeoutError):
-                    row["artifactEvidence"] = {"status": "unavailable"}
+                except Exception as exc:
+                    # Artifact errors must preserve the root turn already recorded above.
+                    row["artifactEvidence"] = {
+                        "status": "unavailable", "errorKind": type(exc).__name__}
             else:
                 row["artifactEvidence"] = {"status": "not-confirmed"}
         except (HTTPError, URLError, OSError, ValueError, TimeoutError) as exc:

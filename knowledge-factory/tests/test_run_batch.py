@@ -380,6 +380,31 @@ class RunnerTests(unittest.TestCase):
                 network.assert_not_called()
 
 
+    def test_terminal_turn_survives_unexpected_artifact_read_error(self):
+        calls = []
+
+        def send(payload, key, timeout):
+            calls.append(payload)
+            return {'sessionId': 'sess_test_1', 'turnId': 'turn_test_1',
+                    'turnOutcome': 'completed'}
+
+        with (patch.dict('os.environ', {'OPENAI_API_KEY': 'synthetic-key'}),
+              patch.object(lab, 'artifact_receipts',
+                           side_effect=RuntimeError('untrusted artifact response'))):
+            result, = lab.run(self.data, self.args, send=send)
+
+        self.assertEqual(1, len(calls))
+        self.assertEqual('agent-turn-reported', result['state'])
+        self.assertEqual('completed', result['turnOutcome'])
+        self.assertEqual('sess_test_1', result['sessionId'])
+        self.assertEqual('turn_test_1', result['turnId'])
+        self.assertEqual({'status': 'unavailable', 'errorKind': 'RuntimeError'},
+                         result['artifactEvidence'])
+        receipt_path = self.output / self.data['batch'] / (result['task'] + '.json')
+        self.assertEqual(result, json.loads(receipt_path.read_bytes()))
+        self.assertNotIn('untrusted artifact response', json.dumps(result))
+
+
     def test_progress_heartbeat_is_redacted_and_reports_monotonic_elapsed(self):
         from io import StringIO
         stream = StringIO()
