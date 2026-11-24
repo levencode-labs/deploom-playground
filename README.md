@@ -2,6 +2,16 @@
 
 [Открыть лабораторию](https://levencode-labs.github.io/deploom-playground/?lang=ru) · [Open in English](https://levencode-labs.github.io/deploom-playground/?lang=en)
 
+DepLoom Migration Lab is a browser-based workshop for understanding dependency updates and testing their effects on a lockfile or an application.
+
+## Quick start
+
+1. Open the [CSS selector exercise](https://levencode-labs.github.io/deploom-playground/override.html?lang=en).
+2. Compare the selector before and after the dependency override. Use the recorded lockfiles and selector result to see what changed in the application.
+3. To review your own project, open [Tools](https://levencode-labs.github.io/deploom-playground/?lang=en) and add `package.json` and your lockfile. Check the proposed version changes and run the project's installation and tests in your local branch.
+
+## Tools and handbook
+
 Open the [dependency handbook](https://levencode-labs.github.io/deploom-playground/handbook.html?lang=en) for six chapters on version selection, module identity, reproducible installs, platform differences, runtime failures, and release checks. Every lesson includes two worked examples and an interactive exercise.
 
 - **Tools** compares npm v1–v3 lockfiles by installation path and Yarn Classic/Berry locks by package request, uses the selected project files for an advisory and release-date report, and plans explicit updates or Yellow/Green freshness targets against known peer requirements.
@@ -18,11 +28,15 @@ Open **docs/index.html** locally or serve **docs/** with a static HTTP server. S
 
 ## По-русски
 
+**Быстрый старт.** Откройте [пример с CSS-селектором](https://levencode-labs.github.io/deploom-playground/override.html?lang=ru). Сравните версии, lockfile и результат до и после обновления. Затем в [лаборатории](https://levencode-labs.github.io/deploom-playground/?lang=ru) загрузите манифест и lockfile своего проекта для разбора обновления.
+
 Откройте [учебник по зависимостям](https://levencode-labs.github.io/deploom-playground/handbook.html?lang=ru). В шести главах 25 параграфов с примерами и упражнениями. Например, в параграфе «Две зелёные ветки встретились» можно перейти к слиянию двух webpack-веток и увидеть требование плагина, из-за которого не собирается общий lock-файл. В шапке инструментов выберите или перетащите `package.json` и `package-lock.json` либо `yarn.lock`. Инструменты подхватят их при переходе между страницами. Дерево можно открыть и с одним файлом. Вставленный в редактор дерева JSON имеет приоритет. Очистите поле, чтобы вернуться к файлам из шапки. В «Визуализациях» откройте «Проверить диапазон», выберите зависимость из манифеста и подставьте проверяемую версию. Для этой проверки достаточно одного `package.json`. Опубликованные выпуски можно запросить отдельной кнопкой. В «Инструментах» можно проверить свой MR. Аудит по выбранным файлам покажет долю прямых библиотек с отставанием больше 12 календарных месяцев, охват проверки и версии с известными уязвимостями. Разверните находку, чтобы увидеть пути. На публичном сайте даты выпусков даёт npm, сведения об уязвимостях — OSV. Если один из источников недоступен, отчёт показывает охват каждого отдельно. Для Yarn Classic и Berry карта показывает логические зависимости. Проверить фактическое окружение можно с помощью yarn why.
 
 В планировщике доступны цели Yellow и Green и выбор конкретных пакетов. Для доли актуальных прямых зависимостей пороги — 80% и 100% соответственно. Условия безопасности проверяются отдельно. Для фактической проверки обновления нужны новый lock-файл, чистая установка и тесты приложения.
 
 Run the regression suite with `node --test tests/*.test.js`. The [version range tool](https://levencode-labs.github.io/deploom-playground/ranges.html?lang=en) includes saved examples from React DOM for offline use. The header and favicon use the [official woven D mark from Levencode Labs](https://github.com/levencode-labs/.github/blob/a598fa627d5857e67393eebfacca0c0c3cc71090/assets/deploom-mark.svg). The embedded npm semver bundle includes its ISC license. Yarn grammar (BSD-2-Clause), js-yaml (MIT), and React/React DOM/scheduler (MIT) licenses are in **docs/vendor/**. The React hint runs locally. Its strict TypeScript source is **examples/hint.tsx** (React 19.0.0, TypeScript 5.8.3).
+
+## Maintenance
 
 ### Building the hosted OSV snapshot
 
