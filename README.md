@@ -36,6 +36,8 @@ Open **docs/index.html** locally or serve **docs/** with a static HTTP server. S
 
 Run the regression suite with `node --test tests/*.test.js`. The [version range tool](https://levencode-labs.github.io/deploom-playground/ranges.html?lang=en) includes saved examples from React DOM for offline use. The header and favicon use the [official woven D mark from Levencode Labs](https://github.com/levencode-labs/.github/blob/a598fa627d5857e67393eebfacca0c0c3cc71090/assets/deploom-mark.svg). The embedded npm semver bundle includes its ISC license. Yarn grammar (BSD-2-Clause), js-yaml (MIT), and React/React DOM/scheduler (MIT) licenses are in **docs/vendor/**. The React hint runs locally. Its strict TypeScript source is **examples/hint.tsx** (React 19.0.0, TypeScript 5.8.3).
 
+## Maintenance
+
 ### Building the hosted OSV snapshot
 
 The dependency map on GitHub Pages downloads a fixed OSV catalog. The public Sites mirror reads its bundled copy first and can use the published catalog if its copy expires or becomes unavailable. The browser matches installed versions locally as nodes come into view. The [refresh workflow](.github/workflows/osv-snapshot.yml) checks the upstream npm export daily and publishes a fresh catalog to the `osv-data` branch when the current export is at least three days old. Its **Run workflow** button can retry a failed refresh. An expired or unavailable catalog leaves coverage unknown. A private or local deployment can use the same-origin asset below.
